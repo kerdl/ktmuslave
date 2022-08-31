@@ -1,0 +1,2 @@
+vkbottle==4.3.9
+aiogram==2.22.1
