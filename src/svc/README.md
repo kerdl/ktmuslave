@@ -3,5 +3,5 @@
 - `common` - main folder, which
 contains all handlers with shared
 functionality
-- `telegram` - code for https://telegram.org
-- `vk` - code for https://vk.com
+- `telegram` - handlers specific for https://telegram.org
+- `vk` - handlers specific for https://vk.com
