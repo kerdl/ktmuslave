@@ -1,7 +1,7 @@
 from vkbottle import Bot
 from dotenv import get_key
 
-def load() -> Bot:
+def load(loop = None) -> Bot:
     """
     ## Set token, load blueprints and return a `Bot`
     """
@@ -16,7 +16,7 @@ def load() -> Bot:
         settings.bp
     ]
 
-    bot = Bot(token=get_key(".env", "VK_TOKEN"))
+    bot = Bot(token=get_key(".env", "VK_TOKEN"), loop=loop)
 
     for bp in blueprints:
         bp.load(bot)
