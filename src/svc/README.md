@@ -1,4 +1,4 @@
-# Specific code for each service
+# `S`er`v`i`c`es, code for specific messengers
 
 - `common` - main folder, which
 contains all handlers with shared
