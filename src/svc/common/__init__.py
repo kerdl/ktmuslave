@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 from loguru import logger
 
+
 class MessageSource:
     VK = "vk"
     TG = "tg"
@@ -31,7 +32,6 @@ class CommonMessage:
         )
 
         return self
-
 
 def run_forever():
     """

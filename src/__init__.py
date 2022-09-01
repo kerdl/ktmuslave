@@ -30,6 +30,7 @@ class Defs:
         self.tg_bot = telegram.load_bot(loop=self.loop)
         self.tg_dispatch = telegram.load_dispatch(bot=self.tg_bot, loop=self.loop)
 
+        # so we trigger handlers initialization
         from src.svc.telegram.bps import settings
 
     @staticmethod
