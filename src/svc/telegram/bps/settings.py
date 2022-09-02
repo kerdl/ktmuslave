@@ -11,3 +11,4 @@ async def test(message: Message):
     print("oi tg message")
     m = await CommonMessage.from_tg(message)
     return await settings.test(m)
+    
