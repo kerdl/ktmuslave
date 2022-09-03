@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Literal
 from .states import Init, Hub, Space
 
 
@@ -8,8 +9,6 @@ class Navigator:
     ## Traces user's path between states
     So he can use `← Back` button
     """
-    # so we know which trace to use
-    space: Space
 
     # example of `init_trace`:
     #    [ Init.MAIN, Init.GROUP, Init.SCHEDULE_BROADCAST ]
@@ -18,6 +17,9 @@ class Navigator:
 
     init_trace: list[Init]
     hub_trace: list[Hub]
+
+    # so we know which trace to use
+    space: Literal["init", "hub"] = Space.INIT
 
     @property
     def current_init(self) -> Init:
@@ -38,7 +40,7 @@ class Navigator:
         ## Remove last state from current space
         """
         match self.space:
-            case Space.INIT:
+            case Space.INIT if self.init_trace > 0:
                 del self.init_trace[-1]
-            case Space.HUB:
+            case Space.HUB if self.hub_trace > 0:
                 del self.hub_trace[-1]

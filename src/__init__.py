@@ -5,6 +5,7 @@ from aiogram import Bot as TgBot, Dispatcher
 from loguru import logger
 from dataclasses import dataclass
 
+
 @dataclass
 class Defs:
     """

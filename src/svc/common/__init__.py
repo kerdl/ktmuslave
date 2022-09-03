@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import Optional
 from loguru import logger
 
-from .ctx import Ctx
+from .context import Ctx
 
 
-ctx = Ctx()
+ctx = Ctx({}, {})
 
 class MessageSource:
     VK = "vk"

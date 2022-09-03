@@ -3,6 +3,10 @@ from typing import Any
 from dotenv import get_key
 from aiogram import Bot, Dispatcher
 
+from .middlewares import (
+    CtxCheck
+)
+
 
 def load_bot(loop: asyncio.BaseEventLoop | asyncio.AbstractEventLoop = None) -> Bot:
     """
@@ -25,4 +29,7 @@ def load_dispatch(bot: Any, loop: Any = None) -> Dispatcher:
     """
 
     dp = Dispatcher(bot, loop)
+
+    dp.middleware.setup(CtxCheck())
+
     return dp
