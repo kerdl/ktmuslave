@@ -28,7 +28,7 @@ class Keyboard:
 
     def to_vk(self) -> VkKeyboard:
         """
-        Convert this keyboard to VK keyboard
+        ## Convert this keyboard to VK keyboard
         """
 
         vk_kb = VkKeyboard(self.one_time, self.inline)
@@ -46,7 +46,7 @@ class Keyboard:
     
     def to_tg(self) -> TgKeyboard:
         """
-        Convert this keyboard to Telegram keyboard
+        ## Convert this keyboard to Telegram keyboard
         """
 
         # if `self.inline` is `True`, using `TgInlineButton`, else `TgButton`
