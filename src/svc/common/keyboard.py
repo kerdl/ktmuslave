@@ -3,7 +3,7 @@ from vkbottle import (
     Text as VkText
 )
 from aiogram.types import (
-    ReplyKeyboardMarkup as TgKeyboard, 
+    InlineKeyboardMarkup as TgKeyboard, 
     KeyboardButton as TgButton,
     InlineKeyboardButton as TgInlineButton,
 )
@@ -57,7 +57,7 @@ class Keyboard:
 
             for button in row:
                 if self.inline:
-                    tg_btn = TgInlineButton(text=button.text)
+                    tg_btn = TgInlineButton(text=button.text, callback_data="hui")
                 else:
                     tg_btn = TgButton(text=button.text)
 
@@ -65,6 +65,6 @@ class Keyboard:
             
             schema.append(current_row)
 
-        tg_kb = TgKeyboard(keyboard=schema, one_time_keyboard=self.one_time)
+        tg_kb = TgKeyboard(inline_keyboard=schema)
 
         return tg_kb

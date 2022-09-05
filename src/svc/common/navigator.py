@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Literal
-from .states import Init, Hub, Space
+from .states.tree import Init, Hub, Space
 
 
 @dataclass
