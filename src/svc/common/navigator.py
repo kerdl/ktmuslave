@@ -40,7 +40,7 @@ class Navigator:
         ## Remove last state from current space
         """
         match self.space:
-            case Space.INIT if self.init_trace > 0:
+            case Space.INIT if len(self.init_trace) > 0:
                 del self.init_trace[-1]
-            case Space.HUB if self.hub_trace > 0:
+            case Space.HUB if len(self.hub_trace) > 0:
                 del self.hub_trace[-1]
