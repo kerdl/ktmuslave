@@ -2,80 +2,108 @@ if __name__ == "__main__":
     import sys
     sys.path.append('.')
 
-from enum import Enum
 from src.svc.common.states import State
+from src.svc.common.states.tree import Tree
 
 
-def level(state):
-    return len(state.name.split("_")[0])
+BULLET = "•"
+ARROW_RIGHT = "→"
 
-def format_tree(trace: list[State]):
+def tabs(level: int) -> str:
+    return "  " * (level - 1)
+
+def completed(state: State) -> str:
+    return f"{state.emoji} {state.name}"
+
+def current(state: State) -> str:
+    return f"→ {state.name}"
+
+def upcoming(state: State) -> str:
+    return f"• {state.name}"
+
+def format_tree(trace: list[State], tree: Tree, base_lvl: int = 1):
     """
     ## Convert tree to a nice readable text
     """
 
+    formatted_states: list[str] = []
     output = ""
 
-    tree: Enum = type(trace[0])
     current_state = trace[-1]
+    last_lvl = base_lvl
+    last_branch: list[State] = []
+    was_in_last_branch = False
 
-    ignore_found_current = False
+    for i, tree_state in enumerate(tree):
+        tree_state: State
+        is_last = (i + 1) == len(tree.__states__)
 
-    tree_level_traceback = []
-    for tree_state in tree:
-        current_tree_lvl = level(tree_state)
-        tabs = "  " * (current_tree_lvl - 1)
+        def choose_state_format(state: State) -> str:
+            if state == current_state:
+                return current(state)
+            elif state in trace:
+                return completed(state)
+            else:
+                return upcoming(state)
+            
+        def construct_state(state: State) -> str:
+            fmt = ""
+            fmt += tabs(state.level)
+            fmt += choose_state_format(state)
 
-        if len(tree_level_traceback) > 0 and (
-            level(tree_level_traceback[-1]) >= current_tree_lvl
-        ):
-            tree_level_traceback = []
+            return fmt
+
+        def is_just_jumped_to_branch() -> bool:
+            """
+            Assuming `base_lvl = 1`, so base level is `I`
+            - `I -> II` - True
+            - `II -> I` - False, counts as RETURNING from branch
+            """
+            return tree_state.level > base_lvl
         
-        tree_level_traceback.append(tree_state)
+        def is_just_returned_from_branch() -> bool:
+            """
+            Assuming `base_lvl = 1`, so base level is `I`
+            - `II -> I` - True
+            - `I -> II` - False, counts as JUMPING to branch
+            """
+            return tree_state.level < last_lvl and tree_state.level == base_lvl
 
-        class Props:
-            completed = False
-            found_current = False
-            in_branch = False
+        def is_branch_in_users_path() -> bool:
+            for trace_state in trace:
+                if trace_state in last_branch:
+                    return True
 
-        def check_in_branch():
-            if trace_state in tree_level_traceback:
-                Props.in_branch = True
 
-        for trace_state in trace:
-            if (not ignore_found_current) and (
-                trace_state == tree_state == current_state
-            ):
-                ignore_found_current = True
-                Props.found_current = True
+        if is_just_jumped_to_branch():
+            last_lvl = tree_state.level
+            last_branch.append(tree_state)
 
-                check_in_branch()
-                break
+        if is_just_returned_from_branch() or is_last:
+            was_in_last_branch = is_branch_in_users_path()
 
-            elif trace_state == tree_state:
-                Props.completed = True
+            if not was_in_last_branch:
+                last_branch = []
 
-                check_in_branch()
-                break
-                
-            check_in_branch()
 
-        if Props.in_branch:
-            output += tabs
+        if was_in_last_branch:
+            for branch_state in last_branch:
+                state = construct_state(branch_state)
+                formatted_states.append(state)
+            
+            last_branch = []
 
-            if Props.completed:
-                output += f"{tree_state.value.emoji} "
-            elif Props.found_current:
-                output += "→ "
-            elif Props.in_branch:
-                output += "• "
+        if tree_state.level == base_lvl:
+            state = construct_state(tree_state)
+            formatted_states.append(state)
 
-            output += f"{tree_state.value.name}\n"
-        
+    output = "\n".join(formatted_states)
+
     return output
 
 
 if __name__ == "__main__":
-    from src.svc.common.states.tree import Init
+    from src.svc.common.states.tree import INIT, HUB
 
-    print(format_tree([Init.I_MAIN, Init.I_GROUP, Init.I_SCHEDULE_BROADCAST]))
+    print(format_tree(trace=[INIT.I_MAIN, INIT.I_GROUP, INIT.II_UNKNOWN_GROUP], tree=INIT, base_lvl=1))
+    #print(format_tree(trace=[HUB.I_MAIN, HUB.II_SETTINGS, HUB.III_GROUP], tree=HUB, base_lvl=3))
