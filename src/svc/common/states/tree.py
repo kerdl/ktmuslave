@@ -94,7 +94,6 @@ class Init(Tree):
     I_SCHEDULE_BROADCAST = State(**SCHEDULE_BROADCAST)
     I_SHOULD_PIN         = State(**SHOULD_PIN)
     I_FINISH             = State(**INIT_FINISH)
-    II_FISH              = State(**SHOULD_PIN)
 
 class Hub(Tree):
     """
