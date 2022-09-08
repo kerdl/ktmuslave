@@ -73,6 +73,8 @@ def format_tree(trace: list[State], tree: Tree, base_lvl: int = 1):
             for trace_state in trace:
                 if trace_state in last_branch:
                     return True
+                
+            return False
 
 
         if is_just_jumped_to_branch():
