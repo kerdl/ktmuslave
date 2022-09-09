@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional
+from typing import Iterable, Literal
+
+from .. import error
 from . import (
     INIT_MAIN,
     HUB_MAIN,
@@ -31,9 +33,15 @@ class Space:
 
 @dataclass
 class Tree:
+    __space__: Literal["init", "hub"] = None
     __states__: list[State] = None
 
     def __init__(self) -> None:
+        if self.__space__ is None:
+            raise error.NoSpaceSpecified(
+                f"tree {self} doesn't have __space__ variable set"
+            )
+        
         self.__states__ = []
 
         filtered_states: filter[tuple[str, State]] = (
@@ -42,6 +50,7 @@ class Tree:
         )
 
         for anchor, state in filtered_states:
+            state.space = self.__space__
             state.anchor = anchor
             state.level = self.__level__(anchor)
             self.__states__.append(state)
@@ -88,6 +97,8 @@ class Init(Tree):
     FINISH
     ```notpython
     """
+    __space__ = Space.INIT
+
     I_MAIN               = State(**INIT_MAIN)
     I_GROUP              = State(**GROUP)
     II_UNKNOWN_GROUP     = State(**UNKNOWN_GROUP)
@@ -106,6 +117,8 @@ class Hub(Tree):
            ┕ SHOULD_PIN
     ```notpython
     """
+    __space__ = Space.HUB
+
     I_MAIN                 = State(**HUB_MAIN)
     II_SETTINGS            = State(**HUB_SETTINGS)
     III_GROUP              = State(**GROUP)

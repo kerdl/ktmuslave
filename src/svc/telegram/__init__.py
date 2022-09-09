@@ -3,10 +3,6 @@ from typing import Any
 from dotenv import get_key
 from aiogram import Bot, Dispatcher
 
-from .middlewares import (
-    CtxCheck
-)
-
 
 def load_bot(loop: asyncio.BaseEventLoop | asyncio.AbstractEventLoop = None) -> Bot:
     """
@@ -30,6 +26,29 @@ def load_dispatch(bot: Any, loop: Any = None) -> Dispatcher:
 
     dp = Dispatcher(bot, loop)
 
-    dp.middleware.setup(CtxCheck())
+    from .middlewares import (
+        CommonMessageMaker,
+        CtxCheck
+    )
+    from .filter import (
+        StateFilter
+    )
+
+    middlewares_list = [
+        CommonMessageMaker(),
+        CtxCheck(),
+    ]
+
+    filter_list = [
+        StateFilter
+    ]
+
+    # mw = MiddleWare
+    for mw in middlewares_list:
+        dp.middleware.setup(mw)
+    
+    # ft = FilTer
+    for ft in filter_list:
+        dp.filters_factory.bind(ft)
 
     return dp

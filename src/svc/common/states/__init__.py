@@ -1,12 +1,13 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Literal
 
 
 @dataclass
 class State:
     name: str
     emoji: str
-    anchor: Optional[str] = None 
+    space: Optional[Literal["init", "hub"]] = None
+    anchor: Optional[str] = None
     level: Optional[int] = None
 
 INIT_MAIN          = { "name": "Категорически приветствую", "emoji": "🚽" }

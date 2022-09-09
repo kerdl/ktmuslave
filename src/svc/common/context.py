@@ -1,3 +1,4 @@
+from loguru import logger
 from aiogram.types import Chat as TgChat
 from dataclasses import dataclass
 
@@ -18,5 +19,14 @@ class TgCtx:
 @dataclass
 class Ctx:
     vk: dict[int, VkCtx]
-    tg: dict[int, VkCtx]
+    tg: dict[int, TgCtx]
 
+    def add_vk(self, peer_id: int):
+        self.vk[peer_id] = VkCtx(peer_id)
+        logger.info("created ctx for vk {}", peer_id)
+        logger.info(self)
+
+    def add_tg(self, chat: TgChat):
+        self.tg[chat.id] = TgCtx(chat)
+        logger.info("created ctx for tg {}", chat.id)
+        logger.info(self)

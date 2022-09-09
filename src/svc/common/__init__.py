@@ -1,5 +1,6 @@
 from vkbottle.bot import Message as VkMessage
 from aiogram.types import Message as TgMessage
+from aiogram.types.chat import ChatType
 from dataclasses import dataclass
 from typing import Optional
 from loguru import logger
@@ -18,24 +19,31 @@ class CommonMessage:
     src: str
     vk: Optional[VkMessage] = None
     tg: Optional[TgMessage] = None
+    is_group_chat: Optional[bool] = None
 
     @classmethod
     async def from_vk(cls, message: VkMessage):
         self = cls(
             src=MessageSource.VK,
-            vk=message
+            vk=message,
+            is_group_chat=message.peer_id != message.from_id
         )
 
         return self
     
     @classmethod
-    async def from_tg(cls, message: VkMessage):
+    async def from_tg(cls, message: TgMessage):
         self = cls(
             src=MessageSource.TG,
-            tg=message
+            tg=message,
+            is_group_chat=message.chat.type in [ChatType.GROUP, ChatType.CHANNEL]
         )
 
         return self
+
+    @property
+    def ctx(self):
+        return ctx
 
 def run_forever():
     """

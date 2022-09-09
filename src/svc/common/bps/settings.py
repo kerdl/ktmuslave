@@ -2,6 +2,7 @@ from svc.common import CommonMessage, MessageSource
 from svc.common.keyboard import Keyboard, Button
 from svc.common import messages as msg
 
+from loguru import logger
 from aiogram.types import ChatType
 
 
@@ -10,6 +11,8 @@ async def test(message: CommonMessage):
     kb = Keyboard([
         [Button("→ Начать")]
     ])
+
+    logger.info(message.ctx)
 
     match message.src:
         case MessageSource.VK:
