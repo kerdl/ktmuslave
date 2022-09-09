@@ -1,23 +1,47 @@
-from aiogram.dispatcher.middlewares import BaseMiddleware
-from aiogram.types import Message
+from loguru import logger
+from aiogram.types import Update, Message
+from typing import Callable, Any, Awaitable
 
+from src import defs
 from svc.common import ctx, CommonMessage
 
 
-class CommonMessageMaker(BaseMiddleware):
+dp = defs.tg_dispatch
+
+@dp.message.outer_middleware()
+async def common_message_maker(
+    handler: Callable[[Update, dict[str, Any]], Awaitable[Any]],
+    event: Message,
+    data: dict[str, Any]
+):
     """
     ## Makes `CommonMessage` from vk message and sends it to a handler
     """
-    async def on_process_message(self, message: Message, data: dict):
-        message = await CommonMessage.from_tg(message)
-        data["common_message"] = message
+    logger.info("common_message_maker")
 
-class CtxCheck(BaseMiddleware):
+    data["common_message"] = await CommonMessage.from_tg(event)
+    return await handler(event, data)
+
+@dp.update.outer_middleware()
+async def ctx_check(
+    handler: Callable[[Update, dict[str, Any]], Awaitable[Any]],
+    event: Update,
+    data: dict[str, Any]
+):
     """
     ## Checks if user is in context and initializes it, if not
     """
-    async def on_process_message(self, message: Message, data: dict):
-        chat = message.chat
+    logger.info("ctx_check")
 
-        if ctx.tg.get(chat.id) is None:
-            ctx.add_tg(chat)
+    match event.event_type:
+        case "message":
+            chat = event.message.chat
+        case "callback_query":
+            chat = event.callback_query.message.chat
+
+    if ctx.tg.get(chat.id) is None:
+        ctx.add_tg(chat)
+    
+    data["ctx"] = ctx.tg.get(chat.id)
+
+    return await handler(event, data)

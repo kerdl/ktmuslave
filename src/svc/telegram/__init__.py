@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any
 from dotenv import get_key
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Router, Dispatcher
 
 
 def load_bot(loop: asyncio.BaseEventLoop | asyncio.AbstractEventLoop = None) -> Bot:
@@ -9,46 +9,22 @@ def load_bot(loop: asyncio.BaseEventLoop | asyncio.AbstractEventLoop = None) -> 
     ## Set token, load handlers and return a `Bot`
     """
 
-    bot = Bot(token=get_key(".env", "TG_TOKEN"), loop=loop)
+    bot = Bot(token=get_key(".env", "TG_TOKEN"))
     return bot
 
-def load_dispatch(bot: Any, loop: Any = None) -> Dispatcher:
+def load_router() -> Router:
     """
-    ## Init dispatcher that routes through all handlers
-
-    ```
-    @dp.message_handler(commands=['suck', 'penis'])
-    async def thing_that_will_process_a_new_message(message): ...
-    ```python
-
-    `^` that is a handler
+    ## Init router
     """
 
-    dp = Dispatcher(bot, loop)
+    r = Router()
+    return r
 
-    from .middlewares import (
-        CommonMessageMaker,
-        CtxCheck
-    )
-    from .filter import (
-        StateFilter
-    )
+def load_dispatch(router: Router) -> Dispatcher:
+    """
+    ## Init dispatcher
+    """
 
-    middlewares_list = [
-        CommonMessageMaker(),
-        CtxCheck(),
-    ]
-
-    filter_list = [
-        StateFilter
-    ]
-
-    # mw = MiddleWare
-    for mw in middlewares_list:
-        dp.middleware.setup(mw)
-    
-    # ft = FilTer
-    for ft in filter_list:
-        dp.filters_factory.bind(ft)
-
+    dp = Dispatcher()
+    dp.include_router(router)
     return dp

@@ -1,6 +1,8 @@
+from typing import Optional
 from dataclasses import dataclass
-from typing import Literal
-from .states.tree import Init, Hub, Space
+
+from svc.common import error
+from svc.common.states import State, SPACE_LITERAL
 
 
 @dataclass
@@ -10,37 +12,51 @@ class Navigator:
     So he can use `← Back` button
     """
 
-    # example of `init_trace`:
-    #    [ Init.MAIN, Init.GROUP, Init.SCHEDULE_BROADCAST ]
-    #          ^                             ^
-    #     where started                current state
-
-    init_trace: list[Init]
-    hub_trace: list[Hub]
-
-    # so we know which trace to use
-    space: Literal["init", "hub"] = Space.INIT
+    trace: list[State]
+    """
+    ## Example:
+    ```
+        [ Init.I_MAIN, Init.I_GROUP, Init.I_SCHEDULE_BROADCAST ]
+                ^                             ^
+            where started                current state
+    ```notpython
+    """
 
     @property
-    def current_init(self) -> Init:
+    def current(self) -> Optional[State]:
         """
-        ## Last state from `init_trace`
+        ## Last state from `trace`
         """
-        return self.init_trace[-1]
-    
+        if len(self.trace) < 1:
+            return None
+
+        return self.trace[-1]
+
     @property
-    def current_hub(self) -> Hub:
+    def space(self) -> SPACE_LITERAL:
         """
-        ## Last state from `hub_trace`
+        ## Get space of current state
         """
-        return self.hub_trace[-1]
+        return self.current.space
+
+    def append(self, state: State):
+        """
+        ## Add state to trace
+
+        ## Raises errors:
+        - `SpaceMixing` when trying to add
+        state with different type of space
+        """
+        if state.space != self.space:
+            raise error.SpaceMixing(
+                f"tried to append {state.space} state to {self.space} trace"
+            )
+
+        self.trace.append(state)
 
     def back(self):
         """
         ## Remove last state from current space
         """
-        match self.space:
-            case Space.INIT if len(self.init_trace) > 0:
-                del self.init_trace[-1]
-            case Space.HUB if len(self.hub_trace) > 0:
-                del self.hub_trace[-1]
+        if len(self.trace) > 0:
+            del self.trace[-1]

@@ -6,9 +6,6 @@ from src.svc.common.states import State
 from src.svc.common.states.tree import Tree
 
 
-BULLET = "•"
-ARROW_RIGHT = "→"
-
 def tabs(level: int) -> str:
     return "  " * (level - 1)
 

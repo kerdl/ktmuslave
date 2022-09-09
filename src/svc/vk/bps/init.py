@@ -10,3 +10,18 @@ bp = Blueprint(name="init")
 @bp.on.message(rule.StateRule(Init.I_MAIN))
 async def main(message: Message, common_message: CommonMessage):
     return await init.main(common_message)
+
+async def group(message: Message, common_message: CommonMessage):
+    ...
+
+async def unknown_group(message: Message, common_message: CommonMessage):
+    ...
+
+async def schedule_broadcast(message: Message, common_message: CommonMessage):
+    ...
+
+async def should_pin(message: Message, common_message: CommonMessage):
+    ...
+
+async def finish(message: Message, common_message: CommonMessage):
+    ...

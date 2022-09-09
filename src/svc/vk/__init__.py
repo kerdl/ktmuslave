@@ -14,8 +14,8 @@ def load(loop = None) -> Bot:
     )
 
     from .middlewares import (
-        CommonMessageMaker,
-        CtxCheck
+        CtxCheck,
+        CommonMessageMaker
     )
 
     blueprints = [
@@ -25,11 +25,10 @@ def load(loop = None) -> Bot:
 
     message_view_middlewares = [
         CommonMessageMaker,
-        CtxCheck
     ]
 
     raw_event_view_middlewares = [
-
+        CtxCheck,
     ]
 
     # bp - BluePrint

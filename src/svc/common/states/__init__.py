@@ -1,12 +1,14 @@
 from dataclasses import dataclass
 from typing import Optional, Literal
 
+SPACE_LITERAL = Literal["init", "hub"]
+
 
 @dataclass
 class State:
     name: str
     emoji: str
-    space: Optional[Literal["init", "hub"]] = None
+    space: Optional[SPACE_LITERAL] = None
     anchor: Optional[str] = None
     level: Optional[int] = None
 

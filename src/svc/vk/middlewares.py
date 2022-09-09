@@ -4,15 +4,7 @@ from vkbottle.bot import Message
 from svc.common import ctx, CommonMessage
 
 
-class CommonMessageMaker(BaseMiddleware[Message]):
-    """
-    ## Makes `CommonMessage` from vk message and sends it to a handler
-    """
-    async def pre(self):
-        message = await CommonMessage.from_vk(self.event)
-        self.send({"common_message": message})
-
-class CtxCheck(BaseMiddleware[Message]):
+class CtxCheck(BaseMiddleware):
     """
     ## Checks if user is in context and initializes it, if not
     """
@@ -21,3 +13,11 @@ class CtxCheck(BaseMiddleware[Message]):
 
         if ctx.vk.get(peer_id) is None:
             ctx.add_vk(peer_id)
+
+class CommonMessageMaker(BaseMiddleware[Message]):
+    """
+    ## Makes `CommonMessage` from vk message and sends it to a handler
+    """
+    async def pre(self):
+        message = await CommonMessage.from_vk(self.event)
+        self.send({"common_message": message})

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import Iterable, Literal
+from typing import Iterable
 
-from .. import error
+from svc.common import error
 from . import (
     INIT_MAIN,
     HUB_MAIN,
@@ -11,7 +11,8 @@ from . import (
     SCHEDULE_BROADCAST,
     SHOULD_PIN,
     INIT_FINISH,
-    State
+    State,
+    SPACE_LITERAL
 )
 
 class Space:
@@ -33,7 +34,7 @@ class Space:
 
 @dataclass
 class Tree:
-    __space__: Literal["init", "hub"] = None
+    __space__: SPACE_LITERAL = None
     __states__: list[State] = None
 
     def __init__(self) -> None:

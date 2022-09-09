@@ -1,7 +1,7 @@
 import sys
 import asyncio
 from vkbottle import Bot as VkBot
-from aiogram import Bot as TgBot, Dispatcher
+from aiogram import Bot as TgBot, Dispatcher, Router
 from loguru import logger
 from dataclasses import dataclass
 
@@ -14,6 +14,7 @@ class Defs:
     loop: asyncio.AbstractEventLoop = None
     vk_bot: VkBot = None
     tg_bot: TgBot = None
+    tg_router: Router = None
     tg_dispatch: Dispatcher = None
 
     def init_all(self) -> None:
@@ -29,11 +30,13 @@ class Defs:
         self.loop = asyncio.get_event_loop()
         self.vk_bot = vk.load(loop=self.loop)
         self.tg_bot = telegram.load_bot(loop=self.loop)
-        self.tg_dispatch = telegram.load_dispatch(bot=self.tg_bot, loop=self.loop)
+        self.tg_router = telegram.load_router()
+        self.tg_dispatch = telegram.load_dispatch(router=self.tg_router)
 
         # so we trigger handlers initialization
         from svc.telegram.bps import init
         from svc.telegram.bps import hub
+        from svc.telegram import middlewares
 
     @staticmethod
     def init_logger() -> None:

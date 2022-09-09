@@ -1,11 +1,10 @@
 from vkbottle.bot import Message as VkMessage
 from aiogram.types import Message as TgMessage
-from aiogram.types.chat import ChatType
 from dataclasses import dataclass
 from typing import Optional
 from loguru import logger
 
-from .context import Ctx
+from .context import Ctx, TgCtx, VkCtx
 
 
 ctx = Ctx({}, {})
@@ -17,8 +16,13 @@ class MessageSource:
 @dataclass
 class CommonMessage:
     src: str
+
     vk: Optional[VkMessage] = None
+    vk_ctx: Optional[VkCtx] = None
+
     tg: Optional[TgMessage] = None
+    tg_ctx: Optional[TgCtx] = None
+
     is_group_chat: Optional[bool] = None
 
     @classmethod
@@ -26,6 +30,7 @@ class CommonMessage:
         self = cls(
             src=MessageSource.VK,
             vk=message,
+            vk_ctx=ctx.vk.get(message.peer_id),
             is_group_chat=message.peer_id != message.from_id
         )
 
@@ -36,13 +41,14 @@ class CommonMessage:
         self = cls(
             src=MessageSource.TG,
             tg=message,
-            is_group_chat=message.chat.type in [ChatType.GROUP, ChatType.CHANNEL]
+            tg_ctx=ctx.tg.get(message.chat.id),
+            is_group_chat=message.chat.type in ["group", "supergroup", "channel"]
         )
 
         return self
 
     @property
-    def ctx(self):
+    def main_ctx(self):
         return ctx
 
 def run_forever():
@@ -55,8 +61,9 @@ def run_forever():
 
     vk = defs.vk_bot
     tg = defs.tg_dispatch
+    tg_bot = defs.tg_bot
 
-    loop.create_task(tg.start_polling())
+    loop.create_task(tg.start_polling(tg_bot))
     loop.create_task(vk.run_polling())
 
     try:

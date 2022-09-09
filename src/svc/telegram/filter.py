@@ -1,17 +1,14 @@
-from aiogram.dispatcher.filters import BoundFilter
-from aiogram.types import Message
+from aiogram.filters.base import BaseFilter
+from aiogram.types import Message, CallbackQuery
 
 from svc.common import ctx, checker, error
 from svc.common.states import State
 
 
-class StateFilter(BoundFilter):
-    key = "state"
-
-    def __init__(self, state: State):
-        self.state = state
+class StateFilter(BaseFilter):
+    state: State
     
-    async def check(self, message: Message) -> bool:
+    async def __call__(self, message: Message) -> bool:
         # get chat id from message and find context for it
         id = message.chat.id
         user_ctx = ctx.tg.get(id)
@@ -27,3 +24,9 @@ class StateFilter(BoundFilter):
         is_user_on_this_state = await checker.is_user_on_state(user_ctx.navigator, self.state)
 
         return is_user_on_this_state
+
+class CallbackFilter(BaseFilter):
+    data: str
+
+    async def __call__(self, callback_query: CallbackQuery) -> bool:
+        return callback_query.data == self.data
