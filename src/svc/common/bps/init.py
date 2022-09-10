@@ -15,16 +15,6 @@ async def main(message: CommonMessage):
         case Source.VK:
             vk_message = message.vk
 
-            # if we have admin rights in group chat, 
-            # we can view EVERY SINGLE message there
-
-            # we don't want to reply to EVERY message
-
-            # so we should check if we are mentioned,
-            # and in group chats, only reply to mentions
-            if message.is_group_chat and not vk_message.is_mentioned:
-                return
-
             await vk_message.answer(f"{answer_message}", keyboard=answer_keyboard.to_vk().get_json(), dont_parse_links=True)
         case Source.TG:
             tg_message = message.tg
