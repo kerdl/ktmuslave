@@ -14,8 +14,11 @@ def load(loop = None) -> Bot:
     )
 
     from .middlewares import (
-        CtxCheck,
-        CommonMessageMaker
+        GroupMentionFilter,
+        CtxCheckRaw,
+        CtxCheckMessage,
+        CommonEventMaker,
+        CommonMessageMaker,
     )
 
     blueprints = [
@@ -24,11 +27,14 @@ def load(loop = None) -> Bot:
     ]
 
     message_view_middlewares = [
+        GroupMentionFilter,
+        CtxCheckMessage,
         CommonMessageMaker,
     ]
 
     raw_event_view_middlewares = [
-        CtxCheck,
+        CtxCheckRaw,
+        CommonEventMaker,
     ]
 
     # bp - BluePrint
@@ -43,4 +49,6 @@ def load(loop = None) -> Bot:
     for mw in raw_event_view_middlewares:
         bot.labeler.raw_event_view.middlewares.append(mw)
     
+    bot.labeler.message_view.replace_mention = True
+
     return bot

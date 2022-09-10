@@ -19,7 +19,7 @@ async def common_message_maker(
     """
     logger.info("common_message_maker")
 
-    data["common_message"] = await CommonMessage.from_tg(event)
+    data["common_message"] = CommonMessage.from_tg(event)
     return await handler(event, data)
 
 @dp.update.outer_middleware()

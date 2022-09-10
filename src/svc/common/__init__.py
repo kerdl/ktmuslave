@@ -1,21 +1,24 @@
-from vkbottle.bot import Message as VkMessage
-from aiogram.types import Message as TgMessage
-from dataclasses import dataclass
-from typing import Optional
 from loguru import logger
+from typing import Any, Literal, Optional
+from dataclasses import dataclass
+from vkbottle.bot import Message as VkMessage, MessageEvent as VkMessageEvent
+from aiogram.types import Message as TgMessage
 
+from svc.vk.types import RawEvent
 from .context import Ctx, TgCtx, VkCtx
 
 
 ctx = Ctx({}, {})
 
-class MessageSource:
+class Source:
     VK = "vk"
     TG = "tg"
 
+SOURCE_LITERAL = Literal["vk", "tg"]
+
 @dataclass
 class CommonMessage:
-    src: str
+    src: SOURCE_LITERAL
 
     vk: Optional[VkMessage] = None
     vk_ctx: Optional[VkCtx] = None
@@ -26,9 +29,9 @@ class CommonMessage:
     is_group_chat: Optional[bool] = None
 
     @classmethod
-    async def from_vk(cls, message: VkMessage):
+    def from_vk(cls, message: VkMessage):
         self = cls(
-            src=MessageSource.VK,
+            src=Source.VK,
             vk=message,
             vk_ctx=ctx.vk.get(message.peer_id),
             is_group_chat=message.peer_id != message.from_id
@@ -37,9 +40,9 @@ class CommonMessage:
         return self
     
     @classmethod
-    async def from_tg(cls, message: TgMessage):
+    def from_tg(cls, message: TgMessage):
         self = cls(
-            src=MessageSource.TG,
+            src=Source.TG,
             tg=message,
             tg_ctx=ctx.tg.get(message.chat.id),
             is_group_chat=message.chat.type in ["group", "supergroup", "channel"]
@@ -50,6 +53,31 @@ class CommonMessage:
     @property
     def main_ctx(self):
         return ctx
+
+@dataclass
+class CommonEvent:
+    src: SOURCE_LITERAL
+
+    vk: Optional[RawEvent] = None
+    vk_ctx: Optional[VkCtx] = None
+
+    is_group_chat: Optional[bool] = None
+
+    @classmethod
+    def from_vk(cls, event: RawEvent):
+        event_object = event["object"]
+        peer_id = event_object["peer_id"]
+        user_id = event_object["user_id"]
+
+        self = cls(
+            src=Source.VK,
+            vk=event,
+            vk_ctx=ctx.vk.get(peer_id),
+            is_group_chat=peer_id != user_id
+        )
+
+        return self
+    
 
 def run_forever():
     """
