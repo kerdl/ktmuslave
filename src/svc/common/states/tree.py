@@ -12,25 +12,10 @@ from . import (
     SHOULD_PIN,
     INIT_FINISH,
     State,
+    Space,
     SPACE_LITERAL
 )
 
-class Space:
-    """
-    ## In what space the user currently in
-
-    By space I mean two types of environments:
-    - `init` - where user gets first time to specify
-        - his group
-        - if he wants to get updates
-        - if the bot should pin the updates
-    - `hub` - the main user area, where he can 
-        - view schedule, 
-        - view links,
-        - can change settings
-    """
-    INIT = "init"
-    HUB = "hub"
 
 @dataclass
 class Tree:
