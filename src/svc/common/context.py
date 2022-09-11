@@ -2,7 +2,7 @@ from loguru import logger
 from typing import Optional
 from dataclasses import dataclass
 from aiogram.types import Chat as TgChat
-from vkbottle.bot import Message as VkMessage
+from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 
 from .navigator import Navigator
 from .states.tree import Init, Hub
@@ -14,7 +14,7 @@ INITIAL_TRACE = [Init.I_MAIN]
 class VkCtx:
     peer_id: int
     navigator: Navigator
-    #last_bot_message: Optional[VkMessage]
+    last_bot_message: Optional[MessagesSendUserIdsResponseItem] = None
 
 @dataclass
 class TgCtx:

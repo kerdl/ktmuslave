@@ -1,6 +1,7 @@
-from vkbottle import BaseMiddleware
+from vkbottle import BaseMiddleware, BotPolling
 from vkbottle.bot import Message
 
+from src import defs
 from svc.common import ctx, CommonMessage, CommonEvent
 from .types import RawEvent
 
@@ -16,14 +17,34 @@ class GroupMentionFilter(BaseMiddleware[Message]):
     - We don't want to answer to every single
     message there
 
-    - We'll only answer to those where we are
-    mentioned
+    - We'll only answer to messages dedicated to us
     """
     async def pre(self):
+        polling: BotPolling = defs.vk_bot.polling
+
         is_group_chat = self.event.peer_id != self.event.from_id
+        bot_id = polling.group_id
+        negative_bot_id = -bot_id
         
-        if is_group_chat and not self.event.is_mentioned:
-            self.stop("message blocked, this is a group chat and we're not mentioned")
+        def did_user_mentioned_bot() -> bool:
+            """ 
+            ## @<bot id> <message> 
+            ### `@<bot id>` is a mention
+            """
+            return self.event.is_mentioned
+        
+        def did_user_replied_to_bot_message() -> bool:
+            """ ## When you press on bot's message and then `Reply` button """
+            reply_message = self.event.reply_message
+            return reply_message.from_id == negative_bot_id
+
+        if (
+            is_group_chat and not (
+                did_user_mentioned_bot() or
+                did_user_replied_to_bot_message()
+            )
+        ):
+            self.stop("message blocked, this message is not for the bot")
 
 class CtxCheckRaw(BaseMiddleware[RawEvent]):
     """

@@ -10,15 +10,15 @@ def tabs(level: int) -> str:
     return "  " * (level - 1)
 
 def completed(state: State) -> str:
-    return f"{state.emoji} {state.name}"
+    return f"✅ {state.name}"
 
 def current(state: State) -> str:
-    return f"→ {state.name}"
+    return f"➡️ {state.name}"
 
 def upcoming(state: State) -> str:
-    return f"• {state.name}"
+    return f"⬜ {state.name}"
 
-def format_tree(trace: list[State], tree: Tree, base_lvl: int = 1):
+def format_tree(trace: list[State], base_lvl: int = 1):
     """
     ## Convert tree to a nice readable text
     """
@@ -27,6 +27,7 @@ def format_tree(trace: list[State], tree: Tree, base_lvl: int = 1):
     output = ""
 
     current_state = trace[-1]
+    tree = current_state.tree
     last_lvl = base_lvl
     last_branch: list[State] = []
     was_in_last_branch = False

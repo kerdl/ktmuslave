@@ -18,6 +18,7 @@ def load_router() -> Router:
     """
 
     r = Router()
+
     return r
 
 def load_dispatch(router: Router) -> Dispatcher:
@@ -27,4 +28,24 @@ def load_dispatch(router: Router) -> Dispatcher:
 
     dp = Dispatcher()
     dp.include_router(router)
+
+    from .middlewares import (
+        CtxCheck,
+        CommonMessageMaker
+    )
+
+    update_outer_middlewares = [
+        CtxCheck()
+    ]
+
+    message_outer_middlewares = [
+        CommonMessageMaker()
+    ]
+
+    for mw in update_outer_middlewares:
+        dp.update.outer_middleware(mw)
+    
+    for mw in message_outer_middlewares:
+        dp.message.outer_middleware(mw)
+
     return dp

@@ -10,7 +10,8 @@ class RawEventObject(TypedDict):
 
 class RawEvent(TypedDict):
     group_id: int
-    type: Literal["message_event"]
+    type: Literal["message_event"] # and maybe more
     event_id: str
     v: str
+    """## API `v`ersion"""
     object: RawEventObject

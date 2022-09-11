@@ -15,20 +15,20 @@ async def main(message: Message, common_message: CommonMessage):
     return await init.main(common_message)
 
 @r.callback_query(CallbackFilter(data="begin"))
-async def begin_click(callback_query: CallbackQuery, ctx: TgCtx):
-    logger.info(f"begin click {ctx}")
+async def begin(callback_query: CallbackQuery):
+    return await init.begin()
 
 async def group(message: Message, common_message: CommonMessage):
-    ...
+    return await init.group(common_message)
 
 async def unknown_group(message: Message, common_message: CommonMessage):
-    ...
+    return await init.unknown_group(common_message)
 
 async def schedule_broadcast(message: Message, common_message: CommonMessage):
-    ...
+    return await init.schedule_broadcast(common_message)
 
 async def should_pin(message: Message, common_message: CommonMessage):
-    ...
+    return await init.should_pin(common_message)
 
 async def finish(message: Message, common_message: CommonMessage):
-    ...
+    return await init.finish(common_message)
