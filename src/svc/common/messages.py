@@ -3,7 +3,7 @@ from typing import Optional
 #### Common footers and headers ####
 
 GROUPS = (
-    "🖕 | Группы в расписании\n"
+    "🖕 | Группы в расписании:\n"
     "   ╰ {groups}"
 )
 

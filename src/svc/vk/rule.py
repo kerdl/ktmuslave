@@ -21,7 +21,7 @@ class StateRule(ABCRule[Message]):
             raise error.NoContext(
                 f"no context for vk {id=}, check middlewares that init context"
             )
-        
+
         is_user_on_this_state = await checker.is_user_on_state(user_ctx.navigator, self.state)
 
         return is_user_on_this_state

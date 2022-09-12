@@ -35,7 +35,7 @@ async def main(message: CommonMessage):
 
 async def begin(event: CommonEvent):
     answer_message = messages.format_group(
-        groups=["1КДД10", "1КДД12", "1КДД14", "1КДД16"]
+        groups=["хуй", "соси", "губой", "тряси"]
     )
 
     match event.src:
