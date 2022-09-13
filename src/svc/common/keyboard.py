@@ -8,6 +8,9 @@ from aiogram.types import (
 )
 from dataclasses import dataclass
 
+class Payload:
+    BACK = "back"
+    BEGIN = "begin"
 
 @dataclass
 class Button:

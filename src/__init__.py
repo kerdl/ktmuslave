@@ -17,26 +17,34 @@ class Defs:
     tg_router: Router = None
     tg_dispatch: Dispatcher = None
 
-    def init_all(self) -> None:
+    def init_all(
+        self, 
+        init_handlers: bool = True,
+        init_middlewares: bool = True,
+    ) -> None:
         self.init_logger()
-        self.init_vars()
+        self.init_vars(init_handlers, init_middlewares)
 
-    def init_vars(self) -> None:
+    def init_vars(
+        self, 
+        init_handlers: bool = True,
+        init_middlewares: bool = True,
+    ) -> None:
         """
         ## Init variables/constants, by default they are all `None`
         """
         from src.svc import vk, telegram
 
         self.loop = asyncio.get_event_loop()
-        self.vk_bot = vk.load(loop=self.loop)
-        self.tg_bot = telegram.load_bot(loop=self.loop)
+        self.vk_bot = vk.load(self.loop, init_handlers, init_middlewares)
+        self.tg_bot = telegram.load_bot(self.loop)
         self.tg_router = telegram.load_router()
-        self.tg_dispatch = telegram.load_dispatch(router=self.tg_router)
+        self.tg_dispatch = telegram.load_dispatch(self.tg_router, init_middlewares)
 
-        # so we trigger handlers initialization
-        from svc.telegram.bps import init
-        from svc.telegram.bps import hub
-        from svc.telegram import middlewares
+        if init_handlers:
+            from src.svc.telegram.bps import init
+            from src.svc.telegram.bps import hub
+            from src.svc.telegram import middlewares
 
     @staticmethod
     def init_logger() -> None:

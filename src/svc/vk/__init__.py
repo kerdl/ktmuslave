@@ -1,41 +1,54 @@
 from vkbottle import Bot
 from dotenv import get_key
 
-def load(loop = None) -> Bot:
+def load(
+    loop = None, 
+    init_handlers: bool = True,
+    init_middlewares: bool = True,
+) -> Bot:
     """
     ## Set token, load blueprints and return a `Bot`
     """
 
     bot = Bot(token=get_key(".env", "VK_TOKEN"), loop=loop)
 
-    from .bps import (
-        init,
-        hub, 
-    )
+    if init_handlers:
+        from . import bps
+        from .bps import (
+            init,
+            hub, 
+        )
 
-    from .middlewares import (
-        GroupMentionFilter,
-        CtxCheckRaw,
-        CtxCheckMessage,
-        CommonEventMaker,
-        CommonMessageMaker,
-    )
+        blueprints = [
+            bps.bp,
+            init.bp,
+            hub.bp,
+        ]
+    else:
+        blueprints = []
 
-    blueprints = [
-        init.bp,
-        hub.bp,
-    ]
+    if init_middlewares:
+        from .middlewares import (
+            GroupMentionFilter,
+            CtxCheckRaw,
+            CtxCheckMessage,
+            CommonEventMaker,
+            CommonMessageMaker,
+        )
 
-    message_view_middlewares = [
-        GroupMentionFilter,
-        CtxCheckMessage,
-        CommonMessageMaker,
-    ]
+        message_view_middlewares = [
+            GroupMentionFilter,
+            CtxCheckMessage,
+            CommonMessageMaker,
+        ]
 
-    raw_event_view_middlewares = [
-        CtxCheckRaw,
-        CommonEventMaker,
-    ]
+        raw_event_view_middlewares = [
+            CtxCheckRaw,
+            CommonEventMaker,
+        ]
+    else:
+        message_view_middlewares = []
+        raw_event_view_middlewares = []
 
     # bp - BluePrint
     for bp in blueprints:

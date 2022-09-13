@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Literal, Iterable
 
-from svc.common import error
+from src.svc.common import error
 
 
 class Space:
@@ -32,6 +32,9 @@ class State:
     space: Optional[SPACE_LITERAL] = None
     anchor: Optional[str] = None
     level: Optional[int] = None
+
+    def __hash__(self) -> int:
+        return hash(self.anchor)
 
 @dataclass
 class Tree:

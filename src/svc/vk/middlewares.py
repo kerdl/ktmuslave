@@ -2,7 +2,7 @@ from vkbottle import BaseMiddleware, BotPolling
 from vkbottle.bot import Message
 
 from src import defs
-from svc.common import ctx, CommonMessage, CommonEvent
+from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything
 from .types import RawEvent
 
 
@@ -53,7 +53,7 @@ class CtxCheckRaw(BaseMiddleware[RawEvent]):
     """
     async def pre(self):
         event_object = self.event["object"]
-        peer_id: int = event_object["peer_id"]
+        peer_id = event_object["peer_id"]
 
         if ctx.vk.get(peer_id) is None:
             ctx.add_vk(peer_id)
@@ -71,12 +71,16 @@ class CtxCheckMessage(BaseMiddleware[Message]):
 
 class CommonEventMaker(BaseMiddleware[RawEvent]):
     """
-    ## Makes `CommonEvenr` from vk event and sends it to a handler
+    ## Makes `CommonEvent` from vk event and sends it to a handler
     ### It's a `raw_event` middleware
     """
     async def pre(self):
         event = CommonEvent.from_vk(self.event)
+        everything = CommonEverything.from_event(event)
+        
         self.send({"common_event": event})
+        self.send({"common_everything": everything})
+
 
 class CommonMessageMaker(BaseMiddleware[Message]):
     """
@@ -85,4 +89,7 @@ class CommonMessageMaker(BaseMiddleware[Message]):
     """
     async def pre(self):
         message = CommonMessage.from_vk(self.event)
+        everything = CommonEverything.from_message(message)
+        
         self.send({"common_message": message})
+        self.send({"common_everything": everything})

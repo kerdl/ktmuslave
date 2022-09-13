@@ -1,8 +1,8 @@
 from aiogram.filters.base import BaseFilter
 from aiogram.types import Message, CallbackQuery
 
-from svc.common import ctx, checker, error
-from svc.common.states import State
+from src.svc.common import ctx, checker, error
+from src.svc.common.states import State
 
 
 class StateFilter(BaseFilter):

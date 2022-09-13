@@ -1,8 +1,8 @@
 from vkbottle import ABCRule
 from vkbottle.bot import Message
 
-from svc.common import ctx, checker, error
-from svc.common.states import State
+from src.svc.common import ctx, checker, error
+from src.svc.common.states import State
 
 
 class StateRule(ABCRule[Message]):

@@ -18,7 +18,7 @@ def current(state: State) -> str:
 def upcoming(state: State) -> str:
     return f"⬜ {state.name}"
 
-def format_tree(trace: list[State], base_lvl: int = 1):
+def tree(trace: list[State], base_lvl: int = 1):
     """
     ## Convert tree to a nice readable text
     """
@@ -105,5 +105,5 @@ def format_tree(trace: list[State], base_lvl: int = 1):
 if __name__ == "__main__":
     from src.svc.common.states.tree import INIT, HUB
 
-    print(format_tree(trace=[INIT.I_MAIN, INIT.I_GROUP, INIT.II_UNKNOWN_GROUP], tree=INIT, base_lvl=1))
-    #print(format_tree(trace=[HUB.I_MAIN, HUB.II_SETTINGS, HUB.III_GROUP], tree=HUB, base_lvl=3))
+    print(tree(trace=[INIT.I_MAIN, INIT.I_GROUP, INIT.II_UNKNOWN_GROUP], tree=INIT, base_lvl=1))
+    #print(tree(trace=[HUB.I_MAIN, HUB.II_SETTINGS, HUB.III_GROUP], tree=HUB, base_lvl=3))

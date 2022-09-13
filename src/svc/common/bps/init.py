@@ -1,72 +1,97 @@
 from loguru import logger
 
 from src import defs
-from svc.common import CommonMessage, CommonEvent, Source, messages
-from svc.common.states.formatter import format_tree
-from svc.common.states.tree import Init
-from svc.common.keyboard import Keyboard, Button
+from src.svc.common import CommonEverything, Source, messages
+from src.svc.common.states import formatter as states_fmt
+from src.svc.common.states.tree import Init
+from src.svc.common.keyboard import Keyboard, Button, Payload
 
 
-async def main(message: CommonMessage):
-    answer_message = messages.format_welcome(message.is_group_chat)
+async def main(everything: CommonEverything):
+    answer_message = (
+        messages.Builder()
+                .add(messages.format_welcome(everything.is_group_chat))
+                .add(messages.format_press_begin())
+                .make()
+    )
     answer_keyboard = Keyboard([
-        [Button("→ Начать", "begin")]
+        [Button("→ Начать", Payload.BEGIN)]
     ])
 
-    match message.src:
-        case Source.VK:
-            vk_message = message.vk
-            ctx = message.vk_ctx
+    if everything.is_from_message:
+        message = everything.message
 
-            last_bot_message = await vk_message.answer(
-                message=answer_message, 
-                keyboard=answer_keyboard.to_vk().get_json(), 
-                dont_parse_links=True
-            )
+        await message.answer(
+            text     = answer_message,
+            keyboard = answer_keyboard,
+        )
+    
+    elif everything.is_from_event:
+        event = everything.event
 
-            ctx.last_bot_message = last_bot_message
-        case Source.TG:
-            tg_message = message.tg
+        await event.edit_message(
+            text     = answer_message,
+            keyboard = answer_keyboard,
+        )
 
-            await tg_message.answer(
-                text=answer_message, 
-                reply_markup=answer_keyboard.to_tg()
-            )
 
-async def begin(event: CommonEvent):
-    answer_message = messages.format_group(
-        groups=["хуй", "соси", "губой", "тряси"]
+async def begin(everything: CommonEverything):
+    everything.navigator.append(Init.I_GROUP)
+
+    return await group(everything)
+
+
+async def group(everything: CommonEverything):
+    if everything.is_from_vk:
+        footer_addition = messages.format_mention_me("@pizda")
+
+    elif everything.is_from_tg:
+        footer_addition = messages.format_reply_to_me()
+
+
+    answer_text = (
+        messages.Builder()
+                .add(states_fmt.tree(everything.navigator.trace))
+                .add(messages.format_groups(["хуй", "соси", "губой", "тряси"]))
+                .add(messages.format_group_input())
+                .add(footer_addition)
+                .make()
     )
+    answer_keyboard = Keyboard([
+        [Button("← Назад", Payload.BACK)]
+    ])
 
-    match event.src:
-        case Source.VK:
-            evt = event.vk
-            evt_object = evt["object"]
 
-            ctx = event.vk_ctx
-            ctx.navigator.append(Init.I_GROUP)
+    if everything.is_from_event:
+        event = everything.event
 
-            tree = format_tree(ctx.navigator.trace)
+        await event.edit_message(
+            text     = answer_text,
+            keyboard = answer_keyboard
+        )
 
-            answer_message = f"{tree}\n\n{answer_message}"
 
-            await defs.vk_bot.api.messages.edit(
-                peer_id=evt_object["peer_id"],
-                message=answer_message,
-                conversation_message_id=evt_object["conversation_message_id"]
-            )
-
-async def group(message: CommonMessage):
+async def unknown_group(everything: CommonEverything):
     ...
 
-async def unknown_group(message: CommonMessage):
+
+async def schedule_broadcast(everything: CommonEverything):
     ...
 
-async def schedule_broadcast(message: CommonMessage):
+
+async def should_pin(everything: CommonEverything):
     ...
 
-async def should_pin(message: CommonMessage):
+
+async def finish(everything: CommonEverything):
     ...
 
-async def finish(message: CommonMessage):
-    ...
+
+STATE_MAP = {
+    Init.I_MAIN: main,
+    Init.I_GROUP: group,
+    Init.II_UNKNOWN_GROUP: unknown_group,
+    Init.I_SCHEDULE_BROADCAST: schedule_broadcast,
+    Init.I_SHOULD_PIN: should_pin,
+    Init.I_FINISH: finish
+}

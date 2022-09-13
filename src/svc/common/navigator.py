@@ -1,8 +1,8 @@
 from typing import Optional
 from dataclasses import dataclass
 
-from svc.common import error
-from svc.common.states import State, SPACE_LITERAL
+from src.svc.common import error
+from src.svc.common.states import State, SPACE_LITERAL
 
 
 @dataclass
@@ -58,5 +58,5 @@ class Navigator:
         """
         ## Remove last state from current space
         """
-        if len(self.trace) > 0:
+        if len(self.trace) > 1:
             del self.trace[-1]
