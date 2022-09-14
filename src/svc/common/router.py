@@ -21,25 +21,48 @@ from src.svc.common.filter import BaseFilter
 
 @dataclass
 class Handler:
-    func: Callable[[Union[CommonMessage, CommonEvent]], Awaitable[Any]]
+    func: Callable[[Union[CommonMessage, CommonEvent, CommonEverything]], Awaitable[Any]]
     filters: tuple[BaseFilter]
+    is_blocking: bool
 
 @dataclass
 class Router:
-    message_handlers: list[Handler]
-    callback_handlers: list[Handler]
+    handlers: list[Handler]
 
-    def on_message(self, *filters: BaseFilter):
+    def on_message(
+        self, 
+        *filters: BaseFilter, 
+        is_blocking: bool = True,
+    ):
         def decorator(func: Callable[[CommonMessage], Awaitable[Any]]):
-            self.message_handlers.append(Handler(func, filters))
+            handler = Handler(func, filters, is_blocking)
+            self.handlers.append(handler)
 
             return func
 
         return decorator
     
-    def on_callback(self, *filters: BaseFilter):
+    def on_callback(
+        self, 
+        *filters: BaseFilter, 
+        is_blocking: bool = True,
+    ):
         def decorator(func: Callable[[CommonEvent], Awaitable[Any]]):
-            self.callback_handlers.append(Handler(func, filters))
+            handler = Handler(func, filters, is_blocking)
+            self.handlers.append(handler)
+
+            return func
+
+        return decorator
+    
+    def on_everything(
+        self, 
+        *filters: BaseFilter, 
+        is_blocking: bool = True
+    ):
+        def decorator(func: Callable[[CommonEvent], Awaitable[Any]]):
+            handler = Handler(func, filters, is_blocking)
+            self.handlers.append(handler)
 
             return func
 
@@ -52,28 +75,27 @@ class Router:
 
         # on message handler
         vk_msg_decorator = defs.vk_bot.on.message()
-        vk_msg_decorator(self.vk_message)
+        vk_msg_decorator(self.choose_handler)
 
         # on callback button press
         vk_callback_decorator = defs.vk_bot.on.raw_event(
             GroupEventType.MESSAGE_EVENT, 
             MessageEvent
         )
-        vk_callback_decorator(self.vk_callback)
+        vk_callback_decorator(self.choose_handler)
 
         """"""""""""""""""""""""""""""""""""""""""""
 
         # on message handler
         tg_msg_decorator = defs.tg_router.message()
-        tg_msg_decorator(self.tg_message)
+        tg_msg_decorator(self.choose_handler)
 
         # on callback button press
         tg_callback_decorator = defs.tg_router.callback_query()
-        tg_callback_decorator(self.tg_callback)
+        tg_callback_decorator(self.choose_handler)
 
-    @staticmethod
-    async def filter_handlers(handler_list: list[Handler], everything: CommonEverything):
-        for handler in handler_list:
+    async def choose_handler(self, *args, everything: CommonEverything):
+        for handler in self.handlers:
 
             # if filter condition interrupted this
             # handler from execution
@@ -87,59 +109,41 @@ class Router:
             else:
                 # but if we do have filters,
                 # check them
+                filter_results: list[bool] = []
+
                 for filter_ in handler.filters:
                     # call the filter
                     result = await filter_(everything)
-
-                    # if this filter returned True
-                    if result is True:
-                        filter_interrupt = False
-                        break
+                    filter_results.append(result)
+                
+                if all(filter_results):
+                    filter_interrupt = False
             
             if filter_interrupt:
                 # continue to look for other
                 # handlers
                 continue
             else:
-                if everything.is_from_message:
-                    # call this handler with CommonMessage
-                    await handler.func(everything.message)
-                elif everything.is_from_event:
-                    # call this handler with CommonEvent
-                    await handler.func(everything.event)
+                kwargs = {}
+
+                # look for function arguments and their type hints
+                for (argument, annotation) in handler.func.__annotations__.items():
+                    if annotation == CommonEverything:
+                        kwargs[argument] = everything
+                    elif annotation == CommonMessage:
+                        kwargs[argument] = everything.message
+                    elif annotation == CommonEvent:
+                        kwargs[argument] = everything.event
+
+                await handler.func(**kwargs)
                 
-                break
+                if handler.is_blocking:
+                    break
 
-    async def find_callback_handler(self, event: CommonEvent):
-        await self.filter_handlers(
-            self.callback_handlers, 
-            CommonEverything.from_event(event)
-        )
-
-    async def find_message_handler(self, message: CommonMessage):
-        await self.filter_handlers(
-            self.message_handlers,
-            CommonEverything.from_message(message)
-        )
-    
-    async def vk_message(self, *args, common_message: CommonMessage):
-        await self.find_message_handler(common_message)
-    
-    async def vk_callback(self, *args, common_event: CommonEvent):
-        await self.find_callback_handler(common_event)
-
-    async def tg_message(self, *args, common_message: CommonMessage):
-        await self.find_message_handler(common_message)
-
-    async def tg_callback(self, *args, common_event: CommonEvent):
-        await self.find_callback_handler(common_event)
-
-r = Router([], [])
+r = Router([])
 
 
 if __name__ == "__main__":
-
-    from aiogram.types import ReplyKeyboardRemove
 
     @dataclass
     class UrMomFilter(BaseFilter):
@@ -147,6 +151,15 @@ if __name__ == "__main__":
             return everything.is_from_tg
 
     defs.init_all(init_handlers=False, init_middlewares=True)
+
+    @r.on_everything()
+    async def pizda(everything: CommonEverything):
+        if everything.is_from_message:
+            message = everything.message
+            await message.answer("mne pohui")
+        elif everything.is_from_event:
+            event = everything.event
+            await event.edit_message("mne VDVOINE POEBAT")
 
     @r.on_message()
     async def shit(message: CommonMessage):

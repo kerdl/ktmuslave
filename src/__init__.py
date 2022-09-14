@@ -36,15 +36,18 @@ class Defs:
         from src.svc import vk, telegram
 
         self.loop = asyncio.get_event_loop()
-        self.vk_bot = vk.load(self.loop, init_handlers, init_middlewares)
+        self.vk_bot = vk.load(self.loop)
         self.tg_bot = telegram.load_bot(self.loop)
         self.tg_router = telegram.load_router()
         self.tg_dispatch = telegram.load_dispatch(self.tg_router, init_middlewares)
 
-        if init_handlers:
-            from src.svc.telegram.bps import init
-            from src.svc.telegram.bps import hub
+        if init_middlewares:
             from src.svc.telegram import middlewares
+        
+        if init_handlers:
+            from src.svc.common.bps import init, hub
+            from src.svc.common.router import r
+            r.assign()
 
     @staticmethod
     def init_logger() -> None:

@@ -43,7 +43,7 @@ class CommonMessageMaker:
         common_everything = CommonEverything.from_message(common_message)
 
         data["common_message"] = common_message
-        data["common_everything"] = common_everything
+        data["everything"] = common_everything
 
         return await handler(event, data)
 
@@ -60,7 +60,7 @@ class CommonEventMaker:
         common_everything = CommonEverything.from_event(common_event)
 
         data["common_event"] = common_event
-        data["common_everything"] = common_everything
+        data["everything"] = common_everything
 
         return await handler(event, data)
 

@@ -57,6 +57,7 @@ class CommonMessage(BaseCommonEvent):
     tg_ctx: Optional[TgCtx] = None
 
     is_group_chat: Optional[bool] = None
+    chat_id: Optional[int] = None
 
 
     @classmethod
@@ -67,7 +68,8 @@ class CommonMessage(BaseCommonEvent):
             src=Source.VK,
             vk=message,
             vk_ctx=vk_ctx,
-            is_group_chat=vk_is_group_chat(message.peer_id, message.from_id)
+            is_group_chat=vk_is_group_chat(message.peer_id, message.from_id),
+            chat_id=message.peer_id
         )
 
         return self
@@ -80,7 +82,8 @@ class CommonMessage(BaseCommonEvent):
             src=Source.TG,
             tg=message,
             tg_ctx=tg_ctx,
-            is_group_chat=tg_is_group_chat(message.chat.type)
+            is_group_chat=tg_is_group_chat(message.chat.type),
+            chat_id=message.chat.id
         )
 
         return self
@@ -127,6 +130,7 @@ class CommonEvent(BaseCommonEvent):
     tg_ctx: Optional[TgCtx] = None
 
     is_group_chat: Optional[bool] = None
+    chat_id: Optional[int] = None
 
 
     @classmethod
@@ -141,7 +145,8 @@ class CommonEvent(BaseCommonEvent):
             src=Source.VK,
             vk=event,
             vk_ctx=vk_ctx,
-            is_group_chat=vk_is_group_chat(peer_id, user_id)
+            is_group_chat=vk_is_group_chat(peer_id, user_id),
+            chat_id=event["object"]["peer_id"]
         )
 
         return self
@@ -154,7 +159,8 @@ class CommonEvent(BaseCommonEvent):
             src=Source.TG,
             tg_callback_query=callback_query,
             tg_ctx=tg_ctx,
-            is_group_chat=tg_is_group_chat(callback_query.message.chat.type)
+            is_group_chat=tg_is_group_chat(callback_query.message.chat.type),
+            chat_id=callback_query.message.chat.id
         )
 
         return self
@@ -208,7 +214,7 @@ class CommonEverything(BaseCommonEvent):
     event: Optional[CommonEvent] = None
 
     is_group_chat: Optional[bool] = None
-
+    chat_id: Optional[int] = None
 
     @classmethod
     def from_message(cls, message: CommonMessage):
@@ -216,7 +222,8 @@ class CommonEverything(BaseCommonEvent):
             src=message.src,
             event_src=Source.MESSAGE,
             message=message,
-            is_group_chat=message.is_group_chat
+            is_group_chat=message.is_group_chat,
+            chat_id=message.chat_id
         )
 
         return self
@@ -227,7 +234,8 @@ class CommonEverything(BaseCommonEvent):
             src=event.src,
             event_src=Source.EVENT,
             event=event,
-            is_group_chat=event.is_group_chat
+            is_group_chat=event.is_group_chat,
+            chat_id=event.chat_id
         )
 
         return self

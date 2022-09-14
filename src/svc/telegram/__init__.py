@@ -21,10 +21,7 @@ def load_router() -> Router:
 
     return r
 
-def load_dispatch(
-    router: Router, 
-    init_middlewares: bool = True,
-) -> Dispatcher:
+def load_dispatch(router: Router, init_middlewares: bool = True) -> Dispatcher:
     """
     ## Init dispatcher
     """
@@ -50,8 +47,11 @@ def load_dispatch(
         callback_query_outer_middlewares = [
             CommonEventMaker()
         ]
+
     else:
         update_outer_middlewares = []
+        message_outer_middlewares = []
+        callback_query_outer_middlewares = []
 
     for mw in update_outer_middlewares:
         dp.update.outer_middleware(mw)

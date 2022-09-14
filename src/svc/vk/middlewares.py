@@ -79,7 +79,7 @@ class CommonEventMaker(BaseMiddleware[RawEvent]):
         everything = CommonEverything.from_event(event)
         
         self.send({"common_event": event})
-        self.send({"common_everything": everything})
+        self.send({"everything": everything})
 
 
 class CommonMessageMaker(BaseMiddleware[Message]):
@@ -92,4 +92,4 @@ class CommonMessageMaker(BaseMiddleware[Message]):
         everything = CommonEverything.from_message(message)
         
         self.send({"common_message": message})
-        self.send({"common_everything": everything})
+        self.send({"everything": everything})

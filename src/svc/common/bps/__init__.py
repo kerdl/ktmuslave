@@ -1,9 +1,15 @@
 from src.svc.common import CommonEverything
+from src.svc.common.filter import PayloadFilter
+from src.svc.common.keyboard import Payload
 from src.svc.common.states import Space
-from . import init, hub
+from src.svc.common.router import r
 
 
+@r.on_callback(PayloadFilter(Payload.BACK))
 async def back(everything: CommonEverything):
+    from . import init, hub
+
+
     navigator = everything.navigator
     
     if navigator.space == Space.INIT:
