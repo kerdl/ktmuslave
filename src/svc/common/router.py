@@ -16,7 +16,7 @@ from vkbottle.bot import MessageEvent
 from src import defs
 from src.svc.common import CommonEverything, CommonMessage
 from src.svc.common import CommonEvent
-from src.svc.common.filter import BaseFilter
+from src.svc.common.filter import BaseFilter, MessageOnlyFilter, EventOnlyFilter
 
 
 @dataclass
@@ -34,8 +34,8 @@ class Router:
         *filters: BaseFilter, 
         is_blocking: bool = True,
     ):
-        def decorator(func: Callable[[CommonMessage], Awaitable[Any]]):
-            handler = Handler(func, filters, is_blocking)
+        def decorator(func: Callable[[Union[CommonMessage, CommonEvent, CommonEverything]], Awaitable[Any]]):
+            handler = Handler(func, (MessageOnlyFilter(),) + filters, is_blocking)
             self.handlers.append(handler)
 
             return func
@@ -47,8 +47,8 @@ class Router:
         *filters: BaseFilter, 
         is_blocking: bool = True,
     ):
-        def decorator(func: Callable[[CommonEvent], Awaitable[Any]]):
-            handler = Handler(func, filters, is_blocking)
+        def decorator(func: Callable[[Union[CommonMessage, CommonEvent, CommonEverything]], Awaitable[Any]]):
+            handler = Handler(func, (EventOnlyFilter(),) + filters, is_blocking)
             self.handlers.append(handler)
 
             return func
@@ -60,7 +60,7 @@ class Router:
         *filters: BaseFilter, 
         is_blocking: bool = True
     ):
-        def decorator(func: Callable[[CommonEvent], Awaitable[Any]]):
+        def decorator(func: Callable[[Union[CommonMessage, CommonEvent, CommonEverything]], Awaitable[Any]]):
             handler = Handler(func, filters, is_blocking)
             self.handlers.append(handler)
 

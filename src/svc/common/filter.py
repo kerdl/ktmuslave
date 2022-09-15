@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from src.svc.common import CommonEverything
+from src.svc.common import CommonEverything, Source
 from src.svc.common.states import State
 from src.svc.vk.keyboard import CMD
 
@@ -9,6 +9,16 @@ from src.svc.vk.keyboard import CMD
 class BaseFilter:
     async def __call__(self, everything: CommonEverything) -> bool: 
         ...
+
+@dataclass
+class MessageOnlyFilter(BaseFilter):
+    async def __call__(self, everything: CommonEverything) -> bool:
+        return everything.event_src == Source.MESSAGE
+
+@dataclass
+class EventOnlyFilter(BaseFilter):
+    async def __call__(self, everything: CommonEverything) -> bool:
+        return everything.event_src == Source.EVENT
 
 @dataclass
 class StateFilter(BaseFilter):

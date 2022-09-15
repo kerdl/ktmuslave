@@ -1,4 +1,5 @@
 from loguru import logger
+import re
 
 from src import defs
 from src.svc.common import CommonEverything, messages
@@ -9,39 +10,41 @@ from src.svc.common.filter import StateFilter, PayloadFilter
 from src.svc.common.router import r
 
 
+r_group = re.compile(r"(\d)([-]{0,1})([а-яёА-ЯЁ]{3})([-]{0,1})(\d{2})")
+
 @r.on_everything(StateFilter(Init.I_GROUP))
 async def group(everything: CommonEverything):
-    if everything.is_from_vk:
-        footer_addition = messages.format_mention_me("@pizda")
-
-    elif everything.is_from_tg:
-        footer_addition = messages.format_reply_to_me()
-
-
-    answer_text = (
-        messages.Builder()
-                .add(states_fmt.tree(everything.navigator.trace))
-                .add(messages.format_groups(["хуй", "соси", "губой", "тряси"]))
-                .add(messages.format_group_input())
-                .add(footer_addition)
-                .make()
-    )
-    answer_keyboard = Keyboard([
-        [Button("← Назад", Payload.BACK)]
-    ])
-
-
-    if everything.is_from_event:
-        event = everything.event
-
-        await event.edit_message(
-            text     = answer_text,
-            keyboard = answer_keyboard
-        )
-    elif everything.is_from_message:
+    if everything.is_from_message:
         message = everything.message
 
-        await message.answer(
+        group_match = r_group.match(message.text)
+
+        await message.answer(f"{group_match}")
+
+    elif everything.is_from_event:
+        event = everything.event
+
+        if event.is_from_vk:
+            footer_addition = messages.format_mention_me("@pizda")
+
+        elif event.is_from_tg:
+            footer_addition = messages.format_reply_to_me()
+
+
+        answer_text = (
+            messages.Builder()
+                    .add(states_fmt.tree(everything.navigator.trace))
+                    .add(messages.format_groups(["хуй", "соси", "губой", "тряси"]))
+                    .add(messages.format_group_input())
+                    .add(footer_addition)
+                    .make()
+        )
+        answer_keyboard = Keyboard([
+            [Button("← Назад", Payload.BACK)]
+        ])
+
+
+        await event.edit_message(
             text     = answer_text,
             keyboard = answer_keyboard
         )

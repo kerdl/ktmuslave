@@ -93,6 +93,13 @@ class CommonMessage(BaseCommonEvent):
         return ctx
 
     @property
+    def text(self):
+        if self.is_from_vk:
+            return self.vk.text
+        elif self.is_from_tg:
+            return self.tg.text
+
+    @property
     def navigator(self):
         if self.src == Source.VK:
             return self.vk_ctx.navigator
