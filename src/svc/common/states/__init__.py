@@ -32,6 +32,10 @@ class State:
     space: Optional[SPACE_LITERAL] = None
     anchor: Optional[str] = None
     level: Optional[int] = None
+    value: Optional[str] = None
+    """ ## Represent a value that was set on this state as string """
+    parent: Optional[State] = None
+    child: Optional[State] = None
 
     def __hash__(self) -> int:
         return hash(self.anchor)
@@ -54,11 +58,27 @@ class Tree:
             filter(self.__filter_condition__, type(self).__dict__.items())
         )
 
+        parent_trace: list[State] = []
+        child_trace: list[State] = []
+
+        def last_parent() -> Optional[State]:
+            if len(parent_trace) > 0:
+                return parent_trace[-1]
+
         for anchor, state in filtered_states:
             state.tree = self
             state.space = self.__space__
             state.anchor = anchor
             state.level = self.__level__(anchor)
+
+            if (last_parent() is None):
+                parent_trace.append(state)
+            elif (last_parent().level == state.level):
+                del parent_trace[-1]
+                parent_trace.append(state)
+            else:
+                state.parent = last_parent()
+
             self.__states__.append(state)
 
     def __iter__(self) -> Iterable[State]:

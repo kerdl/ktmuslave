@@ -34,7 +34,7 @@ class Init(Tree):
     I_GROUP              = State(**GROUP)
     II_UNKNOWN_GROUP     = State(**UNKNOWN_GROUP)
     I_SCHEDULE_BROADCAST = State(**SCHEDULE_BROADCAST)
-    I_SHOULD_PIN         = State(**SHOULD_PIN)
+    II_SHOULD_PIN        = State(**SHOULD_PIN)
     I_FINISH             = State(**INIT_FINISH)
 
 class Hub(Tree):

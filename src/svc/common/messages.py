@@ -7,6 +7,9 @@ class Builder:
         self.components: list[str] = []
     
     def add(self, text: str) -> Builder:
+        if text == "":
+            return self
+
         self.components.append(text)
         return self
     
@@ -79,8 +82,7 @@ def format_unknown_group(group: str):
     return UNKNOWN_GROUP.format(group=group)
 
 INVALID_GROUP = (
-    "❌ | Эта хуйня не подходит под формат: 1кдд69, 1-кдд-69, 1КДД69, 1-КДД-69"
-    "\n\n"
+    "❌ | Эта хуйня не подходит под формат: 1кдд69, 1-кдд-69, 1КДД69, 1-КДД-69\n"
     "Напиши ещё раз по формату"
 )
 

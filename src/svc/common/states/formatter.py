@@ -15,6 +15,9 @@ def completed(state: State) -> str:
 def current(state: State) -> str:
     return f"➡️ {state.name}"
 
+def unfolded(state: State) -> str:
+    return f"⏺️ {state.name}"
+
 def upcoming(state: State) -> str:
     return f"⬜ {state.name}"
 
@@ -39,6 +42,8 @@ def tree(trace: list[State], base_lvl: int = 1):
         def choose_state_format(state: State) -> str:
             if state == current_state:
                 return current(state)
+            elif (state.parent is not None) and (state.parent in trace):
+                return unfolded(state)
             elif state in trace:
                 return completed(state)
             else:
@@ -84,6 +89,8 @@ def tree(trace: list[State], base_lvl: int = 1):
 
             if not was_in_last_branch:
                 last_branch = []
+            
+            last_lvl = base_lvl
 
 
         if was_in_last_branch:
@@ -92,6 +99,7 @@ def tree(trace: list[State], base_lvl: int = 1):
                 formatted_states.append(state)
             
             last_branch = []
+            was_in_last_branch = False
 
         if tree_state.level == base_lvl:
             state = construct_state(tree_state)
