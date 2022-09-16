@@ -35,7 +35,7 @@ class State:
     value: Optional[str] = None
     """ ## Represent a value that was set on this state as string """
     parent: Optional[State] = None
-    child: Optional[State] = None
+    child: Optional[list[State]] = None
 
     def __hash__(self) -> int:
         return hash(self.anchor)
@@ -59,7 +59,6 @@ class Tree:
         )
 
         parent_trace: list[State] = []
-        child_trace: list[State] = []
 
         def last_parent() -> Optional[State]:
             if len(parent_trace) > 0:
@@ -70,6 +69,7 @@ class Tree:
             state.space = self.__space__
             state.anchor = anchor
             state.level = self.__level__(anchor)
+            state.child = []
 
             if (last_parent() is None):
                 parent_trace.append(state)
@@ -80,6 +80,14 @@ class Tree:
                 state.parent = last_parent()
 
             self.__states__.append(state)
+        
+        for stateA in self.__states__:
+            stateA: State
+            for stateB in self.__states__:
+                stateB: State
+                if stateA.parent == stateB:
+                    stateB.child.append(stateA)
+                    break
 
     def __iter__(self) -> Iterable[State]:
         return iter(self.__states__)

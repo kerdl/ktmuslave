@@ -40,9 +40,15 @@ def tree(trace: list[State], base_lvl: int = 1):
         is_last = (i + 1) == len(tree.__states__)
 
         def choose_state_format(state: State) -> str:
+            this_state_childs_in_trace = False
+
+            for child in state.child:
+                if child in trace:
+                    this_state_childs_in_trace = True
+
             if state == current_state:
                 return current(state)
-            elif (state.parent is not None) and (state.parent in trace):
+            elif this_state_childs_in_trace:
                 return unfolded(state)
             elif state in trace:
                 return completed(state)
