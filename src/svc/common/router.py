@@ -8,6 +8,7 @@ if __name__ == "__main__":
 
     from src.svc import common
 
+from loguru import logger
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Union
 from vkbottle import GroupEventType
@@ -135,6 +136,7 @@ class Router:
                     elif annotation == CommonEvent:
                         kwargs[argument] = everything.event
 
+                logger.info(f"calling {handler.func}")
                 await handler.func(**kwargs)
                 
                 if handler.is_blocking:

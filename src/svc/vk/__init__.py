@@ -1,6 +1,10 @@
 from vkbottle import Bot
 from dotenv import get_key
 
+
+def is_group_chat(peer_id: int, from_id: int) -> bool:
+    return peer_id != from_id
+
 def load(loop = None) -> Bot:
     """
     ## Set token, load blueprints and return a `Bot`
@@ -9,7 +13,7 @@ def load(loop = None) -> Bot:
     bot = Bot(token=get_key(".env", "VK_TOKEN"), loop=loop)
 
     from .middlewares import (
-        GroupMentionFilter,
+        BotMentionFilter,
         CtxCheckRaw,
         CtxCheckMessage,
         CommonEventMaker,
@@ -17,7 +21,7 @@ def load(loop = None) -> Bot:
     )
 
     message_view_middlewares = [
-        GroupMentionFilter,
+        BotMentionFilter,
         CtxCheckMessage,
         CommonMessageMaker,
     ]

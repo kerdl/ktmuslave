@@ -16,9 +16,23 @@ class Payload:
     TRUE = "true"
     FALSE = "false"
     BACK = "back"
+    NEXT = "next"
+    SKIP = "skip"
 
     BEGIN = "begin"
+    DO_PIN = "do_pin"
+    FINISH = "finish"
 
+class Text:
+    TRUE = "✓ ПизДА!"
+    FALSE = "✕ МиНЕТ..."
+    BACK = "← Назад"
+    NEXT = "→ Далее"
+    SKIP = "→ Пропустить"
+
+    BEGIN = "→ Начать"
+    DO_PIN = "✓ Закреплять"
+    FINISH = "→ Закончить"
 
 COLOR_LITERAL = Literal["gray", "blue", "green", "red"]
 
@@ -71,14 +85,14 @@ class Keyboard:
     ## Inline-only cross-platform keyboard
     """
     schema: list[list[Button]]
-    one_time: bool = False
+
 
     def to_vk(self) -> VkKeyboard:
         """
         ## Convert this keyboard to VK keyboard
         """
 
-        vk_kb = VkKeyboard(self.one_time, inline=True)
+        vk_kb = VkKeyboard(inline=True)
         
         for (i, row) in enumerate(self.schema):
             is_last = i == len(self.schema) - 1
@@ -111,3 +125,13 @@ class Keyboard:
         tg_kb = TgKeyboard(inline_keyboard=schema)
 
         return tg_kb
+
+TRUE_BUTTON   = Button(Text.TRUE, Payload.TRUE, Color.GREEN)
+FALSE_BUTTON  = Button(Text.FALSE, Payload.FALSE, Color.RED)
+BACK_BUTTON   = Button(Text.BACK, Payload.BACK)
+NEXT_BUTTON   = Button(Text.NEXT, Payload.NEXT)
+SKIP_BUTTON   = Button(Text.SKIP, Payload.SKIP)
+
+BEGIN_BUTTON  = Button(Text.BEGIN, Payload.BEGIN)
+DO_PIN_BUTTON = Button(Text.DO_PIN, Payload.DO_PIN, Color.GREEN)
+FINISH_BUTTON = Button(Text.FINISH, Payload.FINISH)

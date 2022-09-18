@@ -43,3 +43,16 @@ class PayloadFilter(BaseFilter):
             return event.tg_callback_query.data == self.payload
         
         return False
+
+@dataclass
+class UnionFilter(BaseFilter):
+    filters: tuple[BaseFilter]
+
+    async def __call__(self, everything: CommonEverything) -> bool:
+        filter_results: list[bool] = []
+
+        for filter_ in self.filters:
+            result = await filter_(everything)
+            filter_results.append(result)
+        
+        return any(filter_results)

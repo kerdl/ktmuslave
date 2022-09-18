@@ -6,7 +6,7 @@ from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything
 from .types import RawEvent
 
 
-class GroupMentionFilter(BaseMiddleware[Message]):
+class BotMentionFilter(BaseMiddleware[Message]):
     """
     ## Filtering off messages that doesn't mention us
 
@@ -20,10 +20,8 @@ class GroupMentionFilter(BaseMiddleware[Message]):
     - We'll only answer to messages dedicated to us
     """
     async def pre(self):
-        polling: BotPolling = defs.vk_bot.polling
-
         is_group_chat = self.event.peer_id != self.event.from_id
-        bot_id = polling.group_id
+        bot_id = defs.vk_bot_info.id
         negative_bot_id = -bot_id
         
         def did_user_mentioned_bot() -> bool:
@@ -36,6 +34,10 @@ class GroupMentionFilter(BaseMiddleware[Message]):
         def did_user_replied_to_bot_message() -> bool:
             """ ## When you press on bot's message and then `Reply` button """
             reply_message = self.event.reply_message
+
+            if reply_message is None:
+                return False
+
             return reply_message.from_id == negative_bot_id
 
         if (

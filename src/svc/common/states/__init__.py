@@ -80,11 +80,13 @@ class Tree:
                 state.parent = last_parent()
 
             self.__states__.append(state)
-        
+
         for stateA in self.__states__:
             stateA: State
+
             for stateB in self.__states__:
                 stateB: State
+
                 if stateA.parent == stateB:
                     stateB.child.append(stateA)
                     break

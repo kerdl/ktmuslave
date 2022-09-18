@@ -1,7 +1,10 @@
 import sys
 import asyncio
+from typing import Optional
 from vkbottle import Bot as VkBot
+from vkbottle_types.responses.groups import GroupsGroupFull
 from aiogram import Bot as TgBot, Dispatcher, Router
+from aiogram.types import User
 from loguru import logger
 from dataclasses import dataclass
 
@@ -11,11 +14,13 @@ class Defs:
     """
     ## `Def`inition`s` of variables, constants, objects, etc.
     """
-    loop: asyncio.AbstractEventLoop = None
-    vk_bot: VkBot = None
-    tg_bot: TgBot = None
-    tg_router: Router = None
-    tg_dispatch: Dispatcher = None
+    loop: Optional[asyncio.AbstractEventLoop] = None
+    vk_bot: Optional[VkBot] = None
+    vk_bot_info: Optional[GroupsGroupFull] = None
+    tg_bot: Optional[TgBot] = None
+    tg_bot_info: Optional[User] = None
+    tg_router: Optional[Router] = None
+    tg_dispatch: Optional[Dispatcher] = None
 
     def init_all(
         self, 
@@ -40,6 +45,20 @@ class Defs:
         self.tg_bot = telegram.load_bot(self.loop)
         self.tg_router = telegram.load_router()
         self.tg_dispatch = telegram.load_dispatch(self.tg_router, init_middlewares)
+
+        async def get_vk_bot_info():
+            groups_data = await self.vk_bot.api.groups.get_by_id()
+            group_data = groups_data[0]
+
+            self.vk_bot_info = group_data
+
+        async def get_tg_bot_info():
+            me = await self.tg_bot.get_me()
+            
+            self.tg_bot_info = me
+
+        self.loop.create_task(get_vk_bot_info())
+        self.loop.create_task(get_tg_bot_info())
 
         if init_middlewares:
             from src.svc.telegram import middlewares

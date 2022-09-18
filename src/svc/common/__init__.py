@@ -1,10 +1,12 @@
 from loguru import logger
 from typing import Literal, Optional
 from dataclasses import dataclass
+from vkbottle import VKAPIError, ShowSnackbarEvent
 from vkbottle.bot import Message as VkMessage
 from aiogram.types import Message as TgMessage, CallbackQuery
 
 from src import defs
+from src.svc import vk, telegram as tg
 from src.svc.vk.types import RawEvent
 from src.svc.common.keyboard import Keyboard
 from .context import Ctx, TgCtx, VkCtx
@@ -20,20 +22,6 @@ class Source:
 
 MESSENGER_SOURCE = Literal["vk", "tg"]
 EVENT_SOURCE = Literal["message", "event"]
-
-
-def tg_is_group_chat(
-    chat_type: Literal[
-        "private", 
-        "group", 
-        "supergroup", 
-        "channel"
-    ]
-):
-    return chat_type in ["group", "supergroup", "channel"]
-
-def vk_is_group_chat(peer_id: int, from_id: int):
-    return peer_id != from_id
 
 
 @dataclass
@@ -57,7 +45,6 @@ class CommonMessage(BaseCommonEvent):
     tg_ctx: Optional[TgCtx] = None
 
     is_group_chat: Optional[bool] = None
-    chat_id: Optional[int] = None
 
 
     @classmethod
@@ -68,8 +55,7 @@ class CommonMessage(BaseCommonEvent):
             src=Source.VK,
             vk=message,
             vk_ctx=vk_ctx,
-            is_group_chat=vk_is_group_chat(message.peer_id, message.from_id),
-            chat_id=message.peer_id
+            is_group_chat=vk.is_group_chat(message.peer_id, message.from_id),
         )
 
         return self
@@ -82,21 +68,42 @@ class CommonMessage(BaseCommonEvent):
             src=Source.TG,
             tg=message,
             tg_ctx=tg_ctx,
-            is_group_chat=tg_is_group_chat(message.chat.type),
-            chat_id=message.chat.id
+            is_group_chat=tg.is_group_chat(message.chat.type),
         )
 
         return self
 
     @property
-    def main_ctx(self):
+    def is_tg_supergroup(self):
+        return self.tg.chat.type == tg.ChatType.SUPERGROUP
+    
+    @property
+    def is_tg_group(self):
+        return self.tg.chat.type == tg.ChatType.GROUP
+
+    @property
+    def main_ctx(self) -> Ctx:
         return ctx
 
     @property
-    def text(self):
+    def chat_id(self) -> int:
+        if self.is_from_vk:
+            return self.vk.peer_id
+        if self.is_from_tg:
+            return self.tg.chat.id
+    
+    @property
+    def message_id(self)-> int:
+        if self.is_from_vk:
+            return self.vk.message_id
+        if self.is_from_tg:
+            return self.tg.message_id
+
+    @property
+    def text(self) -> str:
         if self.is_from_vk:
             return self.vk.text
-        elif self.is_from_tg:
+        if self.is_from_tg:
             return self.tg.text
 
     @property
@@ -105,7 +112,18 @@ class CommonMessage(BaseCommonEvent):
             return self.vk_ctx.navigator
         if self.src == Source.TG:
             return self.tg_ctx.navigator
-    
+
+    async def can_pin(self) -> bool:
+        if self.is_from_vk:
+            return True
+        if self.is_from_tg:
+            bot = await defs.tg_bot.get_chat_member(
+                chat_id = self.chat_id, 
+                user_id = defs.tg_bot_info.id
+            )
+
+            return bot.can_pin_messages
+
     async def answer(
         self,
         text: str,
@@ -152,7 +170,7 @@ class CommonEvent(BaseCommonEvent):
             src=Source.VK,
             vk=event,
             vk_ctx=vk_ctx,
-            is_group_chat=vk_is_group_chat(peer_id, user_id),
+            is_group_chat=vk.is_group_chat(peer_id, user_id),
             chat_id=event["object"]["peer_id"]
         )
 
@@ -166,19 +184,76 @@ class CommonEvent(BaseCommonEvent):
             src=Source.TG,
             tg_callback_query=callback_query,
             tg_ctx=tg_ctx,
-            is_group_chat=tg_is_group_chat(callback_query.message.chat.type),
+            is_group_chat=tg.is_group_chat(callback_query.message.chat.type),
             chat_id=callback_query.message.chat.id
         )
 
         return self
     
     @property
+    def is_tg_supergroup(self):
+        return self.tg_callback_query.message.chat.type == tg.ChatType.SUPERGROUP
+    
+    @property
+    def is_tg_group(self):
+        return self.tg_callback_query.message.chat.type == tg.ChatType.GROUP
+
+    @property
     def navigator(self):
         if self.is_from_vk:
             return self.vk_ctx.navigator
         if self.is_from_tg:
             return self.tg_ctx.navigator
+    
+    @property
+    def message_id(self):
+        if self.is_from_vk:
+            return self.vk["object"]["conversation_message_id"]
+        if self.is_from_tg:
+            return self.tg_callback_query.message.message_id
+
+    async def can_pin(self) -> bool:
+        if self.is_from_vk:
+            try:
+                members = await defs.vk_bot.api.messages.get_conversation_members(
+                    peer_id = self.vk["object"]["peer_id"]
+                )
+
+                return True
+            # You don't have access to this chat
+            except VKAPIError[917]:
+                return False
+
+        if self.is_from_tg:
+            bot = await defs.tg_bot.get_chat_member(
+                chat_id = self.chat_id, 
+                user_id = defs.tg_bot_info.id
+            )
+
+            return bot.can_pin_messages
+
+    async def show_notification(
+        self,
+        text: str
+    ):
+        """
+        ## Show little notification on top
+        """
+
+        if self.is_from_vk:
+            result = await defs.vk_bot.api.messages.send_message_event_answer(
+                event_id   = self.vk["object"]["event_id"],
+                user_id    = self.vk["object"]["user_id"],
+                peer_id    = self.vk["object"]["peer_id"],
+                event_data = ShowSnackbarEvent(text=text)
+            )
         
+        elif self.is_from_tg:
+            result = await self.tg_callback_query.answer(
+                text, 
+                show_alert=True
+            )
+
     async def edit_message(
         self,
         text: str, 
@@ -207,10 +282,11 @@ class CommonEvent(BaseCommonEvent):
             message_id = self.tg_callback_query.message.message_id
 
             result = await defs.tg_bot.edit_message_text(
-                chat_id      = chat_id,
-                message_id   = message_id,
-                text         = text,
-                reply_markup = keyboard.to_tg() if keyboard else None,
+                chat_id                  = chat_id,
+                message_id               = message_id,
+                text                     = text,
+                reply_markup             = keyboard.to_tg() if keyboard else None,
+                disable_web_page_preview = True
             )
 
 @dataclass
@@ -254,6 +330,20 @@ class CommonEverything(BaseCommonEvent):
     @property
     def is_from_event(self):
         return self.event_src == Source.EVENT
+    
+    @property
+    def is_tg_supergroup(self):
+        if self.is_from_event:
+            return self.event.is_tg_supergroup
+        if self.is_from_message:
+            return self.message.is_tg_supergroup
+    
+    @property
+    def is_tg_group(self):
+        if self.is_from_event:
+            return self.event.is_tg_group
+        if self.is_from_message:
+            return self.message.is_tg_group
 
     @property
     def navigator(self):
@@ -262,6 +352,11 @@ class CommonEverything(BaseCommonEvent):
         if self.is_from_event:
             return self.event.navigator
 
+    async def can_pin(self) -> bool:
+        if self.is_from_event:
+            return await self.event.can_pin()
+        if self.is_from_message:
+            return await self.message.can_pin()
 
 def run_forever():
     """
