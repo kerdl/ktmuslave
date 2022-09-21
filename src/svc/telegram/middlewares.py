@@ -31,6 +31,13 @@ class BotMentionFilter:
         is_group_chat = tg.is_group_chat(event.chat.type)
 
         def did_user_used_bot_command() -> bool:
+            if event.text == "/":
+                return False
+            elif "/" in event.text:
+                return True
+            
+            return False
+    
             if event.entities is None:
                 return False
             

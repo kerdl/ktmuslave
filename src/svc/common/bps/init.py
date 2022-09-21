@@ -29,7 +29,7 @@ GROUPS = ["1кдд69", "соси", "губой", "тряси"]
 @r.on_everything(StateFilter(Init.I_FINISH))
 async def finish(everything: CommonEverything):
     answer_text = (
-        messages.Builder()
+        messages.Builder(everything=everything)
                 .add(states_fmt.tree(everything.navigator.trace))
                 .add("finish ebat")
     )
@@ -38,21 +38,10 @@ async def finish(everything: CommonEverything):
     ])
 
 
-    if everything.is_from_event:
-        event = everything.event
-
-        await event.edit_message(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
-        )
-    
-    elif everything.is_from_message:
-        message = everything.message
-
-        await message.answer(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
-        )
+    await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard
+    )
 
 
 async def to_finish(everything: CommonEverything):
@@ -97,7 +86,7 @@ async def approve_pin(everything: CommonEverything):
 @r.on_everything(StateFilter(Init.II_SHOULD_PIN))
 async def should_pin(everything: CommonEverything):
     answer_text = (
-        messages.Builder()
+        messages.Builder(everything=everything)
                 .add(states_fmt.tree(everything.navigator.trace))
     )
 
@@ -133,21 +122,10 @@ async def should_pin(everything: CommonEverything):
             answer_text.add(messages.format_chat_will_migrate())
 
 
-    if everything.is_from_event:
-        event = everything.event
-
-        await event.edit_message(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
-        )
-    
-    elif everything.is_from_message:
-        message = everything.message
-
-        await message.answer(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
-        )
+    await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard
+    )
 
 
 async def to_should_pin(everything: CommonEverything):
@@ -172,7 +150,7 @@ async def approve_broadcast(everything: CommonEverything):
 @r.on_everything(StateFilter(Init.I_SCHEDULE_BROADCAST))
 async def schedule_broadcast(everything: CommonEverything):
     answer_text = (
-        messages.Builder()
+        messages.Builder(everything=everything)
                 .add(states_fmt.tree(everything.navigator.trace))
                 .add(messages.format_schedule_broadcast())
     )
@@ -181,21 +159,11 @@ async def schedule_broadcast(everything: CommonEverything):
         [BACK_BUTTON]
     ])
 
-    if everything.is_from_event:
-        event = everything.event
 
-        await event.edit_message(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
-        )
-    
-    elif everything.is_from_message:
-        message = everything.message
-
-        await message.answer(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
-        )
+    await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard
+    )
 
 
 async def to_schedule_broadcast(everything: CommonEverything):
@@ -220,7 +188,7 @@ async def unknown_group(everything: CommonEverything, group: str):
         message = everything.message
 
         answer_text = (
-            messages.Builder()
+            messages.Builder(everything=everything)
                     .add(states_fmt.tree(everything.navigator.trace))
                     .add(messages.format_unknown_group(group))
         )
@@ -229,6 +197,7 @@ async def unknown_group(everything: CommonEverything, group: str):
             [TRUE_BUTTON],
             [BACK_BUTTON]
         ])
+
 
         await message.answer(
             text     = answer_text.make(),
@@ -247,6 +216,9 @@ async def to_unknown_group(everything: CommonEverything, group: str):
     StateFilter(Init.II_UNKNOWN_GROUP)
 ]))
 async def group(everything: CommonEverything):
+
+    if everything.navigator.current == Init.II_UNKNOWN_GROUP:
+        everything.navigator.back()
 
     footer_addition = ""
 
@@ -272,12 +244,9 @@ async def group(everything: CommonEverything):
         # if no group in text
         if group_match is None:
 
-            if everything.navigator.current == Init.II_UNKNOWN_GROUP:
-                everything.navigator.back()
-
             # send a message saying "your input is invalid"
             answer_text = (
-                messages.Builder()
+                messages.Builder(everything=everything)
                         .add(states_fmt.tree(everything.navigator.trace))
                         .add(messages.format_groups(GROUPS))
                         .add(messages.format_invalid_group())
@@ -302,7 +271,7 @@ async def group(everything: CommonEverything):
         event = everything.event
 
         answer_text = (
-            messages.Builder()
+            messages.Builder(everything=everything)
                     .add(states_fmt.tree(everything.navigator.trace))
                     .add(messages.format_groups(GROUPS))
                     .add(messages.format_group_input())
@@ -324,7 +293,7 @@ async def begin(everything: CommonEverything):
 @r.on_everything(StateFilter(Init.I_MAIN))
 async def main(everything: CommonEverything):
     answer_text = (
-        messages.Builder()
+        messages.Builder(everything=everything)
                 .add(messages.format_welcome(everything.is_group_chat))
                 .add(messages.format_press_begin())
     )
@@ -333,21 +302,10 @@ async def main(everything: CommonEverything):
     ])
 
 
-    if everything.is_from_message:
-        message = everything.message
-
-        await message.answer(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard,
-        )
-    
-    elif everything.is_from_event:
-        event = everything.event
-
-        await event.edit_message(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard,
-        )
+    await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard
+    )
 
 
 STATE_MAP = {

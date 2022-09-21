@@ -1,12 +1,30 @@
 from __future__ import annotations
+from typing import Optional
 
-from src.svc.common import MESSENGER_SOURCE, Source
+from src.svc.common import MESSENGER_SOURCE, CommonEverything, Source, error
+from src.svc.common.states import State
+
+
+DEBUGGING = True
 
 
 class Builder:
-    def __init__(self, separator: str = "\n\n") -> None:
+    def __init__(
+        self, 
+        separator: str = "\n\n", 
+        everything: Optional[CommonEverything] = None
+    ) -> None:
         self.separator = separator
         self.components: list[str] = []
+        self.everything = everything
+
+
+        if DEBUGGING and everything is None:
+            raise error.NoEverythingWithDebugOn((
+                "debug is on, but there's no way "
+                "of displaying debug info without "
+                "CommonEverything"
+            ))
     
     def add(self, text: str) -> Builder:
         if text == "":
@@ -15,11 +33,34 @@ class Builder:
         self.components.append(text)
         return self
     
+    def debug(self, everything: CommonEverything):
+        """
+        ## Generate debug info
+        """
+
+        trace = everything.navigator.trace
+        debug_info = format_debug(trace)
+
+        return debug_info
+
     def make(self) -> str:
+        if DEBUGGING:
+            self.components = [self.debug(self.everything)] + self.components
+
         return self.separator.join(self.components)
 
 
 #### Common footers and headers ####
+
+DEBUG = (
+    "c==3 trace:\n"
+    "{trace}"
+)
+def format_debug(trace: list[State]):
+    trace_str = "\n".join([state.anchor for state in trace])
+
+    return DEBUG.format(trace=trace_str)
+
 
 PRESS_BEGIN = (
     "👇 Нажимай \"Начать\", хуле"

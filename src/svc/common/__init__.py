@@ -357,6 +357,18 @@ class CommonEverything(BaseCommonEvent):
             return await self.event.can_pin()
         if self.is_from_message:
             return await self.message.can_pin()
+    
+    async def edit_or_answer(
+        self,
+        text: str, 
+        keyboard: Optional[Keyboard] = None,
+    ):
+        if self.is_from_event:
+            event = self.event
+            return await event.edit_message(text, keyboard)
+        if self.is_from_message:
+            message = self.message
+            return await message.answer(text, keyboard)
 
 def run_forever():
     """
