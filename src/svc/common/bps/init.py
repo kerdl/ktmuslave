@@ -31,7 +31,7 @@ async def finish(everything: CommonEverything):
     answer_text = (
         messages.Builder(everything=everything)
                 .add(states_fmt.tree(everything.navigator.trace))
-                .add("finish ebat")
+                .add(messages.format_finish())
     )
     answer_keyboard = Keyboard([
         [BACK_BUTTON, FINISH_BUTTON]
@@ -79,7 +79,7 @@ async def deny_pin(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.II_SHOULD_PIN), PayloadFilter(Payload.TRUE))
 async def approve_pin(everything: CommonEverything):
-    everything.navigator.back()
+    #everything.navigator.back()
     return await to_finish(everything)
 
 
@@ -253,8 +253,8 @@ async def group(everything: CommonEverything):
                         .add(footer_addition)
             )
             await message.answer(
-                text     = answer_text.make(),
-                keyboard = answer_keyboard
+                text           = answer_text.make(),
+                keyboard       = answer_keyboard,
             )
 
         # else if this group not in list of all available groups
@@ -278,8 +278,8 @@ async def group(everything: CommonEverything):
                     .add(footer_addition)
         )
         await event.edit_message(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
+            text           = answer_text.make(),
+            keyboard       = answer_keyboard,
         )
 
 

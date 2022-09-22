@@ -189,6 +189,13 @@ def format_cant_pin(src: MESSENGER_SOURCE):
         return CANT_PIN_TG
 
 
+FINISH = (
+    "Фпринципи фсё, можешь перепроверить или нажать \"Закончить\""
+)
+def format_finish():
+    return FINISH
+
+
 if __name__ == "__main__":
     #print(format_group(groups="mommy", should_mention=True, mention="@mommy", should_reply=False))
     print(format_invalid_group("mommy"))

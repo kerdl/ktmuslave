@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Literal, Iterable
+from copy import deepcopy
 
 from src.svc.common import error
 
@@ -32,13 +33,14 @@ class State:
     space: Optional[SPACE_LITERAL] = None
     anchor: Optional[str] = None
     level: Optional[int] = None
-    value: Optional[str] = None
-    """ ## Represent a value that was set on this state as string """
     parent: Optional[State] = None
     child: Optional[list[State]] = None
 
     def __hash__(self) -> int:
         return hash(self.anchor)
+    
+    def copy(self):
+        ...
 
 @dataclass
 class Tree:

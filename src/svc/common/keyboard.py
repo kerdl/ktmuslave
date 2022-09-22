@@ -8,6 +8,7 @@ from vkbottle import (
 from aiogram.types import (
     InlineKeyboardMarkup as TgKeyboard, 
     InlineKeyboardButton as TgInlineButton,
+    ForceReply as TgForceReply
 )
 from dataclasses import dataclass
 
@@ -125,6 +126,7 @@ class Keyboard:
         tg_kb = TgKeyboard(inline_keyboard=schema)
 
         return tg_kb
+
 
 TRUE_BUTTON   = Button(Text.TRUE, Payload.TRUE, Color.GREEN)
 FALSE_BUTTON  = Button(Text.FALSE, Payload.FALSE, Color.RED)

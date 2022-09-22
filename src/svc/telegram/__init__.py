@@ -2,7 +2,7 @@ import asyncio
 from typing import Literal
 from dotenv import get_key
 from aiogram import Bot, Router, Dispatcher
-from aiogram.types import MessageEntity
+from aiogram.types import MessageEntity, ForceReply
 
 
 class ChatType:
@@ -45,6 +45,9 @@ def extract_commands(entities: list[MessageEntity], text: str) -> list[str]:
             commands.append(command)
     
     return commands
+
+def force_reply() -> ForceReply:
+    return ForceReply(force_reply=True)
 
 
 def load_bot(loop: asyncio.BaseEventLoop | asyncio.AbstractEventLoop = None) -> Bot:

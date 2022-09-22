@@ -3,7 +3,6 @@ if __name__ == "__main__":
     sys.path.append('.')
 
 from src.svc.common.states import State
-from src.svc.common import CommonMessage, CommonEvent
 
 
 def tabs(level: int) -> str:
@@ -40,15 +39,16 @@ def tree(trace: list[State], base_lvl: int = 1):
         is_last = (i + 1) == len(tree.__states__)
 
         def choose_state_format(state: State) -> str:
-            this_state_childs_in_trace = False
+            we_in_this_state_child_branch = False
 
             for child in state.child:
-                if child in trace:
-                    this_state_childs_in_trace = True
+                if child in trace and current_state.level == child.level:
+                    we_in_this_state_child_branch = True
+                    break
 
             if state == current_state:
                 return current(state)
-            elif this_state_childs_in_trace:
+            elif we_in_this_state_child_branch:
                 return unfolded(state)
             elif state in trace:
                 return completed(state)
