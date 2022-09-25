@@ -1,8 +1,8 @@
-from vkbottle import BaseMiddleware, BotPolling
+from vkbottle import BaseMiddleware, ShowSnackbarEvent
 from vkbottle.bot import Message
 
 from src import defs
-from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything
+from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages
 from .types import RawEvent
 
 
@@ -71,6 +71,18 @@ class CtxCheckMessage(BaseMiddleware[Message]):
         if ctx.vk.get(peer_id) is None:
             ctx.add_vk(peer_id)
 
+class CommonMessageMaker(BaseMiddleware[Message]):
+    """
+    ## Makes `CommonMessage` from vk message and sends it to a handler
+    ### It's a `message_new` middleware
+    """
+    async def pre(self):
+        message = CommonMessage.from_vk(self.event)
+        everything = CommonEverything.from_message(message)
+        
+        self.send({"common_message": message})
+        self.send({"everything": everything})
+
 class CommonEventMaker(BaseMiddleware[RawEvent]):
     """
     ## Makes `CommonEvent` from vk event and sends it to a handler
@@ -83,15 +95,24 @@ class CommonEventMaker(BaseMiddleware[RawEvent]):
         self.send({"common_event": event})
         self.send({"everything": everything})
 
-
-class CommonMessageMaker(BaseMiddleware[Message]):
+class OldMessagesBlock(BaseMiddleware[RawEvent]):
     """
-    ## Makes `CommonMessage` from vk message and sends it to a handler
-    ### It's a `message_new` middleware
+    ## Blocks usage of old messages and buttons
+    ### It's a `raw_event` middleware
     """
     async def pre(self):
-        message = CommonMessage.from_vk(self.event)
-        everything = CommonEverything.from_message(message)
-        
-        self.send({"common_message": message})
-        self.send({"everything": everything})
+        user_ctx = ctx.vk.get(self.event["object"]["peer_id"])
+
+        this_message_id = self.event["object"]["conversation_message_id"]
+        last_message_id = user_ctx.last_bot_message_id
+
+        if this_message_id != last_message_id:
+
+            await defs.vk_bot.api.messages.send_message_event_answer(
+                event_id   = self.event["object"]["event_id"],
+                user_id    = self.event["object"]["user_id"],
+                peer_id    = self.event["object"]["peer_id"],
+                event_data = ShowSnackbarEvent(text=messages.format_cant_press_old_buttons())
+            )
+
+            self.stop()

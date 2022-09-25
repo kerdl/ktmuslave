@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional
 from typing import Literal
 from vkbottle import (
@@ -11,6 +12,8 @@ from aiogram.types import (
     ForceReply as TgForceReply
 )
 from dataclasses import dataclass
+
+from src.svc.vk.keyboard import CMD
 
 
 class Payload:
@@ -80,13 +83,19 @@ class Button:
     callback: str
     color: Optional[COLOR_LITERAL] = None
 
+    def only_if(self, condition: bool) -> Optional[Button]:
+        """ ## Return `Button` if `condition` is `True`, else return `None` """
+        if condition is True:
+            return self
+        else:
+            return None
+
 @dataclass
 class Keyboard:
     """
     ## Inline-only cross-platform keyboard
     """
-    schema: list[list[Button]]
-
+    schema: list[list[Optional[Button]]]
 
     def to_vk(self) -> VkKeyboard:
         """
@@ -94,13 +103,17 @@ class Keyboard:
         """
 
         vk_kb = VkKeyboard(inline=True)
-        
+
         for (i, row) in enumerate(self.schema):
             is_last = i == len(self.schema) - 1
 
             for button in row:
+
+                if button is None:
+                    continue
+
                 color = Color.to_vk(button.color)
-                vk_kb.add(VkCallback(button.text, {"cmd": button.callback}), color=color)
+                vk_kb.add(VkCallback(button.text, {CMD: button.callback}), color=color)
             
             if not is_last:
                 vk_kb.row()
@@ -118,6 +131,10 @@ class Keyboard:
             current_row: list[TgInlineButton] = []
 
             for button in row:
+
+                if button is None:
+                    continue
+
                 tg_btn = TgInlineButton(text=button.text, callback_data=button.callback)
                 current_row.append(tg_btn)
             

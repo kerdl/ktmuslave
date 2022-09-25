@@ -1,11 +1,17 @@
 from loguru import logger
-from aiogram.types import Update, Message, CallbackQuery, MessageEntity
-from typing import Callable, Any, Awaitable
+from aiogram.types import Update, Message, CallbackQuery, Chat
+from typing import Callable, Any, Awaitable, Optional
 
 from src import defs
 from src.svc import telegram as tg
-from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything
+from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages
 
+
+def get_chat(event: Update) -> Optional[Chat]:
+    if event.event_type == tg.EventType.MESSAGE:
+        return event.message.chat
+    if event.event_type == tg.EventType.CALLBACK_QUERY:
+        return event.callback_query.message.chat
 
 class BotMentionFilter:
     """
@@ -90,13 +96,24 @@ class CtxCheck:
         """
         logger.info("CtxCheck")
 
-        if event.event_type == "message":
-            chat = event.message.chat
-        elif event.event_type == "callback_query":
-            chat = event.callback_query.message.chat
+        chat = get_chat(event)
 
         if ctx.tg.get(chat.id) is None:
             ctx.add_tg(chat)
+
+        return await handler(event, data)
+
+class Throttling:
+    async def __call__(
+        self,
+        handler: Callable[[Update, dict[str, Any]], Awaitable[Any]],
+        event: Update,
+        data: dict[str, Any]
+    ):
+        chat = get_chat(event)
+
+        chat_ctx = ctx.tg.get(chat.id)
+        await chat_ctx.throttle()
 
         return await handler(event, data)
 
@@ -137,4 +154,22 @@ class CommonEventMaker:
 
         return await handler(event, data)
 
+class OldMessagesBlock:
+    async def __call__(
+        self,
+        handler: Callable[[Update, dict[str, Any]], Awaitable[Any]],
+        event: CallbackQuery,
+        data: dict[str, Any]
+    ):
+        common_event: CommonEvent = data["common_event"]
+
+        this_message_id = common_event.message_id
+        last_message_id = common_event.ctx.last_bot_message_id
+
+        if this_message_id != last_message_id:
+            await common_event.show_notification(
+                messages.format_cant_press_old_buttons()
+            )
+            return
         
+        return await handler(event, data)

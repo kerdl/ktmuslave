@@ -21,3 +21,20 @@ async def back(everything: CommonEverything):
 
     handler = space.STATE_MAP.get(navigator.current)
     return await handler(everything)
+
+@r.on_callback(PayloadFilter(Payload.NEXT))
+async def next(everything: CommonEverything):
+    from . import init, hub
+
+
+    navigator = everything.navigator
+
+    if navigator.space == Space.INIT:
+        space = init
+    elif navigator.space == Space.HUB:
+        space = hub
+    
+    navigator.next()
+
+    handler = space.STATE_MAP.get(navigator.current)
+    return await handler(everything)

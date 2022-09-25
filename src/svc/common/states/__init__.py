@@ -1,7 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Literal, Iterable
-from copy import deepcopy
 
 from src.svc.common import error
 
@@ -38,9 +37,6 @@ class State:
 
     def __hash__(self) -> int:
         return hash(self.anchor)
-    
-    def copy(self):
-        ...
 
 @dataclass
 class Tree:
@@ -57,7 +53,7 @@ class Tree:
 
         filtered_states: filter[tuple[str, State]] = (
             # filter by condition              for "Init" or "Hub" trees
-            filter(self.__filter_condition__, type(self).__dict__.items())
+            filter(self.__filter_states__, type(self).__dict__.items())
         )
 
         parent_trace: list[State] = []
@@ -97,7 +93,7 @@ class Tree:
         return iter(self.__states__)
 
     @staticmethod
-    def __filter_condition__(attr: tuple[str, State]):
+    def __filter_states__(attr: tuple[str, State]):
         """
         ## Called by `filter` as a condition check
         - `attr` - a tuple of `( KEY, VALUE )`

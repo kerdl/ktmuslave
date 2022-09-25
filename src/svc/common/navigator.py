@@ -21,6 +21,10 @@ class Navigator:
             where started                current state
     ```notpython
     """
+    back_trace: list[State]
+    """
+    ## Current state moves here when you press `Back` button
+    """
 
     @property
     def current(self) -> Optional[State]:
@@ -59,4 +63,13 @@ class Navigator:
         ## Remove last state from current space
         """
         if len(self.trace) > 1:
+            self.back_trace.append(self.current)
+
             del self.trace[-1]
+    
+    def next(self):
+        if len(self.back_trace) > 0:
+            last_back_state = self.back_trace[-1]
+            self.append(last_back_state)
+
+            del self.back_trace[-1]

@@ -16,8 +16,9 @@ def load(loop = None) -> Bot:
         BotMentionFilter,
         CtxCheckRaw,
         CtxCheckMessage,
-        CommonEventMaker,
         CommonMessageMaker,
+        CommonEventMaker,
+        OldMessagesBlock
     )
 
     message_view_middlewares = [
@@ -29,6 +30,7 @@ def load(loop = None) -> Bot:
     raw_event_view_middlewares = [
         CtxCheckRaw,
         CommonEventMaker,
+        OldMessagesBlock
     ]
     
     # mw - MiddleWare

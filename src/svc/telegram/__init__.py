@@ -23,6 +23,9 @@ class EntityType:
     MENTION = "mention"
     BOT_COMMAND = "bot_command"
 
+class EventType:
+    MESSAGE = "message"
+    CALLBACK_QUERY = "callback_query"
 
 def extract_mentions(entities: list[MessageEntity], text: str) -> list[str]:
     mentions: list[str] = []
@@ -77,14 +80,17 @@ def load_dispatch(router: Router, init_middlewares: bool = True) -> Dispatcher:
 
     if init_middlewares:
         from .middlewares import (
+            Throttling,
             BotMentionFilter,
             CtxCheck,
             CommonMessageMaker,
-            CommonEventMaker
+            CommonEventMaker,
+            OldMessagesBlock
         )
 
         update_outer_middlewares = [
-            CtxCheck()
+            CtxCheck(),
+            Throttling(),
         ]
 
         message_outer_middlewares = [
@@ -93,7 +99,8 @@ def load_dispatch(router: Router, init_middlewares: bool = True) -> Dispatcher:
         ]
 
         callback_query_outer_middlewares = [
-            CommonEventMaker()
+            CommonEventMaker(),
+            OldMessagesBlock()
         ]
 
     else:

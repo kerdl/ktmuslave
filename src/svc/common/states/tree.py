@@ -37,6 +37,7 @@ class Init(Tree):
     II_SHOULD_PIN        = State(**SHOULD_PIN)
     I_FINISH             = State(**INIT_FINISH)
 
+
 class Hub(Tree):
     """
     ```
@@ -56,6 +57,7 @@ class Hub(Tree):
     IIII_UNKNOWN_GROUP     = State(**UNKNOWN_GROUP)
     III_SCHEDULE_BROADCAST = State(**SCHEDULE_BROADCAST)
     III_SHOULD_PIN         = State(**SHOULD_PIN)
+
 
 INIT = Init()
 HUB = Hub()

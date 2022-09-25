@@ -2,25 +2,49 @@ if __name__ == "__main__":
     import sys
     sys.path.append('.')
 
+from typing import Any, Optional
+
+from src.svc.common.settings import Settings
 from src.svc.common.states import State
+
+
+BOOL_REPR = {
+    True:  "да",
+    False: "нет"
+}
 
 
 def tabs(level: int) -> str:
     return "  " * (level - 1)
 
-def completed(state: State) -> str:
-    return f"✅ {state.name}"
+def add_value(original_text: str, value: Optional[Any] = None) -> str:
+    if value is not None:
+        return original_text + f": {value}"
+    else:
+        return original_text
 
-def current(state: State) -> str:
-    return f"➡️ {state.name}"
 
-def unfolded(state: State) -> str:
-    return f"⏺️ {state.name}"
+def completed(state: State, value: Optional[Any] = None) -> str:
+    text = f"✅ {state.name}"
 
-def upcoming(state: State) -> str:
-    return f"⬜ {state.name}"
+    return add_value(text, value)
 
-def tree(trace: list[State], base_lvl: int = 1):
+def current(state: State, value: Optional[Any] = None) -> str:
+    text = f"➡️ {state.name}"
+
+    return add_value(text, value)
+
+def unfolded(state: State, value: Optional[Any] = None) -> str:
+    text = f"⏺️ {state.name}"
+
+    return add_value(text, value)
+
+def upcoming(state: State, value: Optional[Any] = None) -> str:
+    text = f"⬜ {state.name}"
+
+    return add_value(text, value)
+
+def tree(trace: list[State], settings: Optional[Settings] = None, base_lvl: int = 1):
     """
     ## Convert tree to a nice readable text
     """
@@ -45,15 +69,23 @@ def tree(trace: list[State], base_lvl: int = 1):
                 if child in trace and current_state.level == child.level:
                     we_in_this_state_child_branch = True
                     break
+            
+            value = None
+
+            if settings:
+                value = settings.get_from_state(state)
+
+                if isinstance(value, bool):
+                    value = BOOL_REPR.get(value)
 
             if state == current_state:
-                return current(state)
+                return current(state, value)
             elif we_in_this_state_child_branch:
-                return unfolded(state)
+                return unfolded(state, value)
             elif state in trace:
-                return completed(state)
+                return completed(state, value)
             else:
-                return upcoming(state)
+                return upcoming(state, value)
             
         def construct_state(state: State) -> str:
             fmt = ""

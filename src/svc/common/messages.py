@@ -5,7 +5,7 @@ from src.svc.common import MESSENGER_SOURCE, CommonEverything, Source, error
 from src.svc.common.states import State
 
 
-DEBUGGING = True
+DEBUGGING = False
 
 
 class Builder:
@@ -60,6 +60,13 @@ def format_debug(trace: list[State]):
     trace_str = "\n".join([state.anchor for state in trace])
 
     return DEBUG.format(trace=trace_str)
+
+
+CANT_PRESS_OLD_BUTTONS = (
+    "ыаыаыа низя старые кнопачки жать 🤪🤪🤪"
+)
+def format_cant_press_old_buttons():
+    return CANT_PRESS_OLD_BUTTONS
 
 
 PRESS_BEGIN = (
@@ -190,7 +197,7 @@ def format_cant_pin(src: MESSENGER_SOURCE):
 
 
 FINISH = (
-    "Фпринципи фсё, можешь перепроверить или нажать \"Закончить\""
+    "👍 | Фпринципи фсё, можешь перепроверить или нажать \"Закончить\""
 )
 def format_finish():
     return FINISH

@@ -7,9 +7,10 @@ from aiogram.types import Message as TgMessage, CallbackQuery
 
 from src import defs
 from src.svc import vk, telegram as tg
+from src.svc.common.navigator import Navigator
 from src.svc.vk.types import RawEvent
 from src.svc.common.keyboard import Keyboard
-from .context import Ctx, TgCtx, VkCtx
+from .context import Ctx, TgCtx, VkCtx, BaseCtx
 
 
 ctx = Ctx({}, {})
@@ -84,6 +85,13 @@ class CommonMessage(BaseCommonEvent):
     @property
     def main_ctx(self) -> Ctx:
         return ctx
+    
+    @property
+    def ctx(self) -> BaseCtx:
+        if self.is_from_vk:
+            return self.vk_ctx
+        if self.is_from_tg:
+            return self.tg_ctx
 
     @property
     def chat_id(self) -> int:
@@ -138,6 +146,8 @@ class CommonMessage(BaseCommonEvent):
                 dont_parse_links = True,
             )
 
+            self.ctx.last_bot_message_id = result.conversation_message_id
+
         elif self.is_from_tg:
             tg_message = self.tg
 
@@ -145,6 +155,8 @@ class CommonMessage(BaseCommonEvent):
                 text         = text,
                 reply_markup = keyboard.to_tg() if keyboard else None,
             )
+
+            self.ctx.last_bot_message_id = result.message_id
 
 @dataclass
 class CommonEvent(BaseCommonEvent):
@@ -211,6 +223,13 @@ class CommonEvent(BaseCommonEvent):
             return self.vk["object"]["conversation_message_id"]
         if self.is_from_tg:
             return self.tg_callback_query.message.message_id
+
+    @property
+    def ctx(self) -> BaseCtx:
+        if self.is_from_vk:
+            return self.vk_ctx
+        if self.is_from_tg:
+            return self.tg_ctx
 
     async def can_pin(self) -> bool:
         if self.is_from_vk:
@@ -324,33 +343,54 @@ class CommonEverything(BaseCommonEvent):
         return self
 
     @property
-    def is_from_message(self):
+    def is_from_message(self) -> bool:
         return self.event_src == Source.MESSAGE
     
     @property
-    def is_from_event(self):
+    def is_from_event(self) -> bool:
         return self.event_src == Source.EVENT
     
     @property
-    def is_tg_supergroup(self):
+    def is_tg_supergroup(self) -> bool:
         if self.is_from_event:
             return self.event.is_tg_supergroup
         if self.is_from_message:
             return self.message.is_tg_supergroup
     
     @property
-    def is_tg_group(self):
+    def is_tg_group(self) -> bool:
         if self.is_from_event:
             return self.event.is_tg_group
         if self.is_from_message:
             return self.message.is_tg_group
 
     @property
-    def navigator(self):
+    def navigator(self) -> Navigator:
         if self.is_from_message:
             return self.message.navigator
         if self.is_from_event:
             return self.event.navigator
+    
+    @property
+    def vk_ctx(self) -> VkCtx:
+        if self.is_from_message:
+            return self.message.vk_ctx
+        if self.is_from_event:
+            return self.event.vk_ctx
+    
+    @property
+    def tg_ctx(self) -> TgCtx:
+        if self.is_from_message:
+            return self.message.tg_ctx
+        if self.is_from_event:
+            return self.event.tg_ctx
+
+    @property
+    def ctx(self) -> BaseCtx:
+        if self.is_from_vk:
+            return self.vk_ctx
+        if self.is_from_tg:
+            return self.tg_ctx
 
     async def can_pin(self) -> bool:
         if self.is_from_event:

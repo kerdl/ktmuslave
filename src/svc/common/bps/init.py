@@ -9,6 +9,7 @@ from src.svc.common.states.tree import Init
 from src.svc.common.router import r
 from src.svc.common.filter import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import (
+    NEXT_BUTTON,
     Keyboard, 
     Payload,
     TRUE_BUTTON,
@@ -22,7 +23,7 @@ from src.svc.common.keyboard import (
 )
 
 
-GROUPS = ["1кдд69", "соси", "губой", "тряси"]
+GROUPS = ["хуй", "соси", "губой", "тряси"]
 
 
 
@@ -30,7 +31,7 @@ GROUPS = ["1кдд69", "соси", "губой", "тряси"]
 async def finish(everything: CommonEverything):
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator.trace))
+                .add(states_fmt.tree(everything.navigator.trace, everything.ctx.settings))
                 .add(messages.format_finish())
     )
     answer_keyboard = Keyboard([
@@ -67,27 +68,36 @@ async def check_do_pin(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.II_SHOULD_PIN), PayloadFilter(Payload.SKIP))
 async def skip_pin(everything: CommonEverything):
-    everything.navigator.back()
+
+    everything.ctx.settings.should_pin = False
+
     return await to_finish(everything)
 
 
 @r.on_callback(StateFilter(Init.II_SHOULD_PIN), PayloadFilter(Payload.FALSE))
 async def deny_pin(everything: CommonEverything):
-    everything.navigator.back()
+
+    everything.ctx.settings.should_pin = False
+
     return await to_finish(everything)
 
 
 @r.on_callback(StateFilter(Init.II_SHOULD_PIN), PayloadFilter(Payload.TRUE))
 async def approve_pin(everything: CommonEverything):
-    #everything.navigator.back()
+    
+    everything.ctx.settings.should_pin = True
+
     return await to_finish(everything)
 
 
 @r.on_everything(StateFilter(Init.II_SHOULD_PIN))
 async def should_pin(everything: CommonEverything):
+
+    is_should_pin_set = everything.ctx.settings.should_pin is not None
+
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator.trace))
+                .add(states_fmt.tree(everything.navigator.trace, everything.ctx.settings))
     )
 
     # if we can pin messages
@@ -96,7 +106,7 @@ async def should_pin(everything: CommonEverything):
         # we should pin (TRUE) or not (FALSE)
         answer_keyboard = Keyboard([
             [TRUE_BUTTON, FALSE_BUTTON],
-            [BACK_BUTTON]
+            [BACK_BUTTON, NEXT_BUTTON.only_if(is_should_pin_set)]
         ])
         # simply ask if user wants to pin
         answer_text.add(messages.format_do_pin())
@@ -108,7 +118,7 @@ async def should_pin(everything: CommonEverything):
         # or skip if he doesn't want to pin
         answer_keyboard = Keyboard([
             [DO_PIN_BUTTON, SKIP_BUTTON],
-            [BACK_BUTTON]
+            [BACK_BUTTON, NEXT_BUTTON.only_if(is_should_pin_set)]
         ])
         # make recommendation messages
         answer_text.add(messages.format_recommend_pin())
@@ -136,11 +146,17 @@ async def to_should_pin(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.I_SCHEDULE_BROADCAST), PayloadFilter(Payload.FALSE))
 async def deny_broadcast(everything: CommonEverything):
+
+    everything.ctx.settings.schedule_broadcast = False
+
     return await to_finish(everything)
 
 
 @r.on_callback(StateFilter(Init.I_SCHEDULE_BROADCAST), PayloadFilter(Payload.TRUE))
 async def approve_broadcast(everything: CommonEverything):
+
+    everything.ctx.settings.schedule_broadcast = True
+    
     if everything.is_group_chat:
         return await to_should_pin(everything)
     
@@ -149,14 +165,17 @@ async def approve_broadcast(everything: CommonEverything):
 
 @r.on_everything(StateFilter(Init.I_SCHEDULE_BROADCAST))
 async def schedule_broadcast(everything: CommonEverything):
+
+    is_schedule_broadcast_set = everything.ctx.settings.schedule_broadcast is not None
+
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator.trace))
+                .add(states_fmt.tree(everything.navigator.trace, everything.ctx.settings))
                 .add(messages.format_schedule_broadcast())
     )
     answer_keyboard = Keyboard([
         [TRUE_BUTTON, FALSE_BUTTON],
-        [BACK_BUTTON]
+        [BACK_BUTTON, NEXT_BUTTON.only_if(is_schedule_broadcast_set)]
     ])
 
 
@@ -177,19 +196,27 @@ async def to_schedule_broadcast(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.II_UNKNOWN_GROUP), PayloadFilter(Payload.TRUE))
 async def confirm_unknown_group(everything: CommonEverything):
+    # get valid group
+    valid_group = everything.ctx.settings.group.valid
+
+    # set it as confirmed
+    everything.ctx.settings.group.confirmed = valid_group
+
     everything.navigator.back()
     
     return await to_schedule_broadcast(everything)
 
 
-async def unknown_group(everything: CommonEverything, group: str):
+async def unknown_group(everything: CommonEverything):
+
+    group = everything.ctx.settings.group.valid
 
     if everything.is_from_message:
         message = everything.message
 
         answer_text = (
             messages.Builder(everything=everything)
-                    .add(states_fmt.tree(everything.navigator.trace))
+                    .add(states_fmt.tree(everything.navigator.trace, message.ctx.settings))
                     .add(messages.format_unknown_group(group))
         )
 
@@ -205,10 +232,10 @@ async def unknown_group(everything: CommonEverything, group: str):
         )
 
 
-async def to_unknown_group(everything: CommonEverything, group: str):
+async def to_unknown_group(everything: CommonEverything):
     everything.navigator.append(Init.II_UNKNOWN_GROUP)
 
-    return await unknown_group(everything, group)
+    return await unknown_group(everything)
 
 
 @r.on_everything(UnionFilter([
@@ -217,6 +244,8 @@ async def to_unknown_group(everything: CommonEverything, group: str):
 ]))
 async def group(everything: CommonEverything):
 
+    is_group_set = everything.ctx.settings.group.confirmed is not None
+
     if everything.navigator.current == Init.II_UNKNOWN_GROUP:
         everything.navigator.back()
 
@@ -224,13 +253,14 @@ async def group(everything: CommonEverything):
 
     if everything.is_group_chat:
         if everything.is_from_vk:
-            footer_addition = messages.format_mention_me("@pizda")
+            mention = f"@{defs.vk_bot_info.screen_name}"
+            footer_addition = messages.format_mention_me(mention)
 
         elif everything.is_from_tg:
             footer_addition = messages.format_reply_to_me()
     
     answer_keyboard = Keyboard([
-        [BACK_BUTTON]
+        [BACK_BUTTON, NEXT_BUTTON.only_if(is_group_set)]
     ])
 
 
@@ -239,7 +269,7 @@ async def group(everything: CommonEverything):
         message = everything.message
 
         # search group regex in user's message text
-        group_match = pattern.group.search(message.text)
+        group_match = pattern.GROUP.search(message.text)
 
         # if no group in text
         if group_match is None:
@@ -247,24 +277,45 @@ async def group(everything: CommonEverything):
             # send a message saying "your input is invalid"
             answer_text = (
                 messages.Builder(everything=everything)
-                        .add(states_fmt.tree(everything.navigator.trace))
+                        .add(states_fmt.tree(everything.navigator.trace, message.ctx.settings))
                         .add(messages.format_groups(GROUPS))
                         .add(messages.format_invalid_group())
                         .add(footer_addition)
             )
-            await message.answer(
+            return await message.answer(
                 text           = answer_text.make(),
                 keyboard       = answer_keyboard,
             )
 
-        # else if this group not in list of all available groups
-        elif group_match.group() not in GROUPS:
-            # ask if we should still set this unknown group
-            return await to_unknown_group(everything, group_match.group())
 
-        else:
-            # everything is ok, proceed to the next state
-            return await to_schedule_broadcast(everything)
+        ## add user's group to context as typed group ##
+        everything.ctx.settings.group.typed = group_match.group()
+        ################################################
+
+
+        # remove nonword from group (separators like "-")
+        group_nonword = pattern.NONWORD.sub("", group_match.group())
+
+        # make group all caps
+        group_caps = group_nonword.upper()
+
+
+        ## add validated group to context as valid group ##
+        everything.ctx.settings.group.valid = group_caps
+        ###################################################
+
+
+        # if this group not in list of all available groups
+        if group_caps not in GROUPS:
+            # ask if we should still set this unknown group
+            return await to_unknown_group(everything)
+
+
+        # everything is ok, set this group as confirmed
+        everything.ctx.settings.group.confirmed = group_caps
+
+        # proceed to the next state
+        return await to_schedule_broadcast(everything)
 
     elif everything.is_from_event:
         # user proceeded to this state from callback button "begin"
@@ -272,7 +323,7 @@ async def group(everything: CommonEverything):
 
         answer_text = (
             messages.Builder(everything=everything)
-                    .add(states_fmt.tree(everything.navigator.trace))
+                    .add(states_fmt.tree(everything.navigator.trace, event.ctx.settings))
                     .add(messages.format_groups(GROUPS))
                     .add(messages.format_group_input())
                     .add(footer_addition)
@@ -285,7 +336,13 @@ async def group(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.I_MAIN), PayloadFilter(Payload.BEGIN))
 async def begin(everything: CommonEverything):
-    everything.navigator.append(Init.I_GROUP)
+
+    # if user didn't came to this state 
+    # from further states using "Back" button
+    if Init.I_GROUP not in everything.navigator.back_trace:
+        everything.navigator.append(Init.I_GROUP)
+    else:
+        everything.navigator.next()
 
     return await group(everything)
 
