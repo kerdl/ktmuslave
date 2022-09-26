@@ -294,15 +294,14 @@ async def group(everything: CommonEverything):
 
     footer_addition = ""
 
-    is_vk_chat = everything.is_group_chat and everything.is_from_vk
-    is_tg_chat = everything.is_group_chat and everything.is_from_tg
 
-    if is_vk_chat:
+    if (everything.is_group_chat and everything.is_from_vk):
         if await everything.vk_has_admin_rights():
             footer_addition = messages.format_reply_to_me()
         else:
             footer_addition = messages.format_mention_me(defs.vk_bot_mention)
-    elif is_tg_chat:
+
+    elif (everything.is_group_chat and everything.is_from_tg):
         footer_addition = messages.format_reply_to_me()
     
     answer_keyboard = Keyboard([
