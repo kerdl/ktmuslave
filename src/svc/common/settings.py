@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Any
 
-from src.svc.common.states import State
+from src.svc.common.states import State, Values
 from src.svc.common.states.tree import Init
 
 
@@ -12,7 +12,7 @@ class Group:
     confirmed: Optional[str] = None
 
 @dataclass
-class Settings:
+class Settings(Values):
     group: Group
     schedule_broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None

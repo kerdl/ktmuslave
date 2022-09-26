@@ -24,6 +24,7 @@ class Navigator:
     back_trace: list[State]
     """
     ## Current state moves here when you press `Back` button
+    - so you can use "Next" button
     """
 
     @property
@@ -44,18 +45,7 @@ class Navigator:
         return self.current.space
 
     def append(self, state: State):
-        """
-        ## Add state to trace
-
-        ## Raises errors:
-        - `SpaceMixing` when trying to add
-        state with different type of space
-        """
-        if state.space != self.space:
-            raise error.SpaceMixing(
-                f"tried to append {state.space} state to {self.space} trace"
-            )
-
+        """ ## Add state to trace """
         self.trace.append(state)
 
     def back(self):

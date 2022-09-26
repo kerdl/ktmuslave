@@ -40,7 +40,7 @@ class PayloadFilter(BaseFilter):
         if event.is_from_vk:
             return event.vk['object']['payload'] == {CMD: self.payload}
         elif event.is_from_tg:
-            return event.tg_callback_query.data == self.payload
+            return event.tg.data == self.payload
         
         return False
 

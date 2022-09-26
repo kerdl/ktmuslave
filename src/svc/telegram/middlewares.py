@@ -32,7 +32,6 @@ class BotMentionFilter:
         event: Message,
         data: dict[str, Any]
     ) -> Any:
-        BOT_MENTION = f"@{defs.tg_bot_info.username}"
 
         is_group_chat = tg.is_group_chat(event.chat.type)
 
@@ -50,7 +49,7 @@ class BotMentionFilter:
             commands = tg.extract_commands(event.entities, event.text)
 
             for command in commands:
-                if BOT_MENTION in command:
+                if defs.tg_bot_mention in command:
                     return True
             
             return False
@@ -62,7 +61,7 @@ class BotMentionFilter:
             mentions = tg.extract_mentions(event.entities, event.text)
 
             # if our bot not in mentions
-            if BOT_MENTION not in mentions:
+            if defs.tg_bot_mention not in mentions:
                 return False
 
             return True
@@ -146,7 +145,7 @@ class CommonEventMaker:
     ) -> Any:
         logger.info("CommonEventMaker")
 
-        common_event = CommonEvent.from_tg_callback_query(event)
+        common_event = CommonEvent.from_tg(event)
         common_everything = CommonEverything.from_event(common_event)
 
         data["common_event"] = common_event

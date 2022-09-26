@@ -3,6 +3,7 @@ from typing import Optional
 
 from src.svc.common import MESSENGER_SOURCE, CommonEverything, Source, error
 from src.svc.common.states import State
+from src.svc.common.keyboard import Text
 
 
 DEBUGGING = False
@@ -31,6 +32,12 @@ class Builder:
             return self
 
         self.components.append(text)
+        return self
+    
+    def add_if(self, text: str, condition: bool):
+        if condition:
+            self.add(text)
+        
         return self
     
     def debug(self, everything: CommonEverything):
@@ -70,7 +77,7 @@ def format_cant_press_old_buttons():
 
 
 PRESS_BEGIN = (
-    "👇 Нажимай \"Начать\", хуле"
+    f"👇 Нажимай {Text.BEGIN}, хуле"
 )
 def format_press_begin():
     return PRESS_BEGIN
@@ -86,14 +93,14 @@ def format_groups(groups: list[str]):
 
 
 MENTION_ME = (
-    "😮 Пиши, упоминая меня: {mention}, иначе не увижу 😮"
+    "😮 Ещё упомяни меня: {mention}, иначе не увижу 😮"
 )
 def format_mention_me(mention: str):
     return MENTION_ME.format(mention=mention)
 
 
 REPLY_TO_ME = (
-    "😮 Пиши, отвечая на это сообщение, иначе не увижу 😮"
+    "😮 Ещё ↩️ ответь ↩️ на это сообщение, иначе не увижу 😮"
 )
 def format_reply_to_me():
     return REPLY_TO_ME
@@ -196,8 +203,33 @@ def format_cant_pin(src: MESSENGER_SOURCE):
         return CANT_PIN_TG
 
 
+RECOMMEND_ADDING_ZOOM = (
+    "📝 | Ты можешь добавить ссылки, ID, пароли Zoom, "
+    "чтобы они показывались в расписании к каждому преподу"
+)
+def format_recommend_adding_zoom():
+    return RECOMMEND_ADDING_ZOOM
+
+
+ZOOM_ADDING_TYPES_EXPLAIN = (
+    f"💬 | {Text.FROM_TEXT} - пересылаешь сообщения с ссылками, "
+    f"автоматом берёт все данные\n"
+    f"✍️ | {Text.MANUALLY} - добавляешь, изменяешь, удаляешь каждого "
+    f"препода по отдельности"
+)
+def format_zoom_adding_types_explain():
+    return ZOOM_ADDING_TYPES_EXPLAIN
+
+
+EXPLAIN_MASS_ZOOM_ADD = (
+    "💬 | Перешли мне сообщения с ссылками на Zoom"
+)
+def format_explain_mass_zoom_add():
+    return EXPLAIN_MASS_ZOOM_ADD
+
+
 FINISH = (
-    "👍 | Фпринципи фсё, можешь перепроверить или нажать \"Закончить\""
+    f"👍 | Фпринципи фсё, можешь перепроверить или нажать {Text.FINISH}"
 )
 def format_finish():
     return FINISH

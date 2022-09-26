@@ -1,6 +1,19 @@
-from vkbottle import Bot
+from vkbottle import Bot, VKAPIError
 from dotenv import get_key
 
+from src import defs
+
+
+async def has_admin_rights(peer_id: int) -> bool:
+    try:
+        members = await defs.vk_bot.api.messages.get_conversation_members(
+            peer_id = peer_id
+        )
+
+        return True
+    # You don't have access to this chat
+    except VKAPIError[917]:
+        return False
 
 def is_group_chat(peer_id: int, from_id: int) -> bool:
     return peer_id != from_id

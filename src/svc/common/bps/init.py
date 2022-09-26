@@ -4,6 +4,7 @@ import re
 from src import defs
 from src.conv import pattern
 from src.svc.common import CommonEverything, messages
+from src.svc.common.bps import zoom_mass, zoom_browse
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import Init
 from src.svc.common.router import r
@@ -19,6 +20,8 @@ from src.svc.common.keyboard import (
 
     BEGIN_BUTTON,
     DO_PIN_BUTTON,
+    FROM_TEXT_BUTTON,
+    MANUALLY_BUTTON,
     FINISH_BUTTON
 )
 
@@ -51,6 +54,46 @@ async def to_finish(everything: CommonEverything):
     return await finish(everything)
 
 
+@r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.SKIP))
+async def skip_add_zoom(everything: CommonEverything):
+    return await to_finish(everything)
+
+
+@r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.FROM_TEXT))
+async def add_zoom_from_text(everything: CommonEverything):
+    return await zoom_mass.to_main(everything)
+
+
+@r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.MANUALLY))
+async def add_zoom_manually(everything: CommonEverything):
+    ...
+
+
+@r.on_everything(StateFilter(Init.I_ZOOM))
+async def add_zoom(everything: CommonEverything):
+    answer_text = (
+        messages.Builder()
+                .add(states_fmt.tree(everything.navigator.trace, everything.ctx.settings))
+                .add(messages.format_recommend_adding_zoom())
+                .add(messages.format_zoom_adding_types_explain())
+    )
+    answer_keyboard = Keyboard([
+        [FROM_TEXT_BUTTON, MANUALLY_BUTTON],
+        [BACK_BUTTON, SKIP_BUTTON]
+    ])
+
+
+    await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard
+    )
+
+async def to_add_zoom(everything: CommonEverything):
+    everything.navigator.append(Init.I_ZOOM)
+
+    return await add_zoom(everything)
+
+
 @r.on_callback(StateFilter(Init.II_SHOULD_PIN), PayloadFilter(Payload.DO_PIN))
 async def check_do_pin(everything: CommonEverything):
 
@@ -71,7 +114,7 @@ async def skip_pin(everything: CommonEverything):
 
     everything.ctx.settings.should_pin = False
 
-    return await to_finish(everything)
+    return await to_add_zoom(everything)
 
 
 @r.on_callback(StateFilter(Init.II_SHOULD_PIN), PayloadFilter(Payload.FALSE))
@@ -79,7 +122,7 @@ async def deny_pin(everything: CommonEverything):
 
     everything.ctx.settings.should_pin = False
 
-    return await to_finish(everything)
+    return await to_add_zoom(everything)
 
 
 @r.on_callback(StateFilter(Init.II_SHOULD_PIN), PayloadFilter(Payload.TRUE))
@@ -87,7 +130,7 @@ async def approve_pin(everything: CommonEverything):
     
     everything.ctx.settings.should_pin = True
 
-    return await to_finish(everything)
+    return await to_add_zoom(everything)
 
 
 @r.on_everything(StateFilter(Init.II_SHOULD_PIN))
@@ -117,8 +160,8 @@ async def should_pin(everything: CommonEverything):
         # can retry after he gives us permission,
         # or skip if he doesn't want to pin
         answer_keyboard = Keyboard([
-            [DO_PIN_BUTTON, SKIP_BUTTON],
-            [BACK_BUTTON, NEXT_BUTTON.only_if(is_should_pin_set)]
+            [DO_PIN_BUTTON],
+            [BACK_BUTTON, SKIP_BUTTON]
         ])
         # make recommendation messages
         answer_text.add(messages.format_recommend_pin())
@@ -149,7 +192,7 @@ async def deny_broadcast(everything: CommonEverything):
 
     everything.ctx.settings.schedule_broadcast = False
 
-    return await to_finish(everything)
+    return await to_add_zoom(everything)
 
 
 @r.on_callback(StateFilter(Init.I_SCHEDULE_BROADCAST), PayloadFilter(Payload.TRUE))
@@ -160,7 +203,7 @@ async def approve_broadcast(everything: CommonEverything):
     if everything.is_group_chat:
         return await to_should_pin(everything)
     
-    return await to_finish(everything)
+    return await to_add_zoom(everything)
 
 
 @r.on_everything(StateFilter(Init.I_SCHEDULE_BROADCAST))
@@ -251,13 +294,16 @@ async def group(everything: CommonEverything):
 
     footer_addition = ""
 
-    if everything.is_group_chat:
-        if everything.is_from_vk:
-            mention = f"@{defs.vk_bot_info.screen_name}"
-            footer_addition = messages.format_mention_me(mention)
+    is_vk_chat = everything.is_group_chat and everything.is_from_vk
+    is_tg_chat = everything.is_group_chat and everything.is_from_tg
 
-        elif everything.is_from_tg:
+    if is_vk_chat:
+        if await everything.vk_has_admin_rights():
             footer_addition = messages.format_reply_to_me()
+        else:
+            footer_addition = messages.format_mention_me(defs.vk_bot_mention)
+    elif is_tg_chat:
+        footer_addition = messages.format_reply_to_me()
     
     answer_keyboard = Keyboard([
         [BACK_BUTTON, NEXT_BUTTON.only_if(is_group_set)]
@@ -371,5 +417,6 @@ STATE_MAP = {
     Init.II_UNKNOWN_GROUP: unknown_group,
     Init.I_SCHEDULE_BROADCAST: schedule_broadcast,
     Init.II_SHOULD_PIN: should_pin,
+    Init.I_ZOOM: add_zoom,
     Init.I_FINISH: finish
 }

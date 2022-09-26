@@ -5,7 +5,7 @@ if __name__ == "__main__":
 from typing import Any, Optional
 
 from src.svc.common.settings import Settings
-from src.svc.common.states import State
+from src.svc.common.states import State, Values
 
 
 BOOL_REPR = {
@@ -44,7 +44,7 @@ def upcoming(state: State, value: Optional[Any] = None) -> str:
 
     return add_value(text, value)
 
-def tree(trace: list[State], settings: Optional[Settings] = None, base_lvl: int = 1):
+def tree(trace: list[State], values: Optional[Values] = None, base_lvl: int = 1):
     """
     ## Convert tree to a nice readable text
     """
@@ -72,8 +72,8 @@ def tree(trace: list[State], settings: Optional[Settings] = None, base_lvl: int 
             
             value = None
 
-            if settings:
-                value = settings.get_from_state(state)
+            if values:
+                value = values.get_from_state(state)
 
                 if isinstance(value, bool):
                     value = BOOL_REPR.get(value)

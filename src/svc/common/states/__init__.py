@@ -9,25 +9,39 @@ class Space:
     """
     ## In what space the user currently in
 
-    By space I mean two types of environments:
+    By space I mean these types of environments:
     - `init` - where user gets first time to specify
         - his group
         - if he wants to get updates
         - if the bot should pin the updates
+        - if he wants to add zoom data
     - `hub` - the main user area, where he can 
         - view schedule, 
         - view links,
         - can change settings
+    - `zoom_mass` - where user can
+        - add new zoom links from one big message of links
+    - `zoom_browse` - where user can
+        - browse all zoom links he added
+    - `zoom_edit` - where user can
+        - edit specific zoom data
     """
-    INIT = "init"
-    HUB = "hub"
+    INIT        = "init"
+    HUB         = "hub"
+    ZOOM_MASS   = "zoom_mass"
+    ZOOM_BROWSE = "zoom_browse"
+    ZOOM_EDIT   = "zoom_edit"
 
-SPACE_LITERAL = Literal["init", "hub"]
+SPACE_LITERAL = Literal["init", "hub", "zoom_mass", "zoom_browse", "zoom_edit"]
+
+
+class Values:
+    def get_from_state(self, state: State): ...
+
 
 @dataclass
 class State:
     name: str
-    emoji: str
     tree: Optional[Tree] = None
     space: Optional[SPACE_LITERAL] = None
     anchor: Optional[str] = None
@@ -52,7 +66,7 @@ class Tree:
         self.__states__ = []
 
         filtered_states: filter[tuple[str, State]] = (
-            # filter by condition              for "Init" or "Hub" trees
+            # filter by condition              for trees
             filter(self.__filter_states__, type(self).__dict__.items())
         )
 
@@ -116,11 +130,21 @@ class Tree:
 
         return len(name.split("_")[0])
 
-INIT_MAIN          = { "name": "Категорически приветствую", "emoji": "🚽" }
-HUB_MAIN           = { "name": "Главная",                   "emoji": "🚽" }
-HUB_SETTINGS       = { "name": "Настройки",                 "emoji": "🚽" }
-GROUP              = { "name": "Группа",                    "emoji": "🚽" }
-UNKNOWN_GROUP      = { "name": "Неизвестная группа",        "emoji": "🚽" }
-SCHEDULE_BROADCAST = { "name": "Рассылка расписания",       "emoji": "🚽" }
-SHOULD_PIN         = { "name": "Закреп расписания",         "emoji": "🚽" }
-INIT_FINISH        = { "name": "ФИНААААЛ СУЧКИ",            "emoji": "🚽" }
+INIT_MAIN               = { "name": "Категорически приветствую", }
+HUB_MAIN                = { "name": "Главная",                   }
+HUB_SETTINGS            = { "name": "Настройки",                 }
+GROUP                   = { "name": "Группа",                    }
+UNKNOWN_GROUP           = { "name": "Неизвестная группа",        }
+SCHEDULE_BROADCAST      = { "name": "Рассылка расписания",       }
+SHOULD_PIN              = { "name": "Закреп расписания",         }
+INIT_ZOOM               = { "name": "Zoom данные",               }
+INIT_FINISH             = { "name": "ФИНААААЛ СУЧКИ",            }
+ZOOM_MASS_MAIN          = { "name": "Сообщение с ссылками",      }
+ZOOM_MASS_NEW_DATA      = { "name": "Новые данные",              }
+ZOOM_MASS_OVERRIDE_DATA = { "name": "Перезапись данных",         }
+ZOOM_MASS_CHECK         = { "name": "Подтверждение изменений"    }
+ZOOM_BROWSE_MAIN        = { "name": "Выбор препода",             }
+ZOOM_EDIT_NAME          = { "name": "Имя препода",               }
+ZOOM_EDIT_URL           = { "name": "Ссылка",                    }
+ZOOM_EDIT_ID            = { "name": "ID",                        }
+ZOOM_EDIT_PWD           = { "name": "Пароль",                    }

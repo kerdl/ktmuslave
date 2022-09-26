@@ -17,8 +17,10 @@ class Defs:
     loop: Optional[asyncio.AbstractEventLoop] = None
     vk_bot: Optional[VkBot] = None
     vk_bot_info: Optional[GroupsGroupFull] = None
+    vk_bot_mention: Optional[str] = None
     tg_bot: Optional[TgBot] = None
     tg_bot_info: Optional[User] = None
+    tg_bot_mention: Optional[str] = None
     tg_router: Optional[Router] = None
     tg_dispatch: Optional[Dispatcher] = None
 
@@ -51,11 +53,13 @@ class Defs:
             group_data = groups_data[0]
 
             self.vk_bot_info = group_data
+            self.vk_bot_mention = "@" + group_data.screen_name
 
         async def get_tg_bot_info():
             me = await self.tg_bot.get_me()
             
             self.tg_bot_info = me
+            self.tg_bot_mention = "@" + me.username
 
         self.loop.create_task(get_vk_bot_info())
         self.loop.create_task(get_tg_bot_info())

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from loguru import logger
 from typing import Literal, Optional
 from dataclasses import dataclass
@@ -27,7 +28,8 @@ EVENT_SOURCE = Literal["message", "event"]
 
 @dataclass
 class BaseCommonEvent:
-    src: MESSENGER_SOURCE
+    src: Optional[MESSENGER_SOURCE] = None
+    chat_id: Optional[int] = None
 
     @property
     def is_from_vk(self):
@@ -36,40 +38,48 @@ class BaseCommonEvent:
     @property
     def is_from_tg(self):
         return self.src == Source.TG
+    
+    @property
+    def vk_ctx(self) -> VkCtx:
+        return ctx.vk.get(self.chat_id)
+    
+    @property
+    def tg_ctx(self) -> TgCtx:
+        return ctx.tg.get(self.chat_id)
+
+    @property
+    def ctx(self) -> BaseCtx:
+        if self.is_from_vk:
+            return self.vk_ctx
+        if self.is_from_tg:
+            return self.tg_ctx
+    
+    @property
+    def navigator(self) -> Navigator:
+        return self.ctx.navigator
 
 @dataclass
 class CommonMessage(BaseCommonEvent):
     vk: Optional[VkMessage] = None
-    vk_ctx: Optional[VkCtx] = None
-
     tg: Optional[TgMessage] = None
-    tg_ctx: Optional[TgCtx] = None
-
-    is_group_chat: Optional[bool] = None
 
 
     @classmethod
-    def from_vk(cls, message: VkMessage):
-        vk_ctx = ctx.vk.get(message.peer_id)
-
+    def from_vk(cls: type[CommonMessage], message: VkMessage):
         self = cls(
             src=Source.VK,
+            chat_id=message.peer_id,
             vk=message,
-            vk_ctx=vk_ctx,
-            is_group_chat=vk.is_group_chat(message.peer_id, message.from_id),
         )
 
         return self
     
     @classmethod
     def from_tg(cls, message: TgMessage):
-        tg_ctx = ctx.tg.get(message.chat.id)
-
         self = cls(
             src=Source.TG,
+            chat_id=message.chat.id,
             tg=message,
-            tg_ctx=tg_ctx,
-            is_group_chat=tg.is_group_chat(message.chat.type),
         )
 
         return self
@@ -80,25 +90,25 @@ class CommonMessage(BaseCommonEvent):
     
     @property
     def is_tg_group(self):
-        return self.tg.chat.type == tg.ChatType.GROUP
+        if not self.is_from_tg:
+            return False
 
-    @property
-    def main_ctx(self) -> Ctx:
-        return ctx
+        return self.tg.chat.type == tg.ChatType.GROUP
     
     @property
-    def ctx(self) -> BaseCtx:
-        if self.is_from_vk:
-            return self.vk_ctx
-        if self.is_from_tg:
-            return self.tg_ctx
+    def is_vk_group(self):
+        if not self.is_from_vk:
+            return False
+        
+        return self.is_group_chat and self.is_from_vk
+
 
     @property
-    def chat_id(self) -> int:
+    def is_group_chat(self):
         if self.is_from_vk:
-            return self.vk.peer_id
+            return vk.is_group_chat(self.vk.peer_id, self.vk.from_id)
         if self.is_from_tg:
-            return self.tg.chat.id
+            return tg.is_group_chat(self.tg.chat.type)
     
     @property
     def message_id(self)-> int:
@@ -114,16 +124,15 @@ class CommonMessage(BaseCommonEvent):
         if self.is_from_tg:
             return self.tg.text
 
-    @property
-    def navigator(self):
-        if self.src == Source.VK:
-            return self.vk_ctx.navigator
-        if self.src == Source.TG:
-            return self.tg_ctx.navigator
+    async def vk_has_admin_rights(self) -> bool:
+        if not self.is_from_vk:
+            return False
+
+        return await vk.has_admin_rights(self.vk.peer_id)
 
     async def can_pin(self) -> bool:
         if self.is_from_vk:
-            return True
+            return await self.vk_has_admin_rights()
         if self.is_from_tg:
             bot = await defs.tg_bot.get_chat_member(
                 chat_id = self.chat_id, 
@@ -161,87 +170,86 @@ class CommonMessage(BaseCommonEvent):
 @dataclass
 class CommonEvent(BaseCommonEvent):
     vk: Optional[RawEvent] = None
-    vk_ctx: Optional[VkCtx] = None
-
-    tg_callback_query: Optional[CallbackQuery] = None
-    tg_ctx: Optional[TgCtx] = None
-
-    is_group_chat: Optional[bool] = None
-    chat_id: Optional[int] = None
+    tg: Optional[CallbackQuery] = None
 
 
     @classmethod
     def from_vk(cls, event: RawEvent):
         event_object = event["object"]
         peer_id = event_object["peer_id"]
-        user_id = event_object["user_id"]
-
-        vk_ctx = ctx.vk.get(peer_id)
 
         self = cls(
             src=Source.VK,
             vk=event,
-            vk_ctx=vk_ctx,
-            is_group_chat=vk.is_group_chat(peer_id, user_id),
-            chat_id=event["object"]["peer_id"]
+            chat_id=peer_id
         )
 
         return self
     
     @classmethod
-    def from_tg_callback_query(cls, callback_query: CallbackQuery):
-        tg_ctx = ctx.tg.get(callback_query.message.chat.id)
-
+    def from_tg(cls, callback_query: CallbackQuery):
         self = cls(
             src=Source.TG,
-            tg_callback_query=callback_query,
-            tg_ctx=tg_ctx,
-            is_group_chat=tg.is_group_chat(callback_query.message.chat.type),
+            tg=callback_query,
             chat_id=callback_query.message.chat.id
         )
 
         return self
     
     @property
+    def is_group_chat(self):
+        if self.is_from_vk:
+            peer_id = self.vk["object"]["peer_id"]
+            from_id = self.vk["object"]["user_id"]
+            return vk.is_group_chat(peer_id, from_id)
+        if self.is_from_tg:
+            return tg.is_group_chat(self.tg.message.chat.type)
+    
+    @property
     def is_tg_supergroup(self):
-        return self.tg_callback_query.message.chat.type == tg.ChatType.SUPERGROUP
+        if not self.is_from_tg:
+            return False
+
+        return self.tg.message.chat.type == tg.ChatType.SUPERGROUP
     
     @property
     def is_tg_group(self):
-        return self.tg_callback_query.message.chat.type == tg.ChatType.GROUP
+        if not self.is_from_tg:
+            return False
+
+        return self.tg.message.chat.type == tg.ChatType.GROUP
+    
+    @property
+    def is_vk_group(self):
+        if not self.is_from_vk:
+            return False
+        
+        return self.is_group_chat and self.is_from_vk
 
     @property
-    def navigator(self):
-        if self.is_from_vk:
-            return self.vk_ctx.navigator
-        if self.is_from_tg:
-            return self.tg_ctx.navigator
+    def needs_mention(self) -> bool:
+        return self.is_group_chat and self.is_from_vk
+    
+    @property
+    def needs_reply(self) -> bool:
+        return self.is_group_chat and self.is_from_tg
     
     @property
     def message_id(self):
         if self.is_from_vk:
             return self.vk["object"]["conversation_message_id"]
         if self.is_from_tg:
-            return self.tg_callback_query.message.message_id
+            return self.tg.message.message_id
 
-    @property
-    def ctx(self) -> BaseCtx:
-        if self.is_from_vk:
-            return self.vk_ctx
-        if self.is_from_tg:
-            return self.tg_ctx
+    async def vk_has_admin_rights(self) -> bool:
+        if not self.is_from_vk:
+            return False
+
+        return await vk.has_admin_rights(self.vk["object"]["peer_id"])
 
     async def can_pin(self) -> bool:
         if self.is_from_vk:
-            try:
-                members = await defs.vk_bot.api.messages.get_conversation_members(
-                    peer_id = self.vk["object"]["peer_id"]
-                )
-
-                return True
-            # You don't have access to this chat
-            except VKAPIError[917]:
-                return False
+            return await self.vk_has_admin_rights()
 
         if self.is_from_tg:
             bot = await defs.tg_bot.get_chat_member(
@@ -268,7 +276,7 @@ class CommonEvent(BaseCommonEvent):
             )
         
         elif self.is_from_tg:
-            result = await self.tg_callback_query.answer(
+            result = await self.tg.answer(
                 text, 
                 show_alert=True
             )
@@ -297,8 +305,8 @@ class CommonEvent(BaseCommonEvent):
         
         elif self.is_from_tg:
 
-            chat_id = self.tg_callback_query.message.chat.id
-            message_id = self.tg_callback_query.message.message_id
+            chat_id = self.tg.message.chat.id
+            message_id = self.tg.message.message_id
 
             result = await defs.tg_bot.edit_message_text(
                 chat_id                  = chat_id,
@@ -310,22 +318,18 @@ class CommonEvent(BaseCommonEvent):
 
 @dataclass
 class CommonEverything(BaseCommonEvent):
-    event_src: EVENT_SOURCE
+    event_src: Optional[EVENT_SOURCE] = None
 
     message: Optional[CommonMessage] = None
     event: Optional[CommonEvent] = None
 
-    is_group_chat: Optional[bool] = None
-    chat_id: Optional[int] = None
 
     @classmethod
-    def from_message(cls, message: CommonMessage):
+    def from_message(cls: type[CommonEverything], message: CommonMessage):
         self = cls(
             src=message.src,
             event_src=Source.MESSAGE,
             message=message,
-            is_group_chat=message.is_group_chat,
-            chat_id=message.chat_id
         )
 
         return self
@@ -336,8 +340,6 @@ class CommonEverything(BaseCommonEvent):
             src=event.src,
             event_src=Source.EVENT,
             event=event,
-            is_group_chat=event.is_group_chat,
-            chat_id=event.chat_id
         )
 
         return self
@@ -351,6 +353,13 @@ class CommonEverything(BaseCommonEvent):
         return self.event_src == Source.EVENT
     
     @property
+    def is_group_chat(self) -> bool:
+        if self.is_from_event:
+            return self.event.is_group_chat
+        if self.is_from_message:
+            return self.message.is_group_chat
+    
+    @property
     def is_tg_supergroup(self) -> bool:
         if self.is_from_event:
             return self.event.is_tg_supergroup
@@ -361,6 +370,13 @@ class CommonEverything(BaseCommonEvent):
     def is_tg_group(self) -> bool:
         if self.is_from_event:
             return self.event.is_tg_group
+        if self.is_from_message:
+            return self.message.is_tg_group
+    
+    @property
+    def is_vk_group(self) -> bool:
+        if self.is_from_event:
+            return self.event.is_vk_group
         if self.is_from_message:
             return self.message.is_tg_group
 
@@ -391,6 +407,12 @@ class CommonEverything(BaseCommonEvent):
             return self.vk_ctx
         if self.is_from_tg:
             return self.tg_ctx
+    
+    async def vk_has_admin_rights(self) -> bool:
+        if self.is_from_event:
+            return await self.event.vk_has_admin_rights()
+        if self.is_from_message:
+            return await self.message.vk_has_admin_rights()
 
     async def can_pin(self) -> bool:
         if self.is_from_event:

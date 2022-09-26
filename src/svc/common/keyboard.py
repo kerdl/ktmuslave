@@ -17,43 +17,47 @@ from src.svc.vk.keyboard import CMD
 
 
 class Payload:
-    TRUE = "true"
+    TRUE  = "true"
     FALSE = "false"
-    BACK = "back"
-    NEXT = "next"
-    SKIP = "skip"
+    BACK  = "back"
+    NEXT  = "next"
+    SKIP  = "skip"
 
-    BEGIN = "begin"
-    DO_PIN = "do_pin"
-    FINISH = "finish"
+    BEGIN     = "begin"
+    DO_PIN    = "do_pin"
+    FROM_TEXT = "from_text"
+    MANUALLY  = "manually"
+    FINISH    = "finish"
 
 class Text:
-    TRUE = "✓ ПизДА!"
+    TRUE  = "✓ ПизДА!"
     FALSE = "✕ МиНЕТ..."
-    BACK = "← Назад"
-    NEXT = "→ Далее"
-    SKIP = "→ Пропустить"
+    BACK  = "← Назад"
+    NEXT  = "→ Далее"
+    SKIP  = "→ Пропустить"
 
-    BEGIN = "→ Начать"
-    DO_PIN = "✓ Закреплять"
-    FINISH = "→ Закончить"
+    BEGIN     = "→ Начать"
+    DO_PIN    = "✓ Закреплять"
+    FROM_TEXT = "❞ Из сообщения"
+    MANUALLY  = "• Вручную"
+    FINISH    = "→ Закончить"
 
 COLOR_LITERAL = Literal["gray", "blue", "green", "red"]
 
 class Color:
     """ ## ONLY WORKS IN VK """
-    GRAY = "gray"
-    BLUE = "blue"
+    GRAY  = "gray"
+    BLUE  = "blue"
     GREEN = "green"
-    RED = "red"
+    RED   = "red"
 
     @staticmethod
     def from_vk(color: VkColor) -> Optional[COLOR_LITERAL]:
         mapping = {
             VkColor.SECONDARY: Color.GRAY,
-            VkColor.PRIMARY: Color.BLUE,
-            VkColor.POSITIVE: Color.GREEN,
-            VkColor.NEGATIVE: Color.RED
+            VkColor.PRIMARY:   Color.BLUE,
+            VkColor.POSITIVE:  Color.GREEN,
+            VkColor.NEGATIVE:  Color.RED
         }
 
         return mapping.get(color)
@@ -61,10 +65,10 @@ class Color:
     @staticmethod
     def to_vk(color: COLOR_LITERAL) -> Optional[VkColor]:
         mapping = {
-            Color.GRAY: VkColor.SECONDARY,
-            Color.BLUE: VkColor.PRIMARY,
+            Color.GRAY:  VkColor.SECONDARY,
+            Color.BLUE:  VkColor.PRIMARY,
             Color.GREEN: VkColor.POSITIVE,
-            Color.RED: VkColor.NEGATIVE
+            Color.RED:   VkColor.NEGATIVE
         }
 
         return mapping.get(color)
@@ -151,6 +155,8 @@ BACK_BUTTON   = Button(Text.BACK, Payload.BACK)
 NEXT_BUTTON   = Button(Text.NEXT, Payload.NEXT)
 SKIP_BUTTON   = Button(Text.SKIP, Payload.SKIP)
 
-BEGIN_BUTTON  = Button(Text.BEGIN, Payload.BEGIN)
-DO_PIN_BUTTON = Button(Text.DO_PIN, Payload.DO_PIN, Color.GREEN)
-FINISH_BUTTON = Button(Text.FINISH, Payload.FINISH)
+BEGIN_BUTTON     = Button(Text.BEGIN, Payload.BEGIN)
+DO_PIN_BUTTON    = Button(Text.DO_PIN, Payload.DO_PIN, Color.GREEN)
+FROM_TEXT_BUTTON = Button(Text.FROM_TEXT, Payload.FROM_TEXT, Color.GREEN)
+MANUALLY_BUTTON  = Button(Text.MANUALLY, Payload.MANUALLY, Color.BLUE)
+FINISH_BUTTON    = Button(Text.FINISH, Payload.FINISH)
