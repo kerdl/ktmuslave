@@ -15,9 +15,9 @@ from src.data import error
 @dataclass
 class ZoomData:
     name: str
-    url: str
-    id: str
-    pwd: str
+    url: Optional[str]
+    id: Optional[str]
+    pwd: Optional[str]
 
     @classmethod
     def parse(cls: type[ZoomData], text: str) -> Optional[list[ZoomData]]:
@@ -120,14 +120,6 @@ class Settings(Values):
         return VALUES.get(state)
 
 if __name__ == "__main__":
-    c = ZoomContainer(set(), set(), set())
-    data1 = ZoomData("pizda1", "a", "b", "c")
-    data2 = ZoomData("pizda1", "", "h", "")
-    data3 = ZoomData("pizda2", "a", "b", "c")
-
-    c.add_entry(data1)
-    #c.add_entry(data2)
-
-    print(c.get_entry("pizda1"))
-
-    c.remove_entry("pizda1")
+    text = """"""
+    parsed = ZoomData.parse(text)
+    print(parsed)

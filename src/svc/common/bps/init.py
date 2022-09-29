@@ -342,7 +342,7 @@ async def group(everything: CommonEverything):
 
 
         # remove nonword from group (separators like "-")
-        group_nonword = pattern.NONWORD.sub("", group_match.group())
+        group_nonword = pattern.NON_WORD.sub("", group_match.group())
 
         # make group all caps
         group_caps = group_nonword.upper()

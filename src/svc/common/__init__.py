@@ -2,7 +2,7 @@ from __future__ import annotations
 from loguru import logger
 from typing import Literal, Optional
 from dataclasses import dataclass
-from vkbottle import VKAPIError, ShowSnackbarEvent
+from vkbottle import ShowSnackbarEvent
 from vkbottle.bot import Message as VkMessage
 from aiogram.types import Message as TgMessage, CallbackQuery
 

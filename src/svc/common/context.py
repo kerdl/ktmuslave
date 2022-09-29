@@ -5,7 +5,6 @@ from typing import Optional
 import time
 import asyncio
 
-from src.svc.common.states import State
 from src.data import Settings, Group
 from .navigator import Navigator
 from .states.tree import Init, Hub
