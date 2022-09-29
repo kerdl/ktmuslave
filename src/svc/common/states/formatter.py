@@ -4,7 +4,8 @@ if __name__ == "__main__":
 
 from typing import Any, Optional
 
-from src.svc.common.settings import Settings
+from src.data import Settings
+from src.svc.common.navigator import Navigator
 from src.svc.common.states import State, Values
 
 
@@ -44,13 +45,16 @@ def upcoming(state: State, value: Optional[Any] = None) -> str:
 
     return add_value(text, value)
 
-def tree(trace: list[State], values: Optional[Values] = None, base_lvl: int = 1):
+def tree(navigator: Navigator, values: Optional[Values] = None, base_lvl: int = 1):
     """
     ## Convert tree to a nice readable text
     """
 
     formatted_states: list[str] = []
     output = ""
+
+    trace = navigator.trace
+    ignored = navigator.ignored
 
     current_state = trace[-1]
     tree = current_state.tree
@@ -59,6 +63,9 @@ def tree(trace: list[State], values: Optional[Values] = None, base_lvl: int = 1)
     was_in_last_branch = False
 
     for i, tree_state in enumerate(tree):
+        if tree_state in ignored:
+            continue
+
         tree_state: State
         is_last = (i + 1) == len(tree.__states__)
 
@@ -151,5 +158,10 @@ def tree(trace: list[State], values: Optional[Values] = None, base_lvl: int = 1)
 if __name__ == "__main__":
     from src.svc.common.states.tree import INIT, HUB
 
-    print(tree(trace=[INIT.I_MAIN, INIT.I_GROUP, INIT.II_UNKNOWN_GROUP], tree=INIT, base_lvl=1))
-    #print(tree(trace=[HUB.I_MAIN, HUB.II_SETTINGS, HUB.III_GROUP], tree=HUB, base_lvl=3))
+    nav = Navigator(
+        trace = [INIT.I_MAIN, INIT.I_GROUP, INIT.II_UNKNOWN_GROUP],
+        back_trace = [],
+        ignored = []
+    )
+
+    print(tree(nav, base_lvl=1))

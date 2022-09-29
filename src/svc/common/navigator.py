@@ -26,6 +26,10 @@ class Navigator:
     ## Current state moves here when you press `Back` button
     - so you can use "Next" button
     """
+    ignored: set[State]
+    """
+    ## States that user is not supposed to get to
+    """
 
     @property
     def current(self) -> Optional[State]:

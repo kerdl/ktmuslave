@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Optional
+from src.data import Settings
 
 from src.svc.common import MESSENGER_SOURCE, CommonEverything, Source, error
 from src.svc.common.states import State
@@ -46,7 +47,9 @@ class Builder:
         """
 
         trace = everything.navigator.trace
-        debug_info = format_debug(trace)
+        last_bot_message_id = everything.ctx.last_bot_message_id
+        settings = everything.ctx.settings
+        debug_info = format_debug(trace, last_bot_message_id, settings)
 
         return debug_info
 
@@ -61,12 +64,18 @@ class Builder:
 
 DEBUG = (
     "c==3 trace:\n"
-    "{trace}"
+    "{trace}\n"
+    "c==3 last_bot_message_id: {last_bot_message_id}\n"
+    "c==3 settings: {settings}"
 )
-def format_debug(trace: list[State]):
-    trace_str = "\n".join([state.anchor for state in trace])
+def format_debug(trace: list[State], last_bot_message_id: int, settings: Settings):
+    trace_str = "\n".join([f"{state.anchor}:{state.space}" for state in trace])
 
-    return DEBUG.format(trace=trace_str)
+    return DEBUG.format(
+        trace               = trace_str,
+        last_bot_message_id = last_bot_message_id,
+        settings            = settings
+    )
 
 
 CANT_PRESS_OLD_BUTTONS = (
@@ -221,11 +230,31 @@ def format_zoom_adding_types_explain():
     return ZOOM_ADDING_TYPES_EXPLAIN
 
 
-EXPLAIN_MASS_ZOOM_ADD = (
+FORWARD_ZOOM_DATA = (
     "💬 | Перешли мне сообщения с ссылками на Zoom"
 )
-def format_explain_mass_zoom_add():
-    return EXPLAIN_MASS_ZOOM_ADD
+SEND_ZOOM_DATA = (
+    "💬 | Скопируй сообщения с ссылками на Zoom "
+    "и отправь мне в текстовом виде"
+)
+def format_send_zoom_data(src: MESSENGER_SOURCE, is_group_chat: bool):
+    if (src == Source.VK) or (src == Source.TG and not is_group_chat):
+        return FORWARD_ZOOM_DATA
+    else:
+        return SEND_ZOOM_DATA
+
+
+ZOOM_DATA_FORMAT = (
+    "📝 | Формат:\n"
+    "↵ <Фамилия> <Имя> <Отчество>\n"
+    "↵ <Ссылка>\n"
+    "↵ <ID>\n"
+    "↵ <Пароль>\n"
+    "↵ [ПУСТАЯ СТРОКА]\n"
+    "↵ ..."
+)
+def format_zoom_data_format():
+    return ZOOM_DATA_FORMAT
 
 
 FINISH = (

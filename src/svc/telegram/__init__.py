@@ -80,6 +80,7 @@ def load_dispatch(router: Router, init_middlewares: bool = True) -> Dispatcher:
 
     if init_middlewares:
         from .middlewares import (
+            Log,
             Throttling,
             BotMentionFilter,
             CtxCheck,
@@ -94,6 +95,7 @@ def load_dispatch(router: Router, init_middlewares: bool = True) -> Dispatcher:
         ]
 
         message_outer_middlewares = [
+            Log(),
             BotMentionFilter(),
             CommonMessageMaker()
         ]

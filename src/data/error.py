@@ -1,0 +1,9 @@
+class BackendError(BaseException):
+    ...
+
+class FrontendError(BaseException):
+    ...
+
+
+""" ## Backend errors """
+class ZoomNameInDatabase(BackendError): ...

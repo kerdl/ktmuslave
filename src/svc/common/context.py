@@ -5,8 +5,9 @@ from typing import Optional
 import time
 import asyncio
 
+from src.svc.common.states import State
+from src.data import Settings, Group
 from .navigator import Navigator
-from .settings import Settings, Group
 from .states.tree import Init, Hub
 
 
@@ -50,7 +51,7 @@ class Ctx:
 
 
     def add_vk(self, peer_id: int) -> None:
-        navigator = Navigator([Init.I_MAIN], [])
+        navigator = Navigator([Init.I_MAIN], [], set())
         settings = Settings(Group())
 
         self.vk[peer_id] = VkCtx(
@@ -62,10 +63,11 @@ class Ctx:
         )
 
         logger.info("created ctx for vk {}", peer_id)
-        logger.info(self)
+
+        return self.vk[peer_id]
 
     def add_tg(self, chat: TgChat) -> None:
-        navigator = Navigator([Init.I_MAIN], [])
+        navigator = Navigator([Init.I_MAIN], [], set())
         settings = Settings(Group())
 
         self.tg[chat.id] = TgCtx(
@@ -77,4 +79,5 @@ class Ctx:
         )
 
         logger.info("created ctx for tg {}", chat.id)
-        logger.info(self)
+
+        return self.tg[chat.id]

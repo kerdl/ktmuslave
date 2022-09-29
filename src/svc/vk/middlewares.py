@@ -2,7 +2,9 @@ from vkbottle import BaseMiddleware, ShowSnackbarEvent
 from vkbottle.bot import Message
 
 from src import defs
+from src.svc import vk
 from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages
+from src.svc.common.states.tree import Init
 from .types import RawEvent
 
 
@@ -56,9 +58,15 @@ class CtxCheckRaw(BaseMiddleware[RawEvent]):
     async def pre(self):
         event_object = self.event["object"]
         peer_id = event_object["peer_id"]
+        from_id = event_object["user_id"]
 
-        if ctx.vk.get(peer_id) is None:
-            ctx.add_vk(peer_id)
+        user_ctx = ctx.vk.get(peer_id)
+
+        if user_ctx is None:
+            user_ctx = ctx.add_vk(peer_id)
+
+        if not vk.is_group_chat(peer_id, from_id):
+            user_ctx.navigator.ignored.add(Init.II_SHOULD_PIN)
 
 class CtxCheckMessage(BaseMiddleware[Message]):
     """
@@ -67,9 +75,15 @@ class CtxCheckMessage(BaseMiddleware[Message]):
     """
     async def pre(self):
         peer_id = self.event.peer_id
+        from_id = self.event.from_id
 
-        if ctx.vk.get(peer_id) is None:
-            ctx.add_vk(peer_id)
+        user_ctx = ctx.vk.get(peer_id)
+
+        if user_ctx is None:
+            user_ctx = ctx.add_vk(peer_id)
+        
+        if not vk.is_group_chat(peer_id, from_id):
+            user_ctx.navigator.ignored.add(Init.II_SHOULD_PIN)
 
 class CommonMessageMaker(BaseMiddleware[Message]):
     """

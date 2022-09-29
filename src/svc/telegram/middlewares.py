@@ -5,6 +5,7 @@ from typing import Callable, Any, Awaitable, Optional
 from src import defs
 from src.svc import telegram as tg
 from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages
+from src.svc.common.states.tree import Init
 
 
 def get_chat(event: Update) -> Optional[Chat]:
@@ -12,6 +13,16 @@ def get_chat(event: Update) -> Optional[Chat]:
         return event.message.chat
     if event.event_type == tg.EventType.CALLBACK_QUERY:
         return event.callback_query.message.chat
+
+class Log:
+    async def __call__(
+        self,
+        handler: Callable[[Message, dict[str, Any]], Awaitable[Any]],
+        event: Message,
+        data: dict[str, Any]
+    ) -> Any:
+        logger.info(f"tg message: {event}")
+        return await handler(event, data)
 
 class BotMentionFilter:
     """
@@ -36,6 +47,9 @@ class BotMentionFilter:
         is_group_chat = tg.is_group_chat(event.chat.type)
 
         def did_user_used_bot_command() -> bool:
+            if event.text is None:
+                return False
+            
             if event.text == "/":
                 return False
             elif "/" in event.text:
@@ -96,9 +110,13 @@ class CtxCheck:
         logger.info("CtxCheck")
 
         chat = get_chat(event)
+        user_ctx = ctx.tg.get(chat.id)
 
-        if ctx.tg.get(chat.id) is None:
-            ctx.add_tg(chat)
+        if user_ctx is None:
+            user_ctx = ctx.add_tg(chat)
+
+        if not tg.is_group_chat(event.message.chat.type):
+            user_ctx.navigator.ignored.add(Init.II_SHOULD_PIN)
 
         return await handler(event, data)
 
@@ -109,6 +127,8 @@ class Throttling:
         event: Update,
         data: dict[str, Any]
     ):
+        return await handler(event, data)
+
         chat = get_chat(event)
 
         chat_ctx = ctx.tg.get(chat.id)

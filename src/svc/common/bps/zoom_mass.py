@@ -39,8 +39,9 @@ async def main(everything: CommonEverything):
 
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator.trace, ))
-                .add(messages.format_explain_mass_zoom_add())
+                .add(states_fmt.tree(everything.navigator, ))
+                .add(messages.format_send_zoom_data(everything.src, everything.is_group_chat))
+                .add(messages.format_zoom_data_format())
                 .add_if(mention_addition, everything.is_group_chat)
     )
     answer_keyboard = Keyboard([

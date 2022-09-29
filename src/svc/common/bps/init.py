@@ -5,6 +5,7 @@ from src import defs
 from src.conv import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom_mass, zoom_browse
+from src.data import ZoomContainer
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import Init
 from src.svc.common.router import r
@@ -34,7 +35,7 @@ GROUPS = ["хуй", "соси", "губой", "тряси"]
 async def finish(everything: CommonEverything):
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator.trace, everything.ctx.settings))
+                .add(states_fmt.tree(everything.navigator, everything.ctx.settings))
                 .add(messages.format_finish())
     )
     answer_keyboard = Keyboard([
@@ -56,6 +57,8 @@ async def to_finish(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.SKIP))
 async def skip_add_zoom(everything: CommonEverything):
+    everything.ctx.settings.zoom_entries = ZoomContainer([], [], [])
+
     return await to_finish(everything)
 
 
@@ -72,8 +75,8 @@ async def add_zoom_manually(everything: CommonEverything):
 @r.on_everything(StateFilter(Init.I_ZOOM))
 async def add_zoom(everything: CommonEverything):
     answer_text = (
-        messages.Builder()
-                .add(states_fmt.tree(everything.navigator.trace, everything.ctx.settings))
+        messages.Builder(everything=everything)
+                .add(states_fmt.tree(everything.navigator, everything.ctx.settings))
                 .add(messages.format_recommend_adding_zoom())
                 .add(messages.format_zoom_adding_types_explain())
     )
@@ -140,7 +143,7 @@ async def should_pin(everything: CommonEverything):
 
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator.trace, everything.ctx.settings))
+                .add(states_fmt.tree(everything.navigator, everything.ctx.settings))
     )
 
     # if we can pin messages
@@ -213,7 +216,7 @@ async def schedule_broadcast(everything: CommonEverything):
 
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator.trace, everything.ctx.settings))
+                .add(states_fmt.tree(everything.navigator, everything.ctx.settings))
                 .add(messages.format_schedule_broadcast())
     )
     answer_keyboard = Keyboard([
@@ -259,7 +262,7 @@ async def unknown_group(everything: CommonEverything):
 
         answer_text = (
             messages.Builder(everything=everything)
-                    .add(states_fmt.tree(everything.navigator.trace, message.ctx.settings))
+                    .add(states_fmt.tree(everything.navigator, message.ctx.settings))
                     .add(messages.format_unknown_group(group))
         )
 
@@ -322,7 +325,7 @@ async def group(everything: CommonEverything):
             # send a message saying "your input is invalid"
             answer_text = (
                 messages.Builder(everything=everything)
-                        .add(states_fmt.tree(everything.navigator.trace, message.ctx.settings))
+                        .add(states_fmt.tree(everything.navigator, message.ctx.settings))
                         .add(messages.format_groups(GROUPS))
                         .add(messages.format_invalid_group())
                         .add(footer_addition)
@@ -368,7 +371,7 @@ async def group(everything: CommonEverything):
 
         answer_text = (
             messages.Builder(everything=everything)
-                    .add(states_fmt.tree(everything.navigator.trace, event.ctx.settings))
+                    .add(states_fmt.tree(everything.navigator, event.ctx.settings))
                     .add(messages.format_groups(GROUPS))
                     .add(messages.format_group_input())
                     .add(footer_addition)
