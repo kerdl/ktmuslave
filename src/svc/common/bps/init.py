@@ -2,10 +2,10 @@ from loguru import logger
 import re
 
 from src import defs
-from src.conv import pattern
+from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom_mass, zoom_browse
-from src.data import ZoomContainer
+from src.data import zoom
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import Init
 from src.svc.common.router import r
@@ -57,7 +57,7 @@ async def to_finish(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.SKIP))
 async def skip_add_zoom(everything: CommonEverything):
-    everything.ctx.settings.zoom_entries = ZoomContainer([], [], [])
+    everything.ctx.settings.zoom_entries = zoom.Container([], [], [])
 
     return await to_finish(everything)
 
@@ -342,7 +342,7 @@ async def group(everything: CommonEverything):
 
 
         # remove nonword from group (separators like "-")
-        group_nonword = pattern.NON_WORD.sub("", group_match.group())
+        group_nonword = pattern.NON_LETTER.sub("", group_match.group())
 
         # make group all caps
         group_caps = group_nonword.upper()

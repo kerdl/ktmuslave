@@ -1,167 +1,100 @@
+from __future__ import annotations
+
 if __name__ == "__main__":
     import sys
     sys.path.append(".")
 
 from typing import Optional
-from urllib import parse
-from re import L, Match
 from dataclasses import dataclass
 
-from src.conv.pattern import (
-    SPACE_NEWLINE,
-    NAME,
-    SHORT_NAME,
-    ZOOM_ID,
-    ZOOM_PWD,
-    DIGIT,
-    LETTER,
-    NON_LETTER_NO_SPACE
-)
-from src.data import ZoomData
+from src.data import error
 
 
 @dataclass
-class Parser:
-    text: str
+class Data:
+    name: str
+    url: Optional[str]
+    id: Optional[str]
+    pwd: Optional[str]
 
-    def remove_newline_spaces(self, text: str) -> str:
-        return SPACE_NEWLINE.sub("\n\n", text)
+    @classmethod
+    def parse(cls: type[Data], text: str) -> Optional[list[Data]]:
+        from src.parse import zoom
+        return zoom.Parser(text).parse()
 
-    def split_sections(self, text: str) -> list[str]: 
-        return text.split("\n\n")
+    def __hash__(self):
+        return hash(self.name)
     
-    def parse_name(self, line: str) -> Optional[str]:
-        def search_full_name(line: str) -> list[str]:
-            """ ## `Ебанько Хуйло Йоба` """
-            return NAME.findall(line)
+    def __eq__(self, other):
+        return self.name == other
 
-        def search_short_name(line: str) -> Optional[Match[str]]:
-            """ ## `Ебанько Х.` or `Ебанько Х.Й.` """
-            return SHORT_NAME.search(line)
+@dataclass
+class Container:
+    entries: set[Data]
+    """ ## Main database of zoom, takes links for schedule here """
+    new_entries: set[Data]
+    """ ## Temp storage for unconfirmed new entries """
+    overwrite_entries: set[Data]
+    """ ## Temp storage for unconfirmed entries, that should be overwritten"""
 
-        # try to find short name first
-        short_name: Optional[Match[str]] = search_short_name(line)
 
-        if short_name is not None:
-            return short_name.group()
+    @staticmethod
+    def add(data: Data, destination: set[Data]) -> None:
+        if data in destination:
+            raise error.ZoomNameInDatabase(
+                "this entry already in databased"
+            )
 
-        full_name: list[str] = search_full_name(line)
-
-        if len(full_name) <= 3 and len(full_name) > 0:
-            first_name: str = None
-            initials_parts: list[str] = []
-
-            for name_section in full_name:
-                # keep first name complete
-                if first_name is None:
-                    first_name = name_section
-                    continue
-                    
-                # then shorten anything else
-                initial = name_section[0] + "."
-                initials_parts.append(initial)
-
-            initials = "".join(initials_parts)
-
-            name = f"{first_name} {initials}"
-
-            return name.rstrip().lstrip()
+        destination.add(data)
     
-    def parse_id(self, line: str) -> Optional[str]:
-        no_spaces = line.replace(" ", "")
-        id = ZOOM_ID.search(no_spaces)
+    def add_entry(self, data: Data):
+        return self.add(data, self.entries)
+    
+    def add_new_entry(self, data: Data):
+        return self.add(data, self.new_entries)
+    
+    def add_overwrite_entry(self, data: Data):
+        return self.add(data, self.overwrite_entries)
 
-        if id is not None:
-            return id.group()
-        
+
+    @staticmethod
+    def remove(name: str, destination: set[Data]) -> bool:
+        dummy = Data(name, "", "", "")
+        return destination.remove(dummy)
+    
+    def remove_entry(self, name: str):
+        return self.remove(name, self.entries)
+
+    def remove_new_entry(self, name: str):
+        return self.remove(name, self.new_entries)
+
+    def remove_overwrite_entry(self, name: str):
+        return self.remove(name, self.overwrite_entries)
+
+
+    @staticmethod
+    def get(name: str, destination: set[Data]) -> Optional[Data]:
+        for entry in destination:
+            if entry.name == name:
+                return entry
+
         return None
     
-    def parse_pwd(self, line: str) -> Optional[str]:        
-        non_word_line = NON_LETTER_NO_SPACE.sub("", line)
+    def get_entry(self, name: str):
+        return self.get(name, self.entries)
 
-        pwd = ZOOM_PWD.search(non_word_line)
+    def get_new_entry(self, name: str):
+        return self.get(name, self.new_entries)
 
-        if pwd is not None:
-            # if no digits in pwd
-            if not DIGIT.search(pwd.group()):
-                return None
-            
-            # if no letters in pwd
-            if not LETTER.search(pwd.group()):
-                return None
-            
-            return pwd.group()
-        
-        return None
-
-    def parse_section(self, text: str) -> Optional[ZoomData]:
-        name: Optional[str] = None
-        url: Optional[str]  = None
-        id: Optional[str]   = None
-        pwd: Optional[str]  = None
-
-        lines: list[str] = text.split("\n")
-
-        for line in lines:
-            if line == "":
-                continue
-
-            # if name is not found yet
-            if name is None:
-                parsed = self.parse_name(line)
-
-                if parsed is not None:
-                    name = parsed
-                    continue
-                    
-            # if url is not found yet
-            if url is None:   
-                parsed = parse.urlparse(line)
-
-                if "zoom" in parsed.netloc and "/j/" in parsed.path:
-                    clean_url = line.lstrip().rstrip().replace("\n", "")
-                    url = clean_url
-
-                    if id is None:
-                        id = self.parse_id(parsed.path)
-                    
-                    continue
-
-            # if id is not found yet
-            if id is None:
-                id = self.parse_id(line)
-
-                if id is not None:
-                    continue
-
-            # if pwd is not found yet
-            if pwd is None:
-                pwd = self.parse_pwd(line)
-
-                if pwd is not None:
-                    continue
-
-        if name is None:
-            return None
-
-        model = ZoomData(
-            name = name,
-            url  = url,
-            id   = id,
-            pwd  = pwd
-        )
-
-        return model
+    def get_overwrite_entry(self, name: str):
+        return self.get(name, self.overwrite_entries)
     
-    def parse(self) -> ZoomData:
-        self.no_newline_spaces = self.remove_newline_spaces(self.text)
-        self.sections = self.split_sections(self.no_newline_spaces)
-        self.models: list[ZoomData] = []
 
-        for section in self.sections:
-            parsed = self.parse_section(section)
+    @staticmethod
+    def format(self, destination: set[Data]):
+        ...
+    
 
-            if parsed is not None:
-                self.models.append(parsed)
-        
-        return self.models
+    def __len__(self):
+        return len(self.entries)
+

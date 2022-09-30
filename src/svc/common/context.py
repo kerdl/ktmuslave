@@ -5,7 +5,7 @@ from typing import Optional
 import time
 import asyncio
 
-from src.data import Settings, Group
+from src.data.settings import Settings, Group
 from .navigator import Navigator
 from .states.tree import Init, Hub
 

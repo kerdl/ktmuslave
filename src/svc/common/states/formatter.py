@@ -4,7 +4,6 @@ if __name__ == "__main__":
 
 from typing import Any, Optional
 
-from src.data import Settings
 from src.svc.common.navigator import Navigator
 from src.svc.common.states import State, Values
 

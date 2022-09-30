@@ -59,7 +59,8 @@ class Defs:
             me = await self.tg_bot.get_me()
             
             self.tg_bot_info = me
-            self.tg_bot_mention = "@" + me.username
+            #self.tg_bot_mention = "@" + me.username
+            self.tg_bot_mention = "/nigga"
 
         self.loop.create_task(get_vk_bot_info())
         self.loop.create_task(get_tg_bot_info())

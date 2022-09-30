@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Optional
-from src.data import Settings
+from src.data.settings import Settings
 
 from src.svc.common import MESSENGER_SOURCE, CommonEverything, Source, error
 from src.svc.common.states import State

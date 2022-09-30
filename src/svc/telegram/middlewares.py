@@ -115,7 +115,7 @@ class CtxCheck:
         if user_ctx is None:
             user_ctx = ctx.add_tg(chat)
 
-        if not tg.is_group_chat(event.message.chat.type):
+        if not tg.is_group_chat(chat.type):
             user_ctx.navigator.ignored.add(Init.II_SHOULD_PIN)
 
         return await handler(event, data)
