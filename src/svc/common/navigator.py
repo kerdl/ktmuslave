@@ -50,6 +50,11 @@ class Navigator:
 
     def append(self, state: State):
         """ ## Add state to trace """
+        if state in self.ignored:
+            raise error.GoingToIgnoredState(
+                f"appending {state.name} that is ignored: {self.ignored}"
+            )
+
         self.trace.append(state)
 
     def back(self):

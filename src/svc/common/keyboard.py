@@ -23,6 +23,9 @@ class Payload:
     NEXT  = "next"
     SKIP  = "skip"
 
+    PAGE_BACK = "page_back"
+    PAGE_NEXT = "page_next"
+
     BEGIN     = "begin"
     DO_PIN    = "do_pin"
     FROM_TEXT = "from_text"

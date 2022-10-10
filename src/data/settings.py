@@ -15,9 +15,9 @@ class Group:
 @dataclass
 class Settings(Values):
     group: Group
+    zoom_entries: Optional[zoom.Container] = None
     schedule_broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None
-    zoom_entries: Optional[zoom.Container] = None
 
     def get_from_state(self, state: State) -> Any:
         VALUES = {

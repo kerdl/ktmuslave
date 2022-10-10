@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional
 from src.data.settings import Settings
 
-from src.svc.common import MESSENGER_SOURCE, CommonEverything, Source, error
+from src.svc.common import MESSENGER_SOURCE, CommonEverything, CommonBotMessage, Source, error
 from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
@@ -19,7 +19,6 @@ class Builder:
         self.separator = separator
         self.components: list[str] = []
         self.everything = everything
-
 
         if DEBUGGING and everything is None:
             raise error.NoEverythingWithDebugOn((
@@ -47,9 +46,9 @@ class Builder:
         """
 
         trace = everything.navigator.trace
-        last_bot_message_id = everything.ctx.last_bot_message_id
+        last_bot_message = everything.ctx.last_bot_message
         settings = everything.ctx.settings
-        debug_info = format_debug(trace, last_bot_message_id, settings)
+        debug_info = format_debug(trace, last_bot_message, settings)
 
         return debug_info
 
@@ -63,17 +62,17 @@ class Builder:
 #### Common footers and headers ####
 
 DEBUG = (
-    "c==3 trace:\n"
+    "   8==o trace:\n"
     "{trace}\n"
-    "c==3 last_bot_message_id: {last_bot_message_id}\n"
-    "c==3 settings: {settings}"
+    "   8==o last_bot_message: {last_bot_message}\n"
+    "   8==o settings: {settings}"
 )
-def format_debug(trace: list[State], last_bot_message_id: int, settings: Settings):
+def format_debug(trace: list[State], last_bot_message: CommonBotMessage, settings: Settings):
     trace_str = "\n".join([f"{state.anchor}:{state.space}" for state in trace])
 
     return DEBUG.format(
         trace               = trace_str,
-        last_bot_message_id = last_bot_message_id,
+        last_bot_message    = last_bot_message,
         settings            = settings
     )
 
@@ -121,6 +120,12 @@ CHAT_WILL_MIGRATE = (
 )
 def format_chat_will_migrate():
     return CHAT_WILL_MIGRATE
+
+PAGE_NUM = (
+    "📄 | Страница {current}/{last}"
+)
+def format_page_num(current: int, last: int):
+    return PAGE_NUM.format(current=current, last=last)
 
 
 #### Full messages for specific states ####
@@ -255,6 +260,12 @@ ZOOM_DATA_FORMAT = (
 )
 def format_zoom_data_format():
     return ZOOM_DATA_FORMAT
+
+DOESNT_CONTAIN_ZOOM = (
+    "❌ | Eblan? Тут нет нихуя, посмотри формат 🤨"
+)
+def format_doesnt_contain_zoom():
+    return DOESNT_CONTAIN_ZOOM
 
 
 FINISH = (

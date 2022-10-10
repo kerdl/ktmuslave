@@ -181,11 +181,18 @@ class OldMessagesBlock:
         data: dict[str, Any]
     ):
         common_event: CommonEvent = data["common_event"]
+        user_ctx = common_event.ctx
 
         this_message_id = common_event.message_id
-        last_message_id = common_event.ctx.last_bot_message_id
+        last_message_id = common_event.ctx.last_bot_message.id
 
         if this_message_id != last_message_id:
+
+            # send last bot message again
+            user_ctx.last_bot_message = await user_ctx.last_bot_message.send()
+
+            return
+
             await common_event.show_notification(
                 messages.format_cant_press_old_buttons()
             )

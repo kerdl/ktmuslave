@@ -1,18 +1,96 @@
 from __future__ import annotations
 from loguru import logger
+import time
+import asyncio
+import random
 from typing import Literal, Optional
+from copy import deepcopy
 from dataclasses import dataclass
 from vkbottle import ShowSnackbarEvent
 from vkbottle.bot import Message as VkMessage
-from aiogram.types import Message as TgMessage, CallbackQuery
+from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
+from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
 
 from src import defs
 from src.svc import vk, telegram as tg
 from src.svc.common.navigator import Navigator
 from src.svc.vk.types import RawEvent
 from src.svc.common.keyboard import Keyboard
-from .context import Ctx, TgCtx, VkCtx, BaseCtx
+from src.data import zoom
+from src.data.settings import Settings, Group
+from .states.tree import Init, Hub
 
+
+@dataclass
+class BaseCtx:
+    navigator: Navigator
+    settings: Settings
+    last_call: float
+    """ ## Last UNIX time when user interacted with bot """
+    last_bot_message: Optional[CommonBotMessage]
+
+    async def throttle(self) -> None:
+        """ ## Stop executing for a short period to avoid rate limit """
+
+        current_time = time.time()
+
+        # allowed to call again after 2 seconds
+        next_allowed_time = self.last_call + 2
+
+        if next_allowed_time > current_time:
+            # then throttle
+            logger.warning("TROLLING")
+            sleep_secs_until_allowed: float = next_allowed_time - current_time
+
+            await asyncio.sleep(sleep_secs_until_allowed)
+
+        self.last_call = current_time
+
+@dataclass
+class VkCtx(BaseCtx):
+    peer_id: int
+
+@dataclass
+class TgCtx(BaseCtx):
+    chat: TgChat
+
+@dataclass
+class Ctx:
+    vk: dict[int, VkCtx]
+    tg: dict[int, TgCtx]
+
+
+    def add_vk(self, peer_id: int) -> None:
+        navigator = Navigator([Init.I_MAIN], [], set())
+        settings = Settings(Group())
+
+        self.vk[peer_id] = VkCtx(
+            navigator           = navigator, 
+            settings            = settings, 
+            last_call           = time.time(), 
+            last_bot_message    = None,
+            peer_id             = peer_id
+        )
+
+        logger.info("created ctx for vk {}", peer_id)
+
+        return self.vk[peer_id]
+
+    def add_tg(self, chat: TgChat) -> None:
+        navigator = Navigator([Init.I_MAIN], [], set())
+        settings = Settings(Group())
+
+        self.tg[chat.id] = TgCtx(
+            navigator           = navigator, 
+            settings            = settings, 
+            last_call           = time.time(), 
+            last_bot_message    = None,
+            chat                = chat
+        )
+
+        logger.info("created ctx for tg {}", chat.id)
+
+        return self.tg[chat.id]
 
 ctx = Ctx({}, {})
 
@@ -155,7 +233,8 @@ class CommonMessage(BaseCommonEvent):
                 dont_parse_links = True,
             )
 
-            self.ctx.last_bot_message_id = result.conversation_message_id
+            chat_id = result.peer_id
+            id = result.conversation_message_id
 
         elif self.is_from_tg:
             tg_message = self.tg
@@ -165,7 +244,91 @@ class CommonMessage(BaseCommonEvent):
                 reply_markup = keyboard.to_tg() if keyboard else None,
             )
 
-            self.ctx.last_bot_message_id = result.message_id
+            chat_id = result.chat.id
+            id = result.message_id
+        
+        bot_message = CommonBotMessage(
+            src      = self.src,
+            chat_id  = chat_id,
+            id       = id,
+            text     = text,
+            keyboard = keyboard
+        )
+
+        self.ctx.last_bot_message = bot_message
+
+@dataclass
+class CommonBotTemplate:
+    text: str
+    keyboard: Keyboard
+
+@dataclass
+class CommonBotMessage:
+    text: str
+    keyboard: Keyboard
+
+    src: Optional[MESSENGER_SOURCE]
+    chat_id: Optional[int]
+    id: Optional[int]
+
+    @property
+    def is_from_vk(self):
+        return self.src == Source.VK
+    
+    @property
+    def is_from_tg(self):
+        return self.src == Source.TG
+
+    async def send(self) -> CommonBotMessage:
+        if self.is_from_vk:
+            result = await defs.vk_bot.api.messages.send(
+                random_id        = random.randint(0, 99999),
+                peer_ids         = [self.chat_id],
+                message          = self.text,
+                keyboard         = self.keyboard.to_vk().get_json(),
+                dont_parse_links = True,
+            )
+
+            sent_message: MessagesSendUserIdsResponseItem = result[0]
+
+            chat_id = sent_message.peer_id
+            id = sent_message.conversation_message_id
+
+        elif self.is_from_tg:
+            result = await defs.tg_bot.send_message(
+                chat_id                  = self.chat_id,
+                text                     = self.text,
+                reply_markup             = self.keyboard.to_tg(),
+                disable_web_page_preview = True,
+            )
+
+            chat_id = result.chat.id
+            id = result.message_id
+        
+        bot_message = deepcopy(self)
+
+        bot_message.chat_id = chat_id
+        bot_message.id = id
+
+        return bot_message
+    
+    def __str__(self) -> str:
+        attrs = []
+
+        for (name, value) in self.__dict__.items():
+
+            repr_name = name
+            repr_value = value
+
+            if name in ["text"]:
+                repr_value = "..."
+            
+            attrs.append(f"{repr_name}={repr_value}")
+        
+        attrs_str = ""
+        attrs_str = "\n".join(attrs)
+
+        return attrs_str
 
 @dataclass
 class CommonEvent(BaseCommonEvent):
@@ -292,12 +455,12 @@ class CommonEvent(BaseCommonEvent):
 
         if self.is_from_vk:
 
-            peer_id = self.vk["object"]["peer_id"]
-            conv_msg_id = self.vk["object"]["conversation_message_id"]
+            chat_id = self.vk["object"]["peer_id"]
+            message_id = self.vk["object"]["conversation_message_id"]
 
             result = await defs.vk_bot.api.messages.edit(
-                peer_id                 = peer_id,
-                conversation_message_id = conv_msg_id,
+                peer_id                 = chat_id,
+                conversation_message_id = message_id,
                 message                 = text,
                 keyboard                = keyboard.to_vk().get_json() if keyboard else None,
                 dont_parse_links        = True,
@@ -313,8 +476,18 @@ class CommonEvent(BaseCommonEvent):
                 message_id               = message_id,
                 text                     = text,
                 reply_markup             = keyboard.to_tg() if keyboard else None,
-                disable_web_page_preview = True
+                disable_web_page_preview = True,
             )
+
+        bot_message = CommonBotMessage(
+            src      = self.src,
+            chat_id  = chat_id,
+            id       = message_id,
+            text     = text,
+            keyboard = keyboard
+        )
+
+        self.ctx.last_bot_message = bot_message
 
 @dataclass
 class CommonEverything(BaseCommonEvent):

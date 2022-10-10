@@ -149,7 +149,7 @@ class Parser:
 
         return model
     
-    def parse(self) -> zoom.Data:
+    def parse(self) -> list[zoom.Data]:
         self.no_newline_spaces = self.remove_newline_spaces(self.text)
         self.sections = self.split_sections(self.no_newline_spaces)
         self.models: list[zoom.Data] = []

@@ -57,7 +57,7 @@ async def to_finish(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.SKIP))
 async def skip_add_zoom(everything: CommonEverything):
-    everything.ctx.settings.zoom_entries = zoom.Container([], [], [])
+    everything.ctx.settings.zoom_entries = zoom.Container.default()
 
     return await to_finish(everything)
 

@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, Union
+from typing import Any, Awaitable, Callable, Coroutine, Optional, Union
 from types import ModuleType
 
 from src.svc.common import CommonEverything
@@ -10,6 +10,8 @@ from src.svc.common.router import r
 
 class SpaceType(ModuleType):
     STATE_MAP: dict[State, Callable[[CommonEverything], Any]]
+    page_back: Callable[[CommonEverything], Awaitable[None]]
+    page_next: Callable[[CommonEverything], Awaitable[None]]
 
 def get_module_space(space: SPACE_LITERAL) -> Optional[SpaceType]:
     from . import init, hub, zoom_mass, zoom_browse, zoom_edit
@@ -25,11 +27,27 @@ def get_module_space(space: SPACE_LITERAL) -> Optional[SpaceType]:
     return MAP.get(space)
 
 
+@r.on_callback(PayloadFilter(Payload.PAGE_BACK))
+async def page_back(everything: CommonEverything):
+    navigator = everything.navigator
+
+    space = get_module_space(navigator.space)
+
+    await space.page_back(everything)
+
+
+@r.on_callback(PayloadFilter(Payload.PAGE_NEXT))
+async def page_next(everything: CommonEverything):
+    navigator = everything.navigator
+
+    space = get_module_space(navigator.space)
+
+    await space.page_next(everything)
+
+
 @r.on_callback(PayloadFilter(Payload.BACK))
 async def back(everything: CommonEverything):
-
     navigator = everything.navigator
-    
     navigator.back()
 
     space = get_module_space(navigator.space)
@@ -37,11 +55,10 @@ async def back(everything: CommonEverything):
     handler = space.STATE_MAP.get(navigator.current)
     return await handler(everything)
 
+
 @r.on_callback(PayloadFilter(Payload.NEXT))
 async def next(everything: CommonEverything):
-
     navigator = everything.navigator
-    
     navigator.next()
 
     space = get_module_space(navigator.space)

@@ -118,9 +118,14 @@ class OldMessagesBlock(BaseMiddleware[RawEvent]):
         user_ctx = ctx.vk.get(self.event["object"]["peer_id"])
 
         this_message_id = self.event["object"]["conversation_message_id"]
-        last_message_id = user_ctx.last_bot_message_id
+        last_message_id = user_ctx.last_bot_message.id
 
         if this_message_id != last_message_id:
+
+            # send last bot message again
+            user_ctx.last_bot_message = await user_ctx.last_bot_message.send()
+
+            self.stop()
 
             await defs.vk_bot.api.messages.send_message_event_answer(
                 event_id   = self.event["object"]["event_id"],
