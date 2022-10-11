@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 if __name__ == "__main__":
     import sys
     sys.path.append(".")
 
 from typing import Generator, Union, TypeVar
+from dataclasses import dataclass
 
-from src.svc.common.keyboard import Keyboard, Button, Color, Payload
-from src.svc.common import CommonBotTemplate, messages
+from src.svc.common.keyboard import BACK_BUTTON, Keyboard, Button, Color, Payload
+from src.svc import common
 from src.data import zoom
 
 T = TypeVar("T")
@@ -19,11 +22,25 @@ def chunks(lst: list[T], n: int) -> Generator[list[T], None, None]:
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
+@dataclass
+class Container:
+    list: list[common.CommonBotTemplate]
+    current_num: int
+
+    @classmethod
+    def default(cls: type[Container]):
+        return cls([], 0)
+    
+    @property
+    def current(self):
+        return self.list[self.current_num]
+
 def from_zoom(
     data: list[zoom.Data], 
-    per_page: int = 6, 
-    keyboard_width: int = 3
-) -> list[CommonBotTemplate]:
+    per_page: int = 3, 
+    keyboard_width: int = 3,
+    keyboard_footer: list[Button] = [BACK_BUTTON]
+) -> list[common.CommonBotTemplate]:
 
     # the output of this function
     msgs = []
@@ -40,7 +57,7 @@ def from_zoom(
 
         # add page number at the bottom
         text += "\n\n"
-        text += messages.format_page_num(
+        text += common.messages.format_page_num(
             current = page_num + 1, 
             last = len(splitted_chunks)
         )
@@ -81,10 +98,11 @@ def from_zoom(
         kb_schema.append([
             back_button, page_button, next_button
         ])
+        kb_schema.append(keyboard_footer)
 
-        message = CommonBotTemplate(
+        message = common.CommonBotTemplate(
             text     = text,
-            keyboard = Keyboard(kb_schema)
+            keyboard = Keyboard(kb_schema, add_back=False)
         )
         msgs.append(message)
 

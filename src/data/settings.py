@@ -15,7 +15,7 @@ class Group:
 @dataclass
 class Settings(Values):
     group: Group
-    zoom_entries: Optional[zoom.Container] = None
+    zoom_entries: zoom.Container
     schedule_broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None
 

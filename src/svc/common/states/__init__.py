@@ -142,6 +142,7 @@ INIT_FINISH             = { "name": "ФИНААААЛ СУЧКИ",            }
 ZOOM_MASS_MAIN          = { "name": "Сообщение с ссылками",      }
 ZOOM_MASS_NEW_DATA      = { "name": "Новые данные",              }
 ZOOM_MASS_OVERRIDE_DATA = { "name": "Перезапись данных",         }
+ZOOM_MASS_EDIT          = { "name": "Редактирование",            }
 ZOOM_MASS_CHECK         = { "name": "Подтверждение изменений"    }
 ZOOM_BROWSE_MAIN        = { "name": "Выбор препода",             }
 ZOOM_EDIT_NAME          = { "name": "Имя препода",               }

@@ -33,19 +33,20 @@ GROUPS = ["хуй", "соси", "губой", "тряси"]
 
 @r.on_everything(StateFilter(Init.I_FINISH))
 async def finish(everything: CommonEverything):
+    ctx = everything.ctx
+
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator, everything.ctx.settings))
                 .add(messages.format_finish())
     )
-    answer_keyboard = Keyboard([
-        [BACK_BUTTON, FINISH_BUTTON]
-    ])
+    answer_keyboard = Keyboard.default().assign_next(FINISH_BUTTON)
 
 
     await everything.edit_or_answer(
         text     = answer_text.make(),
-        keyboard = answer_keyboard
+        keyboard = answer_keyboard,
+        add_tree    = True,
+        tree_values = ctx.settings
     )
 
 
@@ -74,21 +75,23 @@ async def add_zoom_manually(everything: CommonEverything):
 
 @r.on_everything(StateFilter(Init.I_ZOOM))
 async def add_zoom(everything: CommonEverything):
+    ctx = everything.ctx
+
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator, everything.ctx.settings))
                 .add(messages.format_recommend_adding_zoom())
                 .add(messages.format_zoom_adding_types_explain())
     )
     answer_keyboard = Keyboard([
         [FROM_TEXT_BUTTON, MANUALLY_BUTTON],
-        [BACK_BUTTON, SKIP_BUTTON]
-    ])
+    ]).assign_next(SKIP_BUTTON)
 
 
     await everything.edit_or_answer(
         text     = answer_text.make(),
-        keyboard = answer_keyboard
+        keyboard = answer_keyboard,
+        add_tree    = True,
+        tree_values = ctx.settings
     )
 
 async def to_add_zoom(everything: CommonEverything):
@@ -138,12 +141,11 @@ async def approve_pin(everything: CommonEverything):
 
 @r.on_everything(StateFilter(Init.II_SHOULD_PIN))
 async def should_pin(everything: CommonEverything):
-
+    ctx = everything.ctx
     is_should_pin_set = everything.ctx.settings.should_pin is not None
 
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator, everything.ctx.settings))
     )
 
     # if we can pin messages
@@ -152,8 +154,8 @@ async def should_pin(everything: CommonEverything):
         # we should pin (TRUE) or not (FALSE)
         answer_keyboard = Keyboard([
             [TRUE_BUTTON, FALSE_BUTTON],
-            [BACK_BUTTON, NEXT_BUTTON.only_if(is_should_pin_set)]
-        ])
+        ]).assign_next(NEXT_BUTTON.only_if(is_should_pin_set))
+    
         # simply ask if user wants to pin
         answer_text.add(messages.format_do_pin())
 
@@ -164,8 +166,8 @@ async def should_pin(everything: CommonEverything):
         # or skip if he doesn't want to pin
         answer_keyboard = Keyboard([
             [DO_PIN_BUTTON],
-            [BACK_BUTTON, SKIP_BUTTON]
-        ])
+        ]).assign_next(SKIP_BUTTON)
+
         # make recommendation messages
         answer_text.add(messages.format_recommend_pin())
         answer_text.add(messages.format_permit_pin(everything.src))
@@ -180,7 +182,9 @@ async def should_pin(everything: CommonEverything):
 
     await everything.edit_or_answer(
         text     = answer_text.make(),
-        keyboard = answer_keyboard
+        keyboard = answer_keyboard,
+        add_tree    = True,
+        tree_values = ctx.settings
     )
 
 
@@ -211,23 +215,23 @@ async def approve_broadcast(everything: CommonEverything):
 
 @r.on_everything(StateFilter(Init.I_SCHEDULE_BROADCAST))
 async def schedule_broadcast(everything: CommonEverything):
-
+    ctx = everything.ctx
     is_schedule_broadcast_set = everything.ctx.settings.schedule_broadcast is not None
 
     answer_text = (
         messages.Builder(everything=everything)
-                .add(states_fmt.tree(everything.navigator, everything.ctx.settings))
                 .add(messages.format_schedule_broadcast())
     )
     answer_keyboard = Keyboard([
         [TRUE_BUTTON, FALSE_BUTTON],
-        [BACK_BUTTON, NEXT_BUTTON.only_if(is_schedule_broadcast_set)]
-    ])
+    ]).assign_next(NEXT_BUTTON.only_if(is_schedule_broadcast_set))
 
 
     await everything.edit_or_answer(
         text     = answer_text.make(),
-        keyboard = answer_keyboard
+        keyboard = answer_keyboard,
+        add_tree    = True,
+        tree_values = ctx.settings
     )
 
 
@@ -254,7 +258,7 @@ async def confirm_unknown_group(everything: CommonEverything):
 
 
 async def unknown_group(everything: CommonEverything):
-
+    ctx = everything.ctx
     group = everything.ctx.settings.group.valid
 
     if everything.is_from_message:
@@ -262,19 +266,19 @@ async def unknown_group(everything: CommonEverything):
 
         answer_text = (
             messages.Builder(everything=everything)
-                    .add(states_fmt.tree(everything.navigator, message.ctx.settings))
                     .add(messages.format_unknown_group(group))
         )
 
         answer_keyboard = Keyboard([
             [TRUE_BUTTON],
-            [BACK_BUTTON]
         ])
 
 
         await message.answer(
             text     = answer_text.make(),
-            keyboard = answer_keyboard
+            keyboard = answer_keyboard,
+            add_tree    = True,
+            tree_values = ctx.settings
         )
 
 
@@ -289,8 +293,8 @@ async def to_unknown_group(everything: CommonEverything):
     StateFilter(Init.II_UNKNOWN_GROUP)
 ]))
 async def group(everything: CommonEverything):
-
-    is_group_set = everything.ctx.settings.group.confirmed is not None
+    ctx = everything.ctx
+    is_group_set = ctx.settings.group.confirmed is not None
 
     if everything.navigator.current == Init.II_UNKNOWN_GROUP:
         everything.navigator.back()
@@ -307,9 +311,7 @@ async def group(everything: CommonEverything):
     elif (everything.is_group_chat and everything.is_from_tg):
         footer_addition = messages.format_reply_to_me()
     
-    answer_keyboard = Keyboard([
-        [BACK_BUTTON, NEXT_BUTTON.only_if(is_group_set)]
-    ])
+    answer_keyboard = Keyboard.default().assign_next(NEXT_BUTTON.only_if(is_group_set))
 
 
     if everything.is_from_message:
@@ -325,7 +327,6 @@ async def group(everything: CommonEverything):
             # send a message saying "your input is invalid"
             answer_text = (
                 messages.Builder(everything=everything)
-                        .add(states_fmt.tree(everything.navigator, message.ctx.settings))
                         .add(messages.format_groups(GROUPS))
                         .add(messages.format_invalid_group())
                         .add(footer_addition)
@@ -337,7 +338,7 @@ async def group(everything: CommonEverything):
 
 
         ## add user's group to context as typed group ##
-        everything.ctx.settings.group.typed = group_match.group()
+        ctx.settings.group.typed = group_match.group()
         ################################################
 
 
@@ -349,7 +350,7 @@ async def group(everything: CommonEverything):
 
 
         ## add validated group to context as valid group ##
-        everything.ctx.settings.group.valid = group_caps
+        ctx.settings.group.valid = group_caps
         ###################################################
 
 
@@ -371,7 +372,6 @@ async def group(everything: CommonEverything):
 
         answer_text = (
             messages.Builder(everything=everything)
-                    .add(states_fmt.tree(everything.navigator, event.ctx.settings))
                     .add(messages.format_groups(GROUPS))
                     .add(messages.format_group_input())
                     .add(footer_addition)
@@ -379,6 +379,8 @@ async def group(everything: CommonEverything):
         await event.edit_message(
             text           = answer_text.make(),
             keyboard       = answer_keyboard,
+            add_tree    = True,
+            tree_values = ctx.settings
         )
 
 
@@ -404,7 +406,7 @@ async def main(everything: CommonEverything):
     )
     answer_keyboard = Keyboard([
         [BEGIN_BUTTON]
-    ])
+    ], add_back=False)
 
 
     await everything.edit_or_answer(

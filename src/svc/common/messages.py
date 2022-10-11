@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional
 from src.data.settings import Settings
 
-from src.svc.common import MESSENGER_SOURCE, CommonEverything, CommonBotMessage, Source, error
+from src.svc import common
 from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
@@ -14,14 +14,14 @@ class Builder:
     def __init__(
         self, 
         separator: str = "\n\n", 
-        everything: Optional[CommonEverything] = None
+        everything: Optional[common.CommonEverything] = None
     ) -> None:
         self.separator = separator
         self.components: list[str] = []
         self.everything = everything
 
         if DEBUGGING and everything is None:
-            raise error.NoEverythingWithDebugOn((
+            raise common.error.NoEverythingWithDebugOn((
                 "debug is on, but there's no way "
                 "of displaying debug info without "
                 "CommonEverything"
@@ -40,7 +40,7 @@ class Builder:
         
         return self
     
-    def debug(self, everything: CommonEverything):
+    def debug(self, everything: common.CommonEverything):
         """
         ## Generate debug info
         """
@@ -61,13 +61,28 @@ class Builder:
 
 #### Common footers and headers ####
 
+def default_footer_addition(everything: common.CommonEverything):
+    from src import defs
+
+    mention = ""
+    footer_addition = ""
+
+    if everything.is_group_chat:
+        if everything.is_from_vk:
+            mention = defs.vk_bot_mention
+            footer_addition = format_mention_me(mention)
+        elif everything.is_from_tg:
+            footer_addition = format_reply_to_me()
+    
+    return footer_addition
+
 DEBUG = (
     "   8==o trace:\n"
     "{trace}\n"
     "   8==o last_bot_message: {last_bot_message}\n"
     "   8==o settings: {settings}"
 )
-def format_debug(trace: list[State], last_bot_message: CommonBotMessage, settings: Settings):
+def format_debug(trace: list[State], last_bot_message: common.CommonBotMessage, settings: Settings):
     trace_str = "\n".join([f"{state.anchor}:{state.space}" for state in trace])
 
     return DEBUG.format(
@@ -197,10 +212,10 @@ PERMIT_PIN_TG = (
     "🚽 | Если хочешь закреп, назначь меня админом с правом "
     "\"Закрепление сообщений\", либо пропусти если поебать"
 )
-def format_permit_pin(src: MESSENGER_SOURCE):
-    if src == Source.VK:
+def format_permit_pin(src: common.MESSENGER_SOURCE):
+    if src == common.Source.VK:
         return PERMIT_PIN_VK
-    if src == Source.TG:
+    if src == common.Source.TG:
         return PERMIT_PIN_TG
 
 
@@ -210,10 +225,10 @@ CANT_PIN_VK = (
 CANT_PIN_TG = (
     "Нет у меня нихуя, перепроверь моё право \"Закрепление сообщений\""
 )
-def format_cant_pin(src: MESSENGER_SOURCE):
-    if src == Source.VK:
+def format_cant_pin(src: common.MESSENGER_SOURCE):
+    if src == common.Source.VK:
         return CANT_PIN_VK
-    if src == Source.TG:
+    if src == common.Source.TG:
         return CANT_PIN_TG
 
 
@@ -242,8 +257,8 @@ SEND_ZOOM_DATA = (
     "💬 | Скопируй сообщения с ссылками на Zoom "
     "и отправь мне в текстовом виде"
 )
-def format_send_zoom_data(src: MESSENGER_SOURCE, is_group_chat: bool):
-    if (src == Source.VK) or (src == Source.TG and not is_group_chat):
+def format_send_zoom_data(src: common.MESSENGER_SOURCE, is_group_chat: bool):
+    if (src == common.Source.VK) or (src == common.Source.TG and not is_group_chat):
         return FORWARD_ZOOM_DATA
     else:
         return SEND_ZOOM_DATA

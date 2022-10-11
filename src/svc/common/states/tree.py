@@ -14,6 +14,7 @@ from . import (
     ZOOM_MASS_MAIN,
     ZOOM_MASS_NEW_DATA,
     ZOOM_MASS_OVERRIDE_DATA,
+    ZOOM_MASS_EDIT,
     ZOOM_MASS_CHECK,
     ZOOM_BROWSE_MAIN,
     ZOOM_EDIT_NAME,
@@ -79,6 +80,7 @@ class ZoomMass(Tree):
     I_MAIN           = State(**ZOOM_MASS_MAIN)
     II_NEW_DATA      = State(**ZOOM_MASS_NEW_DATA)
     II_OVERRIDE_DATA = State(**ZOOM_MASS_OVERRIDE_DATA)
+    I_EDIT           = State(**ZOOM_MASS_EDIT)
     I_CHECK          = State(**ZOOM_MASS_CHECK)
 
 class ZoomBrowse(Tree):

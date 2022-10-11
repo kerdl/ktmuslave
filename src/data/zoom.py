@@ -113,63 +113,56 @@ class Data:
         return self.name == other
 
 @dataclass
-class Entries:
-    set: set[Data]
-    pages: list[common.CommonBotTemplate]
-    cur_page: int
-
-    @classmethod
-    def default(cls: type[Entries]):
-        return cls(set(), [], 0)
-
-@dataclass
 class Container:
-    entries: Entries
+    entries: set[Data]
     """ ## Main database of zoom, takes links for schedule here """
-    new_entries: Entries
+    new_entries: set[Data]
     """ ## Temp storage for unconfirmed new entries """
-    overwrite_entries: Entries
-    """ ## Temp storage for unconfirmed entries, that should be overwritten"""
 
     @classmethod
     def default(cls: type[Container]):
-        return cls(
-            Entries.default(), 
-            Entries.default(), 
-            Entries.default()
-        )
+        return cls(set(), set())
 
     @staticmethod
-    def add(data: Union[Data, set[Data]], destination: Entries) -> None:
-        if isinstance(data, set):
+    def has(destination: set[Data]) -> bool:
+        return len(destination) > 0
+    
+    @property
+    def has_entries(self) -> bool:
+        return self.has(self.entries)
+    
+    @property
+    def has_new_entries(self) -> bool:
+        return self.has(self.new_entries)
+
+    @staticmethod
+    def add(data: Union[Data, set[Data], list[Data]], destination: set[Data]) -> None:
+        if isinstance(data, (set, list)):
             for data_obj in data:
-                destination.set.add(data_obj)
+                destination.add(data_obj)
     
             return None
         
         if isinstance(data, Data):
-            destination.set.add(data)
+            destination.add(data)
 
             return None
     
-    def add_entry(self, data: Union[Data, set[Data]]):
+    def add_entry(self, data: Union[Data, set[Data], list[Data]]):
         return self.add(data, self.entries)
     
-    def add_new_entry(self, data: Union[Data, set[Data]]):
+    def add_new_entry(self, data: Union[Data, set[Data], list[Data]]):
         return self.add(data, self.new_entries)
-    
-    def add_overwrite_entry(self, data: Union[Data, set[Data]]):
-        return self.add(data, self.overwrite_entries)
 
 
     @staticmethod
-    def remove(name: Union[str, set[str]], destination: Entries) -> Union[bool, list[bool]]:
+    def remove(name: Union[str, set[str]], destination: set[Data]) -> Union[bool, list[bool]]:
         if isinstance(name, set):
             results = []
 
             for n in name:
                 dummy = Data(n, "", "", "")
-                result = destination.set.remove(dummy)
+                result = destination.remove(dummy)
 
                 results.append(result)
             
@@ -177,7 +170,7 @@ class Container:
 
         if isinstance(name, str):
             dummy = Data(name, "", "", "")
-            return destination.set.remove(dummy)
+            return destination.remove(dummy)
     
     def remove_entry(self, name: str):
         return self.remove(name, self.entries)
@@ -185,13 +178,10 @@ class Container:
     def remove_new_entry(self, name: str):
         return self.remove(name, self.new_entries)
 
-    def remove_overwrite_entry(self, name: str):
-        return self.remove(name, self.overwrite_entries)
-
 
     @staticmethod
-    def get(name: str, destination: Entries) -> Optional[Data]:
-        for entry in destination.set:
+    def get(name: str, destination: set[Data]) -> Optional[Data]:
+        for entry in destination:
             if entry.name == name:
                 return entry
 
@@ -202,16 +192,13 @@ class Container:
 
     def get_new_entry(self, name: str):
         return self.get(name, self.new_entries)
-
-    def get_overwrite_entry(self, name: str):
-        return self.get(name, self.overwrite_entries)
     
 
     @staticmethod
-    def format(self, destination: Entries):
+    def format(self, destination: set[Data]):
         ...
     
 
     def __len__(self):
-        return len(self.entries.set)
+        return len(self.entries)
 

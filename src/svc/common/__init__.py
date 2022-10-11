@@ -13,7 +13,9 @@ from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
 
 from src import defs
 from src.svc import vk, telegram as tg
+from src.svc.common.states import formatter as states_fmt, Values
 from src.svc.common.navigator import Navigator
+from src.svc.common import pagination, messages, error
 from src.svc.vk.types import RawEvent
 from src.svc.common.keyboard import Keyboard
 from src.data import zoom
@@ -27,6 +29,7 @@ class BaseCtx:
     settings: Settings
     last_call: float
     """ ## Last UNIX time when user interacted with bot """
+    pages: pagination.Container
     last_bot_message: Optional[CommonBotMessage]
 
     async def throttle(self) -> None:
@@ -62,12 +65,13 @@ class Ctx:
 
     def add_vk(self, peer_id: int) -> None:
         navigator = Navigator([Init.I_MAIN], [], set())
-        settings = Settings(Group())
+        settings = Settings(Group(), zoom.Container.default())
 
         self.vk[peer_id] = VkCtx(
             navigator           = navigator, 
             settings            = settings, 
-            last_call           = time.time(), 
+            last_call           = time.time(),
+            pages               = pagination.Container.default(),
             last_bot_message    = None,
             peer_id             = peer_id
         )
@@ -78,12 +82,13 @@ class Ctx:
 
     def add_tg(self, chat: TgChat) -> None:
         navigator = Navigator([Init.I_MAIN], [], set())
-        settings = Settings(Group())
+        settings = Settings(Group(), zoom.Container.default())
 
         self.tg[chat.id] = TgCtx(
             navigator           = navigator, 
             settings            = settings, 
-            last_call           = time.time(), 
+            last_call           = time.time(),
+            pages               = pagination.Container.default(),
             last_bot_message    = None,
             chat                = chat
         )
@@ -223,7 +228,13 @@ class CommonMessage(BaseCommonEvent):
         self,
         text: str,
         keyboard: Optional[Keyboard] = None,
+        add_tree: bool = False,
+        tree_values: Optional[Values] = None
     ):
+
+        if add_tree:
+            text = states_fmt.tree(self.ctx.navigator, tree_values) + "\n\n" + text
+
         if self.is_from_vk:
             vk_message = self.vk
 
@@ -248,11 +259,13 @@ class CommonMessage(BaseCommonEvent):
             id = result.message_id
         
         bot_message = CommonBotMessage(
-            src      = self.src,
-            chat_id  = chat_id,
-            id       = id,
-            text     = text,
-            keyboard = keyboard
+            src         = self.src,
+            chat_id     = chat_id,
+            id          = id,
+            text        = text,
+            keyboard    = keyboard,
+            add_tree    = add_tree,
+            tree_values = tree_values
         )
 
         self.ctx.last_bot_message = bot_message
@@ -266,6 +279,9 @@ class CommonBotTemplate:
 class CommonBotMessage:
     text: str
     keyboard: Keyboard
+
+    add_tree: bool
+    tree_values: Optional[Values]
 
     src: Optional[MESSENGER_SOURCE]
     chat_id: Optional[int]
@@ -448,10 +464,15 @@ class CommonEvent(BaseCommonEvent):
         self,
         text: str, 
         keyboard: Optional[Keyboard] = None,
+        add_tree: bool = False,
+        tree_values: Optional[Values] = None
     ):
         """
         ## Edit message by id inside event
         """
+
+        if add_tree:
+            text = states_fmt.tree(self.ctx.navigator, tree_values) + "\n\n" + text
 
         if self.is_from_vk:
 
@@ -480,11 +501,13 @@ class CommonEvent(BaseCommonEvent):
             )
 
         bot_message = CommonBotMessage(
-            src      = self.src,
-            chat_id  = chat_id,
-            id       = message_id,
-            text     = text,
-            keyboard = keyboard
+            src         = self.src,
+            chat_id     = chat_id,
+            id          = message_id,
+            text        = text,
+            keyboard    = keyboard,
+            add_tree    = add_tree,
+            tree_values = tree_values
         )
 
         self.ctx.last_bot_message = bot_message
@@ -597,13 +620,28 @@ class CommonEverything(BaseCommonEvent):
         self,
         text: str, 
         keyboard: Optional[Keyboard] = None,
+        add_tree: bool = False,
+        tree_values: Optional[Values] = None
     ):
         if self.is_from_event:
             event = self.event
-            return await event.edit_message(text, keyboard)
+
+            return await event.edit_message(
+                text        = text, 
+                keyboard    = keyboard,
+                add_tree    = add_tree,
+                tree_values = tree_values
+            )
+
         if self.is_from_message:
             message = self.message
-            return await message.answer(text, keyboard)
+
+            return await message.answer(
+                text        = text, 
+                keyboard    = keyboard,
+                add_tree    = add_tree,
+                tree_values = tree_values
+            )
 
 def run_forever():
     """
