@@ -144,7 +144,7 @@ class CommonMessageMaker:
         data: dict[str, Any]
     ) -> Any:
         """
-        ## Makes `CommonMessage` from vk message and sends it to a handler
+        ## Makes `CommonMessage` from tg message and sends it to a handler
         """
         logger.info("CommonMessageMaker")
 
