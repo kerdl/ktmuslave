@@ -7,7 +7,7 @@ from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom_mass, zoom_browse
 from src.data import zoom
 from src.svc.common.states import formatter as states_fmt
-from src.svc.common.states.tree import Init
+from src.svc.common.states.tree import Init, ZoomBrowse, ZoomMass
 from src.svc.common.router import r
 from src.svc.common.filter import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import (
@@ -58,7 +58,16 @@ async def to_finish(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.SKIP))
 async def skip_add_zoom(everything: CommonEverything):
-    everything.ctx.settings.zoom = zoom.Container.default()
+    ctx = everything.ctx
+
+    # reset the container
+    ctx.settings.zoom = zoom.Container.default()
+
+    # remove back traced states, 
+    # since after container reset 
+    # we can't go there with the "next" button
+    ctx.navigator.delete_back_trace(ZoomMass.I_MAIN)
+    ctx.navigator.delete_back_trace(ZoomBrowse.I_MAIN)
 
     return await to_finish(everything)
 
@@ -111,7 +120,7 @@ async def check_do_pin(everything: CommonEverything):
             await event.show_notification(answer_text)
 
     else:
-        everything.navigator.back()
+        everything.navigator.back(trace_it = False)
         return await to_finish(everything)
 
 
@@ -237,7 +246,7 @@ async def schedule_broadcast(everything: CommonEverything):
 
 async def to_schedule_broadcast(everything: CommonEverything):
     if everything.navigator.current == Init.II_UNKNOWN_GROUP:
-        everything.navigator.back()
+        everything.navigator.back(trace_it = False)
 
     everything.navigator.append(Init.I_SCHEDULE_BROADCAST)
 
@@ -252,7 +261,7 @@ async def confirm_unknown_group(everything: CommonEverything):
     # set it as confirmed
     everything.ctx.settings.group.confirmed = valid_group
 
-    everything.navigator.back()
+    everything.navigator.back(trace_it = False)
     
     return await to_schedule_broadcast(everything)
 
@@ -297,7 +306,7 @@ async def group(everything: CommonEverything):
     is_group_set = ctx.settings.group.confirmed is not None
 
     if everything.navigator.current == Init.II_UNKNOWN_GROUP:
-        everything.navigator.back()
+        everything.navigator.back(trace_it = False)
 
     footer_addition = ""
 
@@ -332,8 +341,10 @@ async def group(everything: CommonEverything):
                         .add(footer_addition)
             )
             return await message.answer(
-                text           = answer_text.make(),
-                keyboard       = answer_keyboard,
+                text        = answer_text.make(),
+                keyboard    = answer_keyboard,
+                add_tree    = True,
+                tree_values = ctx.settings
             )
 
 
@@ -386,13 +397,7 @@ async def group(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.I_MAIN), PayloadFilter(Payload.BEGIN))
 async def begin(everything: CommonEverything):
-
-    # if user didn't came to this state 
-    # from further states using "Back" button
-    if Init.I_GROUP not in everything.navigator.back_trace:
-        everything.navigator.append(Init.I_GROUP)
-    else:
-        everything.navigator.next()
+    everything.navigator.append(Init.I_GROUP)
 
     return await group(everything)
 

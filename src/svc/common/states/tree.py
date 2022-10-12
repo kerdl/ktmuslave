@@ -36,6 +36,8 @@ class Init(Tree):
       ↓
     SHOULD_PIN
       ↓
+    ZOOM
+      ↓
     FINISH
     ```notpython
     """

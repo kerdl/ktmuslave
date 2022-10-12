@@ -88,15 +88,13 @@ async def main(everything: CommonEverything):
             messages.Builder(everything=everything)
                     .add(messages.format_zoom_data_format())
                     .add(messages.format_send_zoom_data(everything.src, everything.is_group_chat))
-                    .add_if(footer_addition, everything.is_group_chat)
+                    .add(footer_addition)
         )
         answer_keyboard = Keyboard.default().assign_next(NEXT_BUTTON.only_if(has_new_entries))
 
         await event.edit_message(
             text        = answer_text.make(),
             keyboard    = answer_keyboard,
-            add_tree    = True,
-            tree_values = ctx.settings
         )
 
     elif everything.is_from_message:
@@ -106,10 +104,28 @@ async def main(everything: CommonEverything):
         # parse from text
         parsed = zoom.Data.parse(message.text)
 
+        # if no data found in text
+        if len(parsed) < 1:
+
+            footer_addition = messages.default_footer_addition(everything)
+
+            answer_text = (
+                messages.Builder()
+                        .add(messages.format_zoom_data_format())
+                        .add(messages.format_doesnt_contain_zoom())
+                        .add(footer_addition)
+            )
+            answer_keyboard = Keyboard.default()
+
+            return await message.answer(
+                text     = answer_text.make(),
+                keyboard = answer_keyboard
+            )
+
         # add everything parsed
         ctx.settings.zoom.add_new_entry(parsed)
 
-        return await zoom_browse.main(everything)
+        return await zoom_browse.to_main(everything)
 
 
 async def to_main(everything: CommonEverything):

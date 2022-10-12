@@ -42,6 +42,7 @@ class Values:
 @dataclass
 class State:
     name: str
+    back_trace: bool = True
     tree: Optional[Tree] = None
     space: Optional[SPACE_LITERAL] = None
     anchor: Optional[str] = None
@@ -130,22 +131,22 @@ class Tree:
 
         return len(name.split("_")[0])
 
-INIT_MAIN               = { "name": "Категорически приветствую", }
-HUB_MAIN                = { "name": "Главная",                   }
-HUB_SETTINGS            = { "name": "Настройки",                 }
-GROUP                   = { "name": "Группа",                    }
-UNKNOWN_GROUP           = { "name": "Неизвестная группа",        }
-SCHEDULE_BROADCAST      = { "name": "Рассылка расписания",       }
-SHOULD_PIN              = { "name": "Закреп расписания",         }
-INIT_ZOOM               = { "name": "Zoom данные",               }
-INIT_FINISH             = { "name": "ФИНААААЛ СУЧКИ",            }
-ZOOM_MASS_MAIN          = { "name": "Сообщение с ссылками",      }
-ZOOM_MASS_NEW_DATA      = { "name": "Новые данные",              }
-ZOOM_MASS_OVERRIDE_DATA = { "name": "Перезапись данных",         }
-ZOOM_MASS_EDIT          = { "name": "Редактирование",            }
-ZOOM_MASS_CHECK         = { "name": "Подтверждение изменений"    }
-ZOOM_BROWSE_MAIN        = { "name": "Выбор препода",             }
-ZOOM_EDIT_NAME          = { "name": "Имя препода",               }
-ZOOM_EDIT_URL           = { "name": "Ссылка",                    }
-ZOOM_EDIT_ID            = { "name": "ID",                        }
-ZOOM_EDIT_PWD           = { "name": "Пароль",                    }
+INIT_MAIN               = { "name": "Категорически приветствую",                     }
+HUB_MAIN                = { "name": "Главная",                                       }
+HUB_SETTINGS            = { "name": "Настройки",                                     }
+GROUP                   = { "name": "Группа",                                        }
+UNKNOWN_GROUP           = { "name": "Неизвестная группа",        "back_trace": False }
+SCHEDULE_BROADCAST      = { "name": "Рассылка расписания",                           }
+SHOULD_PIN              = { "name": "Закреп расписания",                             }
+INIT_ZOOM               = { "name": "Zoom данные",                                   }
+INIT_FINISH             = { "name": "ФИНААААЛ СУЧКИ",            "back_trace": False }
+ZOOM_MASS_MAIN          = { "name": "Сообщение с ссылками",                          }
+ZOOM_MASS_NEW_DATA      = { "name": "Новые данные",                                  }
+ZOOM_MASS_OVERRIDE_DATA = { "name": "Перезапись данных",                             }
+ZOOM_MASS_EDIT          = { "name": "Редактирование",                                }
+ZOOM_MASS_CHECK         = { "name": "Подтверждение изменений"                        }
+ZOOM_BROWSE_MAIN        = { "name": "Выбор препода",                                 }
+ZOOM_EDIT_NAME          = { "name": "Имя препода",                                   }
+ZOOM_EDIT_URL           = { "name": "Ссылка",                                        }
+ZOOM_EDIT_ID            = { "name": "ID",                                            }
+ZOOM_EDIT_PWD           = { "name": "Пароль",                                        }
