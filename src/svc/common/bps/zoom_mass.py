@@ -17,6 +17,7 @@ from src.svc.common.keyboard import (
     SKIP_BUTTON,
     BACK_BUTTON,
     ADD_BUTTON,
+    ADD_ALL_BUTTON,
 
     BEGIN_BUTTON,
     DO_PIN_BUTTON,
@@ -25,6 +26,7 @@ from src.svc.common.keyboard import (
     FINISH_BUTTON
 )
 from src.data import zoom
+from . import zoom_browse
 
 
 async def edit(everything: CommonEverything):
@@ -34,20 +36,22 @@ async def edit(everything: CommonEverything):
 
 
     if everything.is_from_message:
+        # user sent a message with links
+
         message = everything.message
 
-        ctx.settings.zoom_entries = zoom.Container.default()
+        ctx.settings.zoom = zoom.Container.default()
 
         parsed = zoom.Data.parse(message.text)
-        ctx.settings.zoom_entries.add_new_entry(parsed)
+        ctx.settings.zoom.add_new_entry(parsed)
 
         pages = pagination.from_zoom(
             data            = parsed,
-            keyboard_footer = [BACK_BUTTON, ADD_BUTTON]
+            keyboard_footer = [BACK_BUTTON, ADD_ALL_BUTTON]
         )
         ctx.pages.list = pages
 
-    if not ctx.settings.zoom_entries.has_new_entries:
+    if not ctx.settings.zoom.has_new_entries:
         answer_text = (
             messages.Builder(everything=everything)
                     .add(messages.format_zoom_data_format())
@@ -69,22 +73,16 @@ async def edit(everything: CommonEverything):
         tree_values = ctx.settings
     )
 
-
-async def to_edit(everything: CommonEverything):
-    everything.ctx.navigator.append(ZoomMass.I_EDIT)
-    return await edit(everything)
-
 @r.on_everything(StateFilter(ZoomMass.I_MAIN))
 async def main(everything: CommonEverything):
     ctx = everything.ctx
 
     if everything.is_from_event:
         # user came to this state from button
-
         event = everything.event
 
         footer_addition = messages.default_footer_addition(everything)
-        has_new_entries = ctx.settings.zoom_entries.has_new_entries
+        has_new_entries = ctx.settings.zoom.has_new_entries
 
         answer_text = (
             messages.Builder(everything=everything)
@@ -95,16 +93,23 @@ async def main(everything: CommonEverything):
         answer_keyboard = Keyboard.default().assign_next(NEXT_BUTTON.only_if(has_new_entries))
 
         await event.edit_message(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard,
+            text        = answer_text.make(),
+            keyboard    = answer_keyboard,
             add_tree    = True,
             tree_values = ctx.settings
         )
 
     elif everything.is_from_message:
         # user sent a message with links
+        message = everything.message
 
-        return await to_edit(everything)
+        # parse from text
+        parsed = zoom.Data.parse(message.text)
+
+        # add everything parsed
+        ctx.settings.zoom.add_new_entry(parsed)
+
+        return await zoom_browse.main(everything)
 
 
 async def to_main(everything: CommonEverything):
@@ -114,5 +119,4 @@ async def to_main(everything: CommonEverything):
 
 STATE_MAP = {
     ZoomMass.I_MAIN: main,
-    ZoomMass.I_EDIT: edit
 }

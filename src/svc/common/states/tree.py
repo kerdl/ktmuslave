@@ -78,9 +78,9 @@ class ZoomMass(Tree):
     __space__ = Space.ZOOM_MASS
 
     I_MAIN           = State(**ZOOM_MASS_MAIN)
-    II_NEW_DATA      = State(**ZOOM_MASS_NEW_DATA)
-    II_OVERRIDE_DATA = State(**ZOOM_MASS_OVERRIDE_DATA)
-    I_EDIT           = State(**ZOOM_MASS_EDIT)
+    #II_NEW_DATA      = State(**ZOOM_MASS_NEW_DATA)
+    #II_OVERRIDE_DATA = State(**ZOOM_MASS_OVERRIDE_DATA)
+    #I_EDIT           = State(**ZOOM_MASS_EDIT)
     I_CHECK          = State(**ZOOM_MASS_CHECK)
 
 class ZoomBrowse(Tree):

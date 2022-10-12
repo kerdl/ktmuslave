@@ -19,12 +19,13 @@ from src.svc.vk.keyboard import CMD
 
 
 class Payload:
-    TRUE  = "true"
-    FALSE = "false"
-    BACK  = "back"
-    NEXT  = "next"
-    SKIP  = "skip"
-    ADD   = "add"
+    TRUE    = "true"
+    FALSE   = "false"
+    BACK    = "back"
+    NEXT    = "next"
+    SKIP    = "skip"
+    ADD     = "add"
+    ADD_ALL = "add_all"
 
     PAGE_BACK = "page_back"
     PAGE_NEXT = "page_next"
@@ -36,12 +37,13 @@ class Payload:
     FINISH    = "finish"
 
 class Text:
-    TRUE  = "✓ ПизДА!"
-    FALSE = "✕ МиНЕТ..."
-    BACK  = "← Назад"
-    NEXT  = "→ Далее"
-    SKIP  = "→ Пропустить"
-    ADD   = "✓ Добавить"
+    TRUE    = "✓ ПизДА!"
+    FALSE   = "✕ МиНЕТ..."
+    BACK    = "← Назад"
+    NEXT    = "→ Далее"
+    SKIP    = "→ Пропустить"
+    ADD     = "+ Добавить"
+    ADD_ALL = "✓ Добавить всё"
 
     BEGIN     = "→ Начать"
     DO_PIN    = "✓ Закреплять"
@@ -196,12 +198,13 @@ class Keyboard:
         return tg_kb
 
 
-TRUE_BUTTON   = Button(Text.TRUE, Payload.TRUE, Color.GREEN)
-FALSE_BUTTON  = Button(Text.FALSE, Payload.FALSE, Color.RED)
-BACK_BUTTON   = Button(Text.BACK, Payload.BACK)
-NEXT_BUTTON   = Button(Text.NEXT, Payload.NEXT)
-SKIP_BUTTON   = Button(Text.SKIP, Payload.SKIP)
-ADD_BUTTON    = Button(Text.ADD, Payload.ADD)
+TRUE_BUTTON    = Button(Text.TRUE, Payload.TRUE, Color.GREEN)
+FALSE_BUTTON   = Button(Text.FALSE, Payload.FALSE, Color.RED)
+BACK_BUTTON    = Button(Text.BACK, Payload.BACK)
+NEXT_BUTTON    = Button(Text.NEXT, Payload.NEXT)
+SKIP_BUTTON    = Button(Text.SKIP, Payload.SKIP)
+ADD_BUTTON     = Button(Text.ADD, Payload.ADD, Color.GREEN)
+ADD_ALL_BUTTON = Button(Text.ADD_ALL, Payload.ADD_ALL, Color.GREEN)
 
 BEGIN_BUTTON     = Button(Text.BEGIN, Payload.BEGIN)
 DO_PIN_BUTTON    = Button(Text.DO_PIN, Payload.DO_PIN, Color.GREEN)
