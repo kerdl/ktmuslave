@@ -13,19 +13,10 @@ DEBUGGING = False
 class Builder:
     def __init__(
         self, 
-        separator: str = "\n\n", 
-        everything: Optional[common.CommonEverything] = None
+        separator: str = "\n\n",
     ) -> None:
         self.separator = separator
         self.components: list[str] = []
-        self.everything = everything
-
-        if DEBUGGING and everything is None:
-            raise common.error.NoEverythingWithDebugOn((
-                "debug is on, but there's no way "
-                "of displaying debug info without "
-                "CommonEverything"
-            ))
     
     def add(self, text: str) -> Builder:
         if text == "":
@@ -39,23 +30,8 @@ class Builder:
             self.add(text)
         
         return self
-    
-    def debug(self, everything: common.CommonEverything):
-        """
-        ## Generate debug info
-        """
-
-        trace = everything.navigator.trace
-        last_bot_message = everything.ctx.last_bot_message
-        settings = everything.ctx.settings
-        debug_info = format_debug(trace, last_bot_message, settings)
-
-        return debug_info
 
     def make(self) -> str:
-        if DEBUGGING:
-            self.components = [self.debug(self.everything)] + self.components
-
         return self.separator.join(self.components)
 
 
@@ -77,18 +53,30 @@ def default_footer_addition(everything: common.CommonEverything):
     return footer_addition
 
 DEBUG = (
-    "   8==o trace:\n"
+    "8==o🤮 trace:\n"
     "{trace}\n"
-    "   8==o last_bot_message: {last_bot_message}\n"
-    "   8==o settings: {settings}"
+    "8==o🤮 back_trace:\n"
+    "{back_trace}\n"
+    "8==o🤮 last_bot_message:\n"
+    "   {last_bot_message}\n"
+    "8==o🤮 settings:\n"
+    "   {settings}"
 )
-def format_debug(trace: list[State], last_bot_message: common.CommonBotMessage, settings: Settings):
-    trace_str = "\n".join([f"{state.anchor}:{state.space}" for state in trace])
+def format_debug(trace: list[State], back_trace: list[State], last_bot_message: common.CommonBotMessage, settings: Settings):
+    
+    def fmt_trace(trace: list[State]):
+        return "\n".join([f"   {state.space}:{state.anchor}" for state in trace])
+    
+    trace_str = fmt_trace(trace)
+    back_trace_str = fmt_trace(back_trace)
+
+    last_bot_message = "впизду этот мессадж он огромный как член у меня в жопе"
 
     return DEBUG.format(
-        trace               = trace_str,
-        last_bot_message    = last_bot_message,
-        settings            = settings
+        trace            = trace_str,
+        back_trace       = back_trace_str,
+        last_bot_message = last_bot_message,
+        settings         = settings
     )
 
 
@@ -265,12 +253,12 @@ def format_send_zoom_data(src: common.MESSENGER_SOURCE, is_group_chat: bool):
 
 ZOOM_DATA_FORMAT = (
     "📝 | Формат:\n"
-    "↵ <Фамилия> <Имя> <Отчество>\n"
-    "↵ <Ссылка>\n"
-    "↵ <ID>\n"
-    "↵ <Пароль>\n"
-    "↵ [ПУСТАЯ СТРОКА]\n"
-    "↵ ..."
+    "   ↵ <Фамилия> <Имя> <Отчество>\n"
+    "   ↵ <Ссылка>\n"
+    "   ↵ <ID>\n"
+    "   ↵ <Пароль>\n"
+    "   ↵ [ПУСТАЯ СТРОКА]\n"
+    "   ↵ ..."
 )
 def format_zoom_data_format():
     return ZOOM_DATA_FORMAT

@@ -15,14 +15,12 @@ class SpaceType(ModuleType):
     page_next: Callable[[CommonEverything], Awaitable[None]]
 
 def get_module_space(space: SPACE_LITERAL) -> Optional[SpaceType]:
-    from . import init, hub, zoom_mass, zoom_browse, zoom_edit
+    from . import init, hub, zoom
 
     MAP = {
-        Space.INIT:        init,
-        Space.HUB:         hub,
-        Space.ZOOM_MASS:   zoom_mass,
-        Space.ZOOM_BROWSE: zoom_browse,
-        Space.ZOOM_EDIT:   zoom_edit
+        Space.INIT: init,
+        Space.HUB:  hub,
+        Space.ZOOM: zoom,
     }
 
     return MAP.get(space)

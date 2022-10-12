@@ -4,10 +4,10 @@ import re
 from src import defs
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages
-from src.svc.common.bps import zoom_mass, zoom_browse
-from src.data import zoom
+from src.svc.common.bps import zoom as zoom_bp
+from src.data import zoom as zoom_data
 from src.svc.common.states import formatter as states_fmt
-from src.svc.common.states.tree import Init, ZoomBrowse, ZoomMass
+from src.svc.common.states.tree import Init, Zoom
 from src.svc.common.router import r
 from src.svc.common.filter import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import (
@@ -36,7 +36,7 @@ async def finish(everything: CommonEverything):
     ctx = everything.ctx
 
     answer_text = (
-        messages.Builder(everything=everything)
+        messages.Builder()
                 .add(messages.format_finish())
     )
     answer_keyboard = Keyboard.default().assign_next(FINISH_BUTTON)
@@ -61,20 +61,19 @@ async def skip_add_zoom(everything: CommonEverything):
     ctx = everything.ctx
 
     # reset the container
-    ctx.settings.zoom = zoom.Container.default()
+    ctx.settings.zoom = zoom_data.Container.default()
 
-    # remove back traced states, 
+    # remove back traced zoom browse state, 
     # since after container reset 
-    # we can't go there with the "next" button
-    ctx.navigator.delete_back_trace(ZoomMass.I_MAIN)
-    ctx.navigator.delete_back_trace(ZoomBrowse.I_MAIN)
+    # we can't go there with "next" button
+    ctx.navigator.delete_back_trace(Zoom.II_BROWSE)
 
     return await to_finish(everything)
 
 
 @r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.FROM_TEXT))
 async def add_zoom_from_text(everything: CommonEverything):
-    return await zoom_mass.to_main(everything)
+    return await zoom_bp.to_mass(everything)
 
 
 @r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.MANUALLY))
@@ -87,7 +86,7 @@ async def add_zoom(everything: CommonEverything):
     ctx = everything.ctx
 
     answer_text = (
-        messages.Builder(everything=everything)
+        messages.Builder()
                 .add(messages.format_recommend_adding_zoom())
                 .add(messages.format_zoom_adding_types_explain())
     )
@@ -154,7 +153,7 @@ async def should_pin(everything: CommonEverything):
     is_should_pin_set = everything.ctx.settings.should_pin is not None
 
     answer_text = (
-        messages.Builder(everything=everything)
+        messages.Builder()
     )
 
     # if we can pin messages
@@ -205,8 +204,13 @@ async def to_should_pin(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.I_SCHEDULE_BROADCAST), PayloadFilter(Payload.FALSE))
 async def deny_broadcast(everything: CommonEverything):
+    ctx = everything.ctx
 
     everything.ctx.settings.schedule_broadcast = False
+
+    # after deny, it's impossible to
+    # get to `should_pin`
+    ctx.navigator.delete_back_trace(Init.II_SHOULD_PIN)
 
     return await to_add_zoom(everything)
 
@@ -228,7 +232,7 @@ async def schedule_broadcast(everything: CommonEverything):
     is_schedule_broadcast_set = everything.ctx.settings.schedule_broadcast is not None
 
     answer_text = (
-        messages.Builder(everything=everything)
+        messages.Builder()
                 .add(messages.format_schedule_broadcast())
     )
     answer_keyboard = Keyboard([
@@ -274,7 +278,7 @@ async def unknown_group(everything: CommonEverything):
         message = everything.message
 
         answer_text = (
-            messages.Builder(everything=everything)
+            messages.Builder()
                     .add(messages.format_unknown_group(group))
         )
 
@@ -335,7 +339,7 @@ async def group(everything: CommonEverything):
 
             # send a message saying "your input is invalid"
             answer_text = (
-                messages.Builder(everything=everything)
+                messages.Builder()
                         .add(messages.format_groups(GROUPS))
                         .add(messages.format_invalid_group())
                         .add(footer_addition)
@@ -382,7 +386,7 @@ async def group(everything: CommonEverything):
         event = everything.event
 
         answer_text = (
-            messages.Builder(everything=everything)
+            messages.Builder()
                     .add(messages.format_groups(GROUPS))
                     .add(messages.format_group_input())
                     .add(footer_addition)
@@ -405,7 +409,7 @@ async def begin(everything: CommonEverything):
 @r.on_everything(StateFilter(Init.I_MAIN))
 async def main(everything: CommonEverything):
     answer_text = (
-        messages.Builder(everything=everything)
+        messages.Builder()
                 .add(messages.format_welcome(everything.is_group_chat))
                 .add(messages.format_press_begin())
     )

@@ -19,20 +19,16 @@ class Space:
         - view schedule, 
         - view links,
         - can change settings
-    - `zoom_mass` - where user can
-        - add new zoom links from one big message of links
-    - `zoom_browse` - where user can
-        - browse all zoom links he added
-    - `zoom_edit` - where user can
-        - edit specific zoom data
+    - `zoom` - where user can:
+        - add multiple zoom entries from one message
+        - edit every signle one of them manually
+        - delete them
     """
     INIT        = "init"
     HUB         = "hub"
-    ZOOM_MASS   = "zoom_mass"
-    ZOOM_BROWSE = "zoom_browse"
-    ZOOM_EDIT   = "zoom_edit"
+    ZOOM        = "zoom"
 
-SPACE_LITERAL = Literal["init", "hub", "zoom_mass", "zoom_browse", "zoom_edit"]
+SPACE_LITERAL = Literal["init", "hub", "zoom"]
 
 
 class Values:
@@ -139,13 +135,11 @@ UNKNOWN_GROUP           = { "name": "Неизвестная группа",      
 SCHEDULE_BROADCAST      = { "name": "Рассылка расписания",                           }
 SHOULD_PIN              = { "name": "Закреп расписания",                             }
 INIT_ZOOM               = { "name": "Zoom данные",                                   }
-INIT_FINISH             = { "name": "ФИНААААЛ СУЧКИ",            "back_trace": False }
-ZOOM_MASS_MAIN          = { "name": "Сообщение с ссылками",                          }
-ZOOM_MASS_NEW_DATA      = { "name": "Новые данные",                                  }
-ZOOM_MASS_OVERRIDE_DATA = { "name": "Перезапись данных",                             }
-ZOOM_MASS_EDIT          = { "name": "Редактирование",                                }
+INIT_FINISH             = { "name": "ФИНААААЛ СУЧКИ",                                }
+ZOOM_MASS               = { "name": "Сообщение с ссылками",      "back_trace": False }
 ZOOM_MASS_CHECK         = { "name": "Подтверждение изменений"                        }
-ZOOM_BROWSE_MAIN        = { "name": "Выбор препода",                                 }
+ZOOM_BROWSE             = { "name": "Выбор препода",                                 }
+ZOOM_ENTRY              = { "name": "Редактирование",                                }
 ZOOM_EDIT_NAME          = { "name": "Имя препода",                                   }
 ZOOM_EDIT_URL           = { "name": "Ссылка",                                        }
 ZOOM_EDIT_ID            = { "name": "ID",                                            }

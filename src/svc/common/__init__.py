@@ -3,7 +3,7 @@ from loguru import logger
 import time
 import asyncio
 import random
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from copy import deepcopy
 from dataclasses import dataclass
 from vkbottle import ShowSnackbarEvent
@@ -140,6 +140,28 @@ class BaseCommonEvent:
     @property
     def navigator(self) -> Navigator:
         return self.ctx.navigator
+    
+    def preprocess_text(
+        self, 
+        text: str, 
+        add_tree: bool, 
+        tree_values: Values
+    ) -> str:
+        if add_tree:
+            text = states_fmt.tree(
+                self.ctx.navigator, 
+                tree_values
+            ) + "\n\n" + text
+
+        if messages.DEBUGGING:
+            text = messages.format_debug(
+                trace            = self.ctx.navigator.trace,
+                back_trace       = self.ctx.navigator.back_trace,
+                last_bot_message = self.ctx.last_bot_message,
+                settings         = self.ctx.settings
+            ) + "\n\n" + text
+        
+        return text
 
 @dataclass
 class CommonMessage(BaseCommonEvent):
@@ -232,8 +254,11 @@ class CommonMessage(BaseCommonEvent):
         tree_values: Optional[Values] = None
     ):
 
-        if add_tree:
-            text = states_fmt.tree(self.ctx.navigator, tree_values) + "\n\n" + text
+        text = self.preprocess_text(
+            text        = text, 
+            add_tree    = add_tree, 
+            tree_values = tree_values
+        )
 
         if self.is_from_vk:
             vk_message = self.vk
@@ -376,6 +401,16 @@ class CommonEvent(BaseCommonEvent):
         return self
     
     @property
+    def payload(self) -> str:
+        if self.is_from_tg:
+            return self.tg.data
+        if self.is_from_vk:
+            payload_dict = self.vk["object"]["payload"]
+
+            for (key, value) in payload_dict.items():
+                return value
+
+    @property
     def is_group_chat(self):
         if self.is_from_vk:
             peer_id = self.vk["object"]["peer_id"]
@@ -471,8 +506,11 @@ class CommonEvent(BaseCommonEvent):
         ## Edit message by id inside event
         """
 
-        if add_tree:
-            text = states_fmt.tree(self.ctx.navigator, tree_values) + "\n\n" + text
+        text = self.preprocess_text(
+            text        = text, 
+            add_tree    = add_tree, 
+            tree_values = tree_values
+        )
 
         if self.is_from_vk:
 

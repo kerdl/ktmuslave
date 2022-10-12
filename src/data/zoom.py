@@ -124,16 +124,25 @@ class Container:
         return cls(set(), set())
 
     @staticmethod
-    def has(destination: set[Data]) -> bool:
+    def has(destination: set[Data], name: Optional[str] = None) -> bool:
+        if name is not None:
+            return name in destination
+
         return len(destination) > 0
     
     @property
     def has_entries(self) -> bool:
         return self.has(self.entries)
     
+    def has_in_entries(self, name: str) -> bool:
+        return self.has(self.entries, name)
+    
     @property
     def has_new_entries(self) -> bool:
         return self.has(self.new_entries)
+
+    def has_in_new_entries(self, name: str) -> bool:
+        return self.has(self.new_entries, name)
 
     @staticmethod
     def add(data: Union[Data, set[Data], list[Data]], destination: set[Data]) -> None:

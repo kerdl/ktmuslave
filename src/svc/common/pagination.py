@@ -37,8 +37,8 @@ class Container:
 
 def from_zoom(
     data: Union[list[zoom.Data], set[zoom.Data]], 
-    per_page: int = 3, 
-    keyboard_width: int = 3,
+    per_page: int = 6, 
+    keyboard_width: int = 2,
     keyboard_header: list[Button] = [],
     keyboard_footer: list[Button] = [BACK_BUTTON]
 ) -> list[common.CommonBotTemplate]:
@@ -49,12 +49,14 @@ def from_zoom(
     # the output of this function
     msgs = []
     # split whole data into pages
-    splitted_chunks = [chunk for chunk in chunks(data, per_page)]
+    pages = [page for page in chunks(data, per_page)]
+
+    is_single_page = len(pages) < 2
 
     # iterate for each chunk, a list of zoom data classes
-    for (page_num, page) in enumerate(splitted_chunks):
+    for (page_num, page) in enumerate(pages):
         is_first_page = page_num == 0
-        is_last_page = page_num + 1 == len(splitted_chunks)
+        is_last_page = page_num + 1 == len(pages)
 
         # call `format()` on each zoom data and separate them with "\n\n"
         text = "\n\n".join([section.format() for section in page])
@@ -63,7 +65,7 @@ def from_zoom(
         text += "\n\n"
         text += common.messages.format_page_num(
             current = page_num + 1, 
-            last = len(splitted_chunks)
+            last = len(pages)
         )
 
         # whole keyboard schema
@@ -73,6 +75,21 @@ def from_zoom(
 
         # append keyboard header
         kb_schema.append(keyboard_header)
+
+        if not is_single_page:
+            back_symbol = "←" if not is_first_page else BULLET
+            next_symbol = "→" if not is_last_page else BULLET
+
+            back_button = Button(back_symbol, Payload.PAGE_BACK)
+            #page_button = Button(f"{page_num + 1}", f"{page_num}")
+            next_button = Button(next_symbol, Payload.PAGE_NEXT)
+
+            # make a row with navigation
+            kb_schema.append([
+                back_button, 
+                #page_button, 
+                next_button
+            ])
 
         # iterate for each section in current page (2D array)
         #                  [..., ...]         [ [..., ...], [..., ...] ]
@@ -95,17 +112,6 @@ def from_zoom(
                 # clean current row
                 cur_row = []
 
-        back_symbol = "←" if not is_first_page else BULLET
-        next_symbol = "→" if not is_last_page else BULLET
-
-        back_button = Button(back_symbol, Payload.PAGE_BACK)
-        page_button = Button(f"{page_num + 1}", f"{page_num}")
-        next_button = Button(next_symbol, Payload.PAGE_NEXT)
-
-        # make a row with navigation
-        kb_schema.append([
-            back_button, page_button, next_button
-        ])
         kb_schema.append(keyboard_footer)
 
         message = common.CommonBotTemplate(
