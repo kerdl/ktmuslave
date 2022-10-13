@@ -3,7 +3,7 @@ from types import ModuleType
 from aiogram.exceptions import TelegramBadRequest
 
 from src.svc.common import CommonEverything
-from src.svc.common.filter import PayloadFilter
+from src.svc.common.filters import PayloadFilter
 from src.svc.common.keyboard import Payload
 from src.svc.common.states import SPACE_LITERAL, Space, State
 from src.svc.common.router import r

@@ -26,11 +26,25 @@ from .states.tree import Init, Hub
 @dataclass
 class BaseCtx:
     navigator: Navigator
+    """ ## Back, next buttons tracer """
     settings: Settings
+    """ ## Storage for settings and zoom data"""
     last_call: float
     """ ## Last UNIX time when user interacted with bot """
     pages: pagination.Container
+    """
+    ## Page storage for big data
+    - sometimes, data can be too massive
+    to display in one message (like zoom entries)
+    - we split that data into pages (chunks)
+    - and store these pages here
+    """
     last_bot_message: Optional[CommonBotMessage]
+    """
+    ## Last message sent by the bot
+    - we resend it when for some reason
+    user interacts with OLD messages
+    """
 
     async def throttle(self) -> None:
         """ ## Stop executing for a short period to avoid rate limit """
@@ -51,15 +65,22 @@ class BaseCtx:
 
 @dataclass
 class VkCtx(BaseCtx):
+    """ ## Context specific to VK """
     peer_id: int
 
 @dataclass
 class TgCtx(BaseCtx):
+    """ ## Context specific to Telegram """
     chat: TgChat
 
 @dataclass
 class Ctx:
+    """ ## Global context storage"""
     vk: dict[int, VkCtx]
+    """
+    ## VK chats
+    - stored in a dict of `{}`
+    """
     tg: dict[int, TgCtx]
 
 

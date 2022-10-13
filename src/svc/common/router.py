@@ -17,7 +17,7 @@ from vkbottle.bot import MessageEvent
 from src import defs
 from src.svc.common import CommonEverything, CommonMessage
 from src.svc.common import CommonEvent
-from src.svc.common.filter import BaseFilter, MessageOnlyFilter, EventOnlyFilter
+from src.svc.common.filters import BaseFilter, MessageOnlyFilter, EventOnlyFilter
 
 
 @dataclass
@@ -74,7 +74,9 @@ class Router:
         ## Assign dummies to VK and Telegram decorators
         """
 
-        # on message handler
+        """ Assign to VK """
+
+        # on message
         vk_msg_decorator = defs.vk_bot.on.message()
         vk_msg_decorator(self.choose_handler)
 
@@ -85,7 +87,8 @@ class Router:
         )
         vk_callback_decorator(self.choose_handler)
 
-        """"""""""""""""""""""""""""""""""""""""""""
+
+        """ Assign to Telegram """
 
         # on message handler
         tg_msg_decorator = defs.tg_router.message()
@@ -117,6 +120,7 @@ class Router:
                     result = await filter_(everything)
                     filter_results.append(result)
                 
+                # if all filters were passed
                 if all(filter_results):
                     filter_interrupt = False
             
