@@ -88,15 +88,16 @@ class Ctx:
     """
 
 
-    def add_vk(self, peer_id: int) -> None:
-        navigator = Navigator([Init.I_MAIN], [], set())
-        settings = Settings(Group(), zoom.Container.default())
+    def add_vk(self, peer_id: int) -> VkCtx:
+        navigator = Navigator.default()
+        settings = Settings.default()
+        pages = pagination.Container.default()
 
         self.vk[peer_id] = VkCtx(
             navigator           = navigator, 
             settings            = settings, 
             last_call           = time.time(),
-            pages               = pagination.Container.default(),
+            pages               = pages,
             last_bot_message    = None,
             peer_id             = peer_id
         )
@@ -105,15 +106,16 @@ class Ctx:
 
         return self.vk[peer_id]
 
-    def add_tg(self, chat: TgChat) -> None:
-        navigator = Navigator([Init.I_MAIN], [], set())
-        settings = Settings(Group(), zoom.Container.default())
+    def add_tg(self, chat: TgChat) -> TgCtx:
+        navigator = Navigator.default()
+        settings = Settings.default()
+        pages = pagination.Container.default()
 
         self.tg[chat.id] = TgCtx(
             navigator           = navigator, 
             settings            = settings, 
             last_call           = time.time(),
-            pages               = pagination.Container.default(),
+            pages               = pages,
             last_bot_message    = None,
             chat                = chat
         )
@@ -125,10 +127,17 @@ class Ctx:
 ctx = Ctx({}, {})
 
 class Source:
+    """
+    ## Different sources of messengers, events
+    """
     VK = "vk"
+    """ ## Message/event came from VK """
     TG = "tg"
+    """ ## Message/event came from Telegram """
     MESSAGE = "message"
+    """ ## Event came from incoming message """
     EVENT = "event"
+    """ ## Event came from pressing keyboard buttons inside message """
 
 MESSENGER_SOURCE = Literal["vk", "tg"]
 EVENT_SOURCE = Literal["message", "event"]
@@ -172,10 +181,15 @@ class BaseCommonEvent:
         add_tree: bool, 
         tree_values: Values
     ) -> str:
+        """
+        ## Add generic components to `text`
+        - wise mystical tree of states on top
+        - debug info even higher
+        """
         if add_tree:
             text = states_fmt.tree(
-                self.ctx.navigator, 
-                tree_values
+                navigator = self.ctx.navigator, 
+                values    = tree_values
             ) + "\n\n" + text
 
         if messages.DEBUGGING:
@@ -190,8 +204,15 @@ class BaseCommonEvent:
 
 @dataclass
 class CommonMessage(BaseCommonEvent):
+    """
+    ## Container for only one source of recieved event
+    - in example, if we recieved a message from VK,
+    we'll pass it to `vk` field, leaving others as `None`
+    """
     vk: Optional[VkMessage] = None
+    """ ## Info about recieved VK message """
     tg: Optional[TgMessage] = None
+    """ ## Info about recieved Telegram message """
 
 
     @classmethod
@@ -215,26 +236,28 @@ class CommonMessage(BaseCommonEvent):
         return self
 
     @property
-    def is_tg_supergroup(self):
+    def is_tg_supergroup(self) -> bool:
+        if not self.is_from_tg:
+            return False
+
         return self.tg.chat.type == tg.ChatType.SUPERGROUP
     
     @property
-    def is_tg_group(self):
+    def is_tg_group(self) -> bool:
         if not self.is_from_tg:
             return False
 
         return self.tg.chat.type == tg.ChatType.GROUP
     
     @property
-    def is_vk_group(self):
+    def is_vk_group(self) -> bool:
         if not self.is_from_vk:
             return False
         
         return self.is_group_chat and self.is_from_vk
 
-
     @property
-    def is_group_chat(self):
+    def is_group_chat(self) -> bool:
         if self.is_from_vk:
             return vk.is_group_chat(self.vk.peer_id, self.vk.from_id)
         if self.is_from_tg:
@@ -322,20 +345,39 @@ class CommonMessage(BaseCommonEvent):
 
 @dataclass
 class CommonBotTemplate:
+    """
+    ## Container of message to send later
+    - unlike `CommonBotMessage`, this may not
+    be already sent, it's just a template
+    - used to construct pages from massive data
+    """
     text: str
     keyboard: Keyboard
 
 @dataclass
 class CommonBotMessage:
+    """
+    ## Already sent message
+    - unlike `CommonBotTemplate`, this message
+    WAS sent, so we know its `id` and `chat_id`
+    - used to determine if user clicked
+    a button in an old message and, if so, 
+    resend THIS instance
+    """
     text: str
     keyboard: Keyboard
 
     add_tree: bool
+    """ ## If we should add tree of states on top of text """
     tree_values: Optional[Values]
+    """ ## Optional values to write at the right of each state """
 
     src: Optional[MESSENGER_SOURCE]
+    """ ## For which messenger this message is """
     chat_id: Optional[int]
+    """ ## For which chat this message is """
     id: Optional[int]
+    """ ## ID of this exact message """
 
     @property
     def is_from_vk(self):
@@ -371,27 +413,37 @@ class CommonBotMessage:
             chat_id = result.chat.id
             id = result.message_id
         
+        # copy this instance
         bot_message = deepcopy(self)
 
+        # change a few fields in this copy
         bot_message.chat_id = chat_id
         bot_message.id = id
 
         return bot_message
     
     def __str__(self) -> str:
-        attrs = []
+        # all fields of this class as string
+        attrs: list[str] = []
 
         for (name, value) in self.__dict__.items():
 
             repr_name = name
             repr_value = value
 
-            if name in ["text"]:
+            # if this attribute is "text"
+            if name == "text":
+                # don't display its value,
+                # 'cause otherwise it leads
+                # to recursion and each time
+                # message gets bigger
                 repr_value = "..."
             
+            # format attribute name and its value, append it
             attrs.append(f"{repr_name}={repr_value}")
         
         attrs_str = ""
+        # join all attributes to one text
         attrs_str = "\n".join(attrs)
 
         return attrs_str
@@ -399,7 +451,9 @@ class CommonBotMessage:
 @dataclass
 class CommonEvent(BaseCommonEvent):
     vk: Optional[RawEvent] = None
+    """ ## Info about recieved VK callback button click """
     tg: Optional[CallbackQuery] = None
+    """ ## Info about recieved Telegram callback button click """
 
 
     @classmethod
@@ -577,11 +631,19 @@ class CommonEvent(BaseCommonEvent):
 
 @dataclass
 class CommonEverything(BaseCommonEvent):
+    """
+    ## Stores only one type of event inside
+    - in example, if we received a new incoming
+    message, we'll pass it to `message` field,
+    leaving others as `None`
+    """
     event_src: Optional[EVENT_SOURCE] = None
+    """ ## Point what to look for: `message` or `event` """
 
     message: Optional[CommonMessage] = None
+    """ ## Info about recieved message """
     event: Optional[CommonEvent] = None
-
+    """ ## Info about recieved callback button press """
 
     @classmethod
     def from_message(cls: type[CommonEverything], message: CommonMessage):
@@ -686,6 +748,11 @@ class CommonEverything(BaseCommonEvent):
         add_tree: bool = False,
         tree_values: Optional[Values] = None
     ):
+        """
+        - if we received a `message`, we SEND our response `(answer)`
+        - if we recieved an `event`, we EDIT the message with response
+        """
+
         if self.is_from_event:
             event = self.event
 

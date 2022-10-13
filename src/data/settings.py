@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional, Any
 from dataclasses import dataclass
 
@@ -18,6 +19,13 @@ class Settings(Values):
     zoom: zoom.Container
     schedule_broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None
+
+    @classmethod
+    def default(cls: type[Settings]):
+        return cls(
+            group = Group(),
+            zoom = zoom.Container.default(),
+        )
 
     def get_from_state(self, state: State) -> Any:
         VALUES = {

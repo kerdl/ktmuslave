@@ -109,8 +109,11 @@ class Keyboard:
     ## Inline-only cross-platform keyboard
     """
     schema: list[list[Optional[Button]]]
+    """ ## Keyboard itself, the 2D array of buttons """
     add_back: bool = True
+    """ ## If we should automatically add back to the bottom """
     next_button: Optional[Button] = None
+    """ ## `Next` button, will be placed to the right of `Back` """
 
     @classmethod
     def default(cls: type[Keyboard]):
@@ -118,13 +121,16 @@ class Keyboard:
     
     @classmethod
     def without_back(cls: type[Keyboard]):
+        """ ## Shortcut to create `Keyboard` without `Back` button """
         return cls(schema=[], add_back=False)
 
     def assign_next(self, button: Optional[Button]):
+        """ ## Add `Next` button and return `self` """
         self.next_button = button
         return self
 
-    def add_footer(self) -> list[list[Optional[Button]]]:
+    def _add_footer(self) -> list[list[Optional[Button]]]:
+        """ ## Make a copy of `self.schema` and add a footer to it """
         footer = [
             BACK_BUTTON.only_if(self.add_back),
             self.next_button
@@ -137,6 +143,11 @@ class Keyboard:
 
     @staticmethod
     def filter_schema(schema: list[Button]) -> list[list[Button]]:
+        """
+        ## Filter out rows that don't contain any buttons
+        - `[Button, None, None]` - not filtered out, remains
+        - `[None, None, None]`  - filtered out, removed
+        """
         filtered: list[list[Button]] = []
 
         for row in filter(lambda row: any(row), schema):
@@ -149,14 +160,16 @@ class Keyboard:
         ## Convert this keyboard to VK keyboard
         """
 
-        schema = self.add_footer()
+        schema = self._add_footer()
         filtered_schema = self.filter_schema(schema)
 
         vk_kb = VkKeyboard(inline=True)
 
+        # iterate rows - [Button, Button, ...]
         for (i, row) in enumerate(filtered_schema):
             is_last = i == len(filtered_schema) - 1
 
+            # iterate buttons in a row - Button
             for button in row:
 
                 if button is None:
@@ -175,7 +188,7 @@ class Keyboard:
         ## Convert this keyboard to Telegram keyboard
         """
 
-        schema = self.add_footer()
+        schema = self._add_footer()
         filtered_schema = self.filter_schema(schema)
 
         tg_schema: list[list[TgInlineButton]] = []

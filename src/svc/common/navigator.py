@@ -1,8 +1,9 @@
+from __future__ import annotations
 from typing import Optional, Union
 from dataclasses import dataclass
 
 from src.svc.common import error
-from src.svc.common.states import State, SPACE_LITERAL
+from src.svc.common.states import State, SPACE_LITERAL, tree
 
 
 @dataclass
@@ -30,6 +31,14 @@ class Navigator:
     """
     ## States that user is not supposed to get to
     """
+
+    @classmethod
+    def default(cls: type[Navigator]):
+        return cls(
+            trace      = [tree.Init.I_MAIN],
+            back_trace = [],
+            ignored    = set()
+        )
 
     @property
     def current(self) -> Optional[State]:
