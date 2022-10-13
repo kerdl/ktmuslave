@@ -79,9 +79,13 @@ class Ctx:
     vk: dict[int, VkCtx]
     """
     ## VK chats
-    - stored in a dict of `{}`
+    - stored in a dict of `{peer_id: ctx}`
     """
     tg: dict[int, TgCtx]
+    """
+    ## Telegram chats
+    - stored in a dict of `{chat_id: ctx}`
+    """
 
 
     def add_vk(self, peer_id: int) -> None:
