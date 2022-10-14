@@ -82,7 +82,7 @@ async def add_zoom_from_text(everything: CommonEverything):
 
 @r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.MANUALLY))
 async def add_zoom_manually(everything: CommonEverything):
-    ...
+    return await zoom_bp.to_browse(everything)
 
 
 @r.on_everything(StateFilter(Init.I_ZOOM))

@@ -43,8 +43,8 @@ def from_zoom(
     per_page: int = 6, 
     text_footer: Optional[str] = None,
     keyboard_width: int = 2,
-    keyboard_header: list[Button] = [],
-    keyboard_footer: list[Button] = [BACK_BUTTON]
+    keyboard_header: list[list[Button]] = [[]],
+    keyboard_footer: list[list[Button]] = [[BACK_BUTTON]]
 ) -> list[common.CommonBotTemplate]:
 
     if isinstance(data, set):
@@ -57,13 +57,19 @@ def from_zoom(
 
     is_single_page = len(pages) < 2
 
+    if len(pages) < 1:
+        pages = [[]]
+
     # iterate for each chunk, a list of zoom data classes
     for (page_num, page) in enumerate(pages):
         is_first_page = page_num == 0
         is_last_page = page_num + 1 == len(pages)
 
-        # call `format()` on each zoom data and separate them with "\n\n"
-        text = "\n\n".join([section.format() for section in page])
+        if len(page) > 0:
+            # call `format()` on each zoom data and separate them with "\n\n"
+            text = "\n\n".join([section.format() for section in page])
+        else:
+            text = common.messages.format_empty_page()
 
         # add page number at the bottom
         text += "\n\n"
@@ -83,7 +89,8 @@ def from_zoom(
         cur_row = []
 
         # append keyboard header
-        kb_schema.append(keyboard_header)
+        for row in keyboard_header:
+            kb_schema.append(row)
 
         if not is_single_page:
             back_symbol = "←" if not is_first_page else BULLET
@@ -121,7 +128,8 @@ def from_zoom(
                 # clean current row
                 cur_row = []
 
-        kb_schema.append(keyboard_footer)
+        for row in keyboard_footer:
+            kb_schema.append(row)
 
         message = common.CommonBotTemplate(
             text     = text,

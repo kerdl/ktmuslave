@@ -6,7 +6,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append(".")
 
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Union, Any
 from dataclasses import dataclass
 
 from src.svc import common
@@ -53,7 +53,8 @@ def format_section(name: str, fields: list[str]):
     merged_fields = ""
 
     for field in fields:
-        indented_fields.append(f"   ╰ {field}")
+        indented_field = common.text.indent(f"╰ {field}")
+        indented_fields.append(indented_field)
     
     merged_fields = "\n".join(indented_fields)
 
@@ -77,24 +78,33 @@ class Data:
         from src.parse import zoom
         return zoom.Parser(text).parse()
     
+    def fields(self) -> list[tuple[Union[str, Any]]]:
+        # get all class fields except for `name` field
+        #        tuple    tuple     generator of tuples       key
+        return [field for field in self.__dict__.items() if field[0] != "name"]
+
+    def all_fields_are_set(self) -> bool:
+        return all([field[1] for field in self.fields()])
+
+    def completeness_badge(self) -> str:
+        completeness = COMPLETE
+
+        if not self.all_fields_are_set():
+            completeness = INCOMPLETE
+        
+        return completeness
+
     def format(self) -> str:
         name = self.name
         fmt_name = ""
 
-        # get all class fields except for `name` field
-        #         tuple     tuple     generator of tuples       key
-        fields = [field for field in self.__dict__.items() if field[0] != "name"]
         fmt_fields = []
 
-        completeness = COMPLETE
-
-        # if some fields are `None`
-        if not all([field[1] for field in fields]):
-            completeness = INCOMPLETE
+        completeness = self.completeness_badge()
         
         fmt_name = format_name(completeness, name)
 
-        for field in fields:
+        for field in self.fields():
             field_name = field[0]
             field_value = field[1]
 
@@ -134,6 +144,10 @@ class Entries:
     @classmethod
     def default(cls: type[Entries]):
         return cls(set = set())
+
+    @classmethod
+    def from_set(cls: type[Entries], set: set[Data]):
+        return cls(set = set)
 
     def select(self, name: str) -> Data:
         """ ## Mark this name as selected, return its data """
@@ -215,6 +229,17 @@ class Entries:
 
             return None
     
+    def format_compact(self) -> str:
+        names: list[str] = []
+
+        for entry in self.set:
+            completeness = entry.completeness_badge()
+            name = format_name(completeness, entry.name)
+
+            names.append(name)
+
+        return "\n".join(names)
+
     def __len__(self):
         return len(self.set)
 
@@ -327,6 +352,18 @@ class Container:
         # return if ANY container
         # had this name
         return any(contain_results)
+
+    @property
+    def adding(self) -> Entries:
+        return Entries.from_set(
+            self.new_entries.set.difference(self.entries.set)
+        )
+
+    @property
+    def overwriting(self) -> Entries:
+        return Entries.from_set(
+            self.entries.set.intersection(self.new_entries.set)
+        )
 
     def finish(self) -> None:
         """ ## Initial step of adding Zoom was completed """

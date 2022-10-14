@@ -13,6 +13,7 @@ from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
 
 from src import defs
 from src.svc import vk, telegram as tg
+from src.svc.common import text
 from src.svc.common.states import formatter as states_fmt, Values
 from src.svc.common.navigator import Navigator
 from src.svc.common import pagination, messages, error
@@ -295,11 +296,21 @@ class CommonMessage(BaseCommonEvent):
             return self.tg.message_id
 
     @property
-    def text(self) -> str:
+    def text(self) -> Optional[str]:
         if self.is_from_vk:
             return self.vk.text
         if self.is_from_tg:
             return self.tg.text
+
+    @property
+    def forwards_text(self) -> Optional[str]:
+        if self.is_from_vk:
+            if self.vk.fwd_messages is None:
+                return None
+            
+            return vk.text_from_forwards(self.vk.fwd_messages)
+        
+        return None
 
     async def vk_has_admin_rights(self) -> bool:
         if not self.is_from_vk:

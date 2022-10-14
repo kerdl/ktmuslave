@@ -188,14 +188,13 @@ class OldMessagesBlock:
 
         if this_message_id != last_message_id:
 
-            # send last bot message again
-            user_ctx.last_bot_message = await user_ctx.last_bot_message.send()
-
-            return
-
             await common_event.show_notification(
                 messages.format_cant_press_old_buttons()
             )
+
+            # send last bot message again
+            user_ctx.last_bot_message = await user_ctx.last_bot_message.send()
+
             return
         
         return await handler(event, data)

@@ -3,6 +3,7 @@ from typing import Optional
 from src.data.settings import Settings
 
 from src.svc import common
+from src.data import zoom
 from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
@@ -92,10 +93,18 @@ def format_debug(trace: list[State], back_trace: list[State], last_bot_message: 
 
 
 CANT_PRESS_OLD_BUTTONS = (
-    "ыаыаыа низя старые кнопачки жать 🤪🤪🤪"
+    "Пососи 😒 Вот тебе новое сообщение, "
+    "на нём и тыкай куда тебе надо"
 )
 def format_cant_press_old_buttons():
     return CANT_PRESS_OLD_BUTTONS
+
+
+EMPTY_PAGE = (
+    "🤔 | Пока сюда нихуя не завезли"
+)
+def format_empty_page():
+    return EMPTY_PAGE
 
 
 PRESS_BEGIN = (
@@ -141,15 +150,25 @@ PAGE_NUM = (
 def format_page_num(current: int, last: int):
     return PAGE_NUM.format(current=current, last=last)
 
-YOU_CAN_ADD_MORE = (
-    "🤓 | Ты можешь добавить больше, "
-    "просто отправь ещё одно сообщение с данными"
-)
-def format_you_can_add_more():
-    return YOU_CAN_ADD_MORE
-
 
 #### Full messages for specific states ####
+
+def adding_case(number: int):
+    ending = int(str(number)[-1])
+
+    if ending in range(2, 9):
+        return "добавлено"
+    else:
+        return "добавлена"
+
+def overwriting_case(number: int):
+    ending = int(str(number)[-1])
+
+    if ending in range(2, 9):
+        return "перезаписано"
+    else:
+        return "перезаписана"
+
 
 WELCOME =  (
     "👨🏿 Буду пиздить расписание "
@@ -256,10 +275,10 @@ def format_zoom_adding_types_explain():
 
 
 FORWARD_ZOOM_DATA = (
-    "💬 | Перешли мне сообщения с ссылками на Zoom"
+    "💬 | Перешли мне сообщения с данными Zoom"
 )
 SEND_ZOOM_DATA = (
-    "💬 | Скопируй сообщения с ссылками на Zoom "
+    "💬 | Скопируй сообщения с данными Zoom "
     "и отправь мне в текстовом виде"
 )
 def format_send_zoom_data(src: common.MESSENGER_SOURCE, is_group_chat: bool):
@@ -281,6 +300,7 @@ ZOOM_DATA_FORMAT = (
 def format_zoom_data_format():
     return ZOOM_DATA_FORMAT
 
+
 DOESNT_CONTAIN_ZOOM = (
     "❌ | Eblan? Посмотри формат, по нему тут нихуя нет 🤨\n"
     "🤔 | Блоки без ФИО игнорируются"
@@ -288,6 +308,72 @@ DOESNT_CONTAIN_ZOOM = (
 def format_doesnt_contain_zoom():
     return DOESNT_CONTAIN_ZOOM
 
+
+YOU_CAN_ADD_MORE = (
+    "🤓 | Ты можешь добавить больше или перезаписать что-то, "
+    "просто отправь ещё одно сообщение с данными"
+)
+def format_you_can_add_more():
+    return YOU_CAN_ADD_MORE
+
+
+WILL_BE_ADDED = (
+    "❇ Будет {add_case} {count}"
+)
+def format_will_be_added(count: int):
+    return WILL_BE_ADDED.format(
+        add_case     = adding_case(count),
+        count        = str(count),
+    )
+
+
+WILL_BE_OVERWRITTEN = (
+    "♻ Будет {overwrite_case} {count}"
+)
+def format_will_be_overwritten(count: int):
+    return WILL_BE_OVERWRITTEN.format(
+        overwrite_case = overwriting_case(count),
+        count          = str(count),
+    )
+
+
+def format_zoom_mass_adding_overview(
+    adding: zoom.Entries, 
+    overwriting: zoom.Entries
+):
+
+    sections: list[str] = []
+
+    if len(adding) > 0:
+        entries = common.text.indent(adding.format_compact())
+        text = format_will_be_added(len(adding))
+        text += ":\n"
+        text += entries
+
+        sections.append(text)
+    
+    if len(overwriting) > 0:
+        entries = common.text.indent(overwriting.format_compact())
+        text = format_will_be_overwritten(len(overwriting))
+        text += ":\n"
+        text += entries
+
+        sections.append(text)
+
+    return "\n".join(sections)
+
+ZOOM_DATA_WARNING = (
+    "❗ | Проверь, чтобы у преподов "
+    "точно такие же имена, как в расписании на ktmu-sutd.ru\n"
+    "   ╰ ❌ | Ебанько Хуйловик Йоба\n"
+    "   ╰ ✅ | Ебанько Х.Й.\n"
+    "❗ | Проверь ссылки, чтобы они случайно "
+    "не были обрезаны (еврейская древняя пословица)\n"
+    "   ╰ ❌ | posos.us/p0lizhiM0E...\n"
+    "   ╰ ✅ | posos.us/p0lizhiM0Epotn0eOCHK0"
+)
+def format_zoom_data_warning():
+    return ZOOM_DATA_WARNING
 
 FINISH = (
     f"👍 | Фпринципи фсё, можешь перепроверить или нажать {Text.FINISH}"

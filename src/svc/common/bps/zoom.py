@@ -29,9 +29,28 @@ from src.data import zoom
 
 
 
-@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(Payload.ADD_ALL))
 async def mass_check(everything: CommonEverything):
-    return await to_entry(everything)
+    ctx = everything.ctx
+
+    adding = ctx.settings.zoom.adding
+    overwriting = ctx.settings.zoom.overwriting
+
+    answer_text = (
+        messages.Builder()
+                .add(messages.format_zoom_mass_adding_overview(adding, overwriting))
+                .add(messages.format_zoom_data_warning())
+    )
+    answer_keyboard = Keyboard.default()
+
+    return await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard,
+    )
+
+@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(Payload.ADD_ALL))
+async def to_mass_check(everything: CommonEverything):
+    everything.navigator.append(Zoom.I_MASS_CHECK)
+    return await mass_check(everything)
 
 
 async def pwd(everything: CommonEverything):
@@ -92,14 +111,20 @@ async def browse(
         ctx.pages.list = pagination.from_zoom(
             data = ctx.settings.zoom.new_entries.set,
             text_footer = text_footer,
-            keyboard_footer = [BACK_BUTTON, ADD_ALL_BUTTON],
+            keyboard_footer = [
+                [ADD_ALL_BUTTON], 
+                [BACK_BUTTON]
+            ],
         )
     elif ctx.settings.zoom.is_focused_on_entries:
-        # user came here from hub
+        # user came here to view current active entries
         ctx.pages.list = pagination.from_zoom(
             data = ctx.settings.zoom.entries.set,
             text_footer = text_footer,
-            keyboard_header = [ADD_BUTTON],
+            keyboard_footer = [
+                [ADD_BUTTON], 
+                [BACK_BUTTON]
+            ],
         )
 
     return await everything.edit_or_answer(
@@ -150,6 +175,15 @@ async def mass(everything: CommonEverything):
         # user sent a message with links
         message = everything.message
 
+        text = message.text or ""
+        # get text from all forwarded messages
+        forwards_text = message.forwards_text
+
+        # of there is some text in forwards
+        if forwards_text is not None:
+            text += "\n\n"
+            text += forwards_text
+
         # addition about if user
         # should mention or reply
         # so bot notices his message
@@ -165,7 +199,7 @@ async def mass(everything: CommonEverything):
         )
 
         # parse from text
-        parsed = zoom.Data.parse(message.text)
+        parsed = zoom.Data.parse(text)
 
         # if no data found in text
         # and user didn't added anything yet
