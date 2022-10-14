@@ -7,21 +7,38 @@ from src.svc.vk.keyboard import CMD
 
 @dataclass
 class BaseFilter:
+    """
+    # Base class to create filters
+    """
     async def __call__(self, everything: CommonEverything) -> bool: 
         ...
 
 @dataclass
 class MessageOnlyFilter(BaseFilter):
+    """
+    # Only works on messages
+    """
     async def __call__(self, everything: CommonEverything) -> bool:
-        return everything.event_src == Source.MESSAGE
+        return everything.is_from_message
 
 @dataclass
 class EventOnlyFilter(BaseFilter):
+    """
+    # Only works on event
+    """
     async def __call__(self, everything: CommonEverything) -> bool:
-        return everything.event_src == Source.EVENT
+        return everything.is_from_event
 
 @dataclass
 class StateFilter(BaseFilter):
+    """
+    # Current state filter
+
+    ## Returns
+    - `True` if state user's currently on
+    is equal to one defined here
+    - `False` if not
+    """
     state: State
 
     async def __call__(self, everything: CommonEverything) -> bool:
@@ -29,6 +46,14 @@ class StateFilter(BaseFilter):
 
 @dataclass
 class PayloadFilter(BaseFilter):
+    """
+    # Exact payload filter
+
+    ## Returns
+    - `True` if user sent a payload
+    that is equal to one defined here
+    - `False` if not
+    """
     payload: str
 
     async def __call__(self, everything: CommonEverything) -> bool:
@@ -46,6 +71,13 @@ class PayloadFilter(BaseFilter):
 
 @dataclass
 class UnionFilter(BaseFilter):
+    """
+    # Combines multiple filters
+
+    ## Returns
+    - `True` - if ANY filter was positive
+    - `False` - if no filters were successful
+    """
     filters: tuple[BaseFilter]
 
     async def __call__(self, everything: CommonEverything) -> bool:

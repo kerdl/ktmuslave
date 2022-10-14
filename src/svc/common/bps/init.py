@@ -68,6 +68,10 @@ async def skip_add_zoom(everything: CommonEverything):
     # we can't go there with "next" button
     ctx.navigator.delete_back_trace(Zoom.II_BROWSE)
 
+    # set this state as finished
+    # (so number of added entries is shown)
+    ctx.settings.zoom.finish()
+
     return await to_finish(everything)
 
 

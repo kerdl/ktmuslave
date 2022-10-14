@@ -1,7 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional, Literal, Iterable
+from typing import Callable, Optional, Literal, Iterable
+from src.data import zoom
 
+from src.svc import common
 from src.svc.common import error
 
 
@@ -38,13 +40,85 @@ class Values:
 @dataclass
 class State:
     name: str
+    """
+    # Friendly readable name
+    """
     back_trace: bool = True
+    """
+    # Should this state be back traced
+
+    ## In other words
+    - can you go here by pressing `next` button?
+    """
     tree: Optional[Tree] = None
+    """
+    # Where this state is located
+    """
     space: Optional[SPACE_LITERAL] = None
+    """
+    # Type of space this state in
+    """
     anchor: Optional[str] = None
+    """
+    # Original name as it was in a class
+
+    ## Example
+    - `II_UNKNOWN_GROUP`
+    """
     level: Optional[int] = None
+    """
+    # How much `I's` in `anchor`
+
+    - `I` -> 1
+    - `III` -> 3
+    """
     parent: Optional[State] = None
+    """
+    # Parent of this state
+
+    - `I_MAIN` -> no parent
+    - `II_SETTINGS` -> `I_MAIN` is a parent
+    """
     child: Optional[list[State]] = None
+    """
+    # All childs for this state
+
+    - `I_MAIN` -> `[II_SETTINGS, II_GARBAGE]` are childs
+    - `II_SETTINGS` -> `[III_FUCKME]` is a child
+    - `III_FUCKME` -> no childs
+    - `II_GARBAGE` -> no childs
+    """
+
+    on_enter: Callable[[common.CommonEverything], None] = lambda every: None
+    """
+    # Executes
+    - when `navigator` enters this state
+    for the first time (it wasn't in trace)
+    """
+    on_traced_enter: Callable[[common.CommonEverything], None] = lambda every: None
+    """
+    # Executes
+    - when `navigator` enters this state
+    by going back (it was in trace)
+    """
+    on_exit: Callable[[common.CommonEverything], None] = lambda every: None
+    """
+    # Executes
+    - when `navigator` exits this state
+    by going back (it does not remain in trace)
+    """
+    on_traced_exit: Callable[[common.CommonEverything], None] = lambda every: None
+    """
+    # Executes
+    - when `navigator` exits this state
+    by going further (it remains in trace)
+    """
+    on_delete: Callable[[common.CommonEverything], None] = lambda every: None
+    """
+    # Executes
+    - when `navigator` deletes this state
+    from trace, no matter where it was
+    """
 
     def __hash__(self) -> int:
         return hash(self.anchor)
@@ -127,20 +201,58 @@ class Tree:
 
         return len(name.split("_")[0])
 
-INIT_MAIN               = { "name": "Категорически приветствую",                     }
-HUB_MAIN                = { "name": "Главная",                                       }
-HUB_SETTINGS            = { "name": "Настройки",                                     }
-GROUP                   = { "name": "Группа",                                        }
-UNKNOWN_GROUP           = { "name": "Неизвестная группа",        "back_trace": False }
-SCHEDULE_BROADCAST      = { "name": "Рассылка расписания",                           }
-SHOULD_PIN              = { "name": "Закреп расписания",                             }
-INIT_ZOOM               = { "name": "Zoom данные",                                   }
-INIT_FINISH             = { "name": "ФИНААААЛ СУЧКИ",                                }
-ZOOM_MASS               = { "name": "Сообщение с ссылками",      "back_trace": False }
-ZOOM_MASS_CHECK         = { "name": "Подтверждение изменений"                        }
-ZOOM_BROWSE             = { "name": "Выбор препода",                                 }
-ZOOM_ENTRY              = { "name": "Редактирование",                                }
-ZOOM_EDIT_NAME          = { "name": "Имя препода",                                   }
-ZOOM_EDIT_URL           = { "name": "Ссылка",                                        }
-ZOOM_EDIT_ID            = { "name": "ID",                                            }
-ZOOM_EDIT_PWD           = { "name": "Пароль",                                        }
+INIT_MAIN = {
+    "name": "Категорически приветствую",
+}
+HUB_MAIN = {
+    "name": "Главная",
+}
+HUB_SETTINGS = {
+    "name": "Настройки",
+}
+GROUP = {
+    "name": "Группа",
+}
+UNKNOWN_GROUP = {
+    "name": "Неизвестная группа",
+    "back_trace": False,
+}
+SCHEDULE_BROADCAST = {
+    "name": "Рассылка расписания",
+}
+SHOULD_PIN = {
+    "name": "Закреп расписания",
+}
+INIT_ZOOM = {
+    "name": "Zoom данные",
+}
+INIT_FINISH = {
+    "name": "ФИНААААЛ СУЧКИ",
+}
+ZOOM_MASS = {
+    "name": "Сообщение с ссылками",
+    "back_trace": False,
+}
+ZOOM_MASS_CHECK = {
+    "name": "Подтверждение изменений",
+}
+ZOOM_BROWSE = {
+    "name": "Выбор препода",
+    "on_enter": zoom.focus_auto,
+    "on_exit": zoom.unfocus,
+}
+ZOOM_ENTRY = {
+    "name": "Редактирование",
+}
+ZOOM_EDIT_NAME = {
+    "name": "Имя препода",
+}
+ZOOM_EDIT_URL = {
+    "name": "Ссылка",
+}
+ZOOM_EDIT_ID = {
+    "name": "ID",
+}
+ZOOM_EDIT_PWD = {
+    "name": "Пароль",
+}

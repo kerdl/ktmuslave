@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional, Union
 from dataclasses import dataclass
 
+from src.svc import common
 from src.svc.common import error
 from src.svc.common.states import State, SPACE_LITERAL, tree
 
@@ -15,21 +16,29 @@ class Navigator:
 
     trace: list[State]
     """
-    ## Example:
+    # Example:
     ```
-        [ Init.I_MAIN, Init.I_GROUP, Init.I_SCHEDULE_BROADCAST ]
-                ^                             ^
-            where started                current state
+    [ Init.I_MAIN, Init.I_GROUP, Init.I_SCHEDULE_BROADCAST ]
+            ^                             ^
+        where started                current state
     ```notpython
     """
     back_trace: list[State]
     """
-    ## Current state moves here when you press `Back` button
+    # Current state moves here when you press `Back` button
     - so you can use "Next" button
     """
     ignored: set[State]
     """
-    ## States that user is not supposed to get to
+    # States that user is not supposed to get to
+    """
+
+    everything: Optional[common.CommonEverything]
+    """
+    # Last recieved event
+
+    ## Used
+    - to pass it to `on_enter`, `on_exit` methods of states
     """
 
     @classmethod
@@ -37,7 +46,8 @@ class Navigator:
         return cls(
             trace      = [tree.Init.I_MAIN],
             back_trace = [],
-            ignored    = set()
+            ignored    = set(),
+            everything = None
         )
 
     @property
@@ -71,25 +81,41 @@ class Navigator:
         """ ## Add state to trace """
         if state in self.ignored:
             raise error.GoingToIgnoredState(
-                f"appending {state.name} that is ignored: {self.ignored}"
+                f"appending {state.anchor} that is ignored: {self.ignored}"
+            )
+        
+        if self.current is state:
+            raise error.DuplicateState(
+                f"appending {state.anchor} that was the current one"
             )
         
         if self.current_back_trace is state:
             return self.next()
-        
-        if self.current is state:
-            raise error.DuplicateState(
-                f"appending {state.name} that was the current one"
-            )
 
-        self.trace.append(state)
+        self.append_no_checks(state)
 
     def append_no_checks(self, state: State):
+        # we exit current state, 
+        # but it will remain
+        # in trace, we can go back
+        # to it, so we call `on_traced_exit`
+        self.current.on_traced_exit(self.everything)
+    
         self.trace.append(state)
+
+        # we entered a state
+        # for the first time,
+        # it wasn't in trace before,
+        # so we call `on_enter`
+        self.current.on_enter(self.everything)
 
     def back(self, trace_it: bool = True):
         """
-        ## Remove last state from current space
+        # Remove last state from current space
+
+        ## Params
+        - `trace_it` - if current state
+        should be appended to `back_trace`
         """
         if len(self.trace) < 2:
             return None
@@ -97,18 +123,27 @@ class Navigator:
         if trace_it and self.trace[-1].back_trace:
             self.back_trace.append(self.current)
 
+        # this state won't be in trace
+        # anymore, so we call `on_exit`
+        self.current.on_exit(self.everything)
+
         del self.trace[-1]
-    
+
+        # state we just got to was
+        # in trace, so we call `on_traced_enter`
+        self.current.on_traced_enter(self.everything)
+
     def next(self):
         if len(self.back_trace) > 0:
-            last_back_state = self.back_trace[-1]
-            self.append_no_checks(last_back_state)
-
+            self.append_no_checks(self.current_back_trace)
             del self.back_trace[-1]
     
     def delete(self, state: State) -> bool:
         for (i, traced_state) in enumerate(self.trace):
             if traced_state == state:
+                # MOTHERFUCKER GETS EJECTED
+                traced_state.on_delete(self.everything)
+
                 del self.trace[i]
                 return True
         
@@ -117,6 +152,9 @@ class Navigator:
     def delete_back_trace(self, state: State) -> bool:
         for (i, traced_state) in enumerate(self.back_trace):
             if traced_state == state:
+                # MOTHERFUCKER GETS EJECTED
+                traced_state.on_delete(self.everything)
+    
                 del self.back_trace[i]
                 return True
         

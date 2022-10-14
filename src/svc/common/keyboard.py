@@ -86,11 +86,13 @@ class Color:
 @dataclass
 class Button:
     """
-    Represents a common button
+    # Represents a common button
 
     - `text` - button text
     - `callback` - payload that will be sent
     on press
+    - `color` (VK ONLY) - controls 
+    tilt angle on `Messerschmitt Me 262`
     """
     text: str
     callback: str

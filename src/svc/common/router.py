@@ -20,9 +20,12 @@ from src.svc.common import CommonEvent
 from src.svc.common.filters import BaseFilter, MessageOnlyFilter, EventOnlyFilter
 
 
+FUNC_TYPE = Callable[[Union[CommonMessage, CommonEvent, CommonEverything]], Awaitable[Any]]
+
+
 @dataclass
 class Handler:
-    func: Callable[[Union[CommonMessage, CommonEvent, CommonEverything]], Awaitable[Any]]
+    func: FUNC_TYPE
     filters: tuple[BaseFilter]
     is_blocking: bool
 
@@ -35,7 +38,7 @@ class Router:
         *filters: BaseFilter, 
         is_blocking: bool = True,
     ):
-        def decorator(func: Callable[[Union[CommonMessage, CommonEvent, CommonEverything]], Awaitable[Any]]):
+        def decorator(func: FUNC_TYPE):
             handler = Handler(func, (MessageOnlyFilter(),) + filters, is_blocking)
             self.handlers.append(handler)
 
@@ -48,7 +51,7 @@ class Router:
         *filters: BaseFilter, 
         is_blocking: bool = True,
     ):
-        def decorator(func: Callable[[Union[CommonMessage, CommonEvent, CommonEverything]], Awaitable[Any]]):
+        def decorator(func: FUNC_TYPE):
             handler = Handler(func, (EventOnlyFilter(),) + filters, is_blocking)
             self.handlers.append(handler)
 
@@ -61,7 +64,7 @@ class Router:
         *filters: BaseFilter, 
         is_blocking: bool = True
     ):
-        def decorator(func: Callable[[Union[CommonMessage, CommonEvent, CommonEverything]], Awaitable[Any]]):
+        def decorator(func: FUNC_TYPE):
             handler = Handler(func, filters, is_blocking)
             self.handlers.append(handler)
 
@@ -75,7 +78,6 @@ class Router:
         """
 
         """ Assign to VK """
-
         # on message
         vk_msg_decorator = defs.vk_bot.on.message()
         vk_msg_decorator(self.choose_handler)
@@ -89,7 +91,6 @@ class Router:
 
 
         """ Assign to Telegram """
-
         # on message handler
         tg_msg_decorator = defs.tg_router.message()
         tg_msg_decorator(self.choose_handler)
@@ -99,6 +100,8 @@ class Router:
         tg_callback_decorator(self.choose_handler)
 
     async def choose_handler(self, *args, everything: CommonEverything):
+        everything.ctx.set_everything(everything)
+
         for handler in self.handlers:
 
             # if filter condition interrupted this

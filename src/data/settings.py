@@ -24,7 +24,7 @@ class Settings(Values):
     def default(cls: type[Settings]):
         return cls(
             group = Group(),
-            zoom = zoom.Container.default(),
+            zoom  = zoom.Container.default(),
         )
 
     def get_from_state(self, state: State) -> Any:
@@ -32,7 +32,7 @@ class Settings(Values):
             Init.I_GROUP:              self.group.confirmed,
             Init.I_SCHEDULE_BROADCAST: self.schedule_broadcast,
             Init.II_SHOULD_PIN:        self.should_pin,
-            Init.I_ZOOM:               len(self.zoom) if self.zoom is not None else None
+            Init.I_ZOOM:               len(self.zoom.entries) if self.zoom.is_finished else None
         }
 
         return VALUES.get(state)

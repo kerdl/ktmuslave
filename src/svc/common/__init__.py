@@ -26,25 +26,43 @@ from .states.tree import Init, Hub
 @dataclass
 class BaseCtx:
     navigator: Navigator
-    """ ## Back, next buttons tracer """
+    """ # `Back`, `next` buttons tracer """
     settings: Settings
-    """ ## Storage for settings and zoom data"""
+    """ # Storage for settings and zoom data """
     last_call: float
-    """ ## Last UNIX time when user interacted with bot """
+    """
+    # Last UNIX time when user interacted with bot
+
+    ## Used
+    - to throttle users who
+    click buttons too fast
+    """
     pages: pagination.Container
     """
-    ## Page storage for big data
-    - sometimes, data can be too massive
-    to display in one message (like zoom entries)
-    - we split that data into pages (chunks)
-    - and store these pages here
+    # Page storage for big data
+
+    ## Used
+    - to store generated pages
+    for massive data that can't
+    fit in one message (like zoom entries)
+    """
+    last_everything: Optional[CommonEverything]
+    """
+    # Last received event
+
+    ## Used
+    - for `navigator`, that passes `everything`
+    to `on_enter`, `on_exit` methods of states
     """
     last_bot_message: Optional[CommonBotMessage]
     """
-    ## Last message sent by the bot
-    - we resend it when for some reason
+    # Last message sent by the bot
+
+    ## Used
+    - to resend it when for some reason
     user interacts with OLD messages
     """
+
 
     async def throttle(self) -> None:
         """ ## Stop executing for a short period to avoid rate limit """
@@ -62,6 +80,10 @@ class BaseCtx:
             await asyncio.sleep(sleep_secs_until_allowed)
 
         self.last_call = current_time
+    
+    def set_everything(self, everything: CommonEverything) -> None:
+        self.last_everything = everything
+        self.navigator.everything = everything
 
 @dataclass
 class VkCtx(BaseCtx):
@@ -94,12 +116,13 @@ class Ctx:
         pages = pagination.Container.default()
 
         self.vk[peer_id] = VkCtx(
-            navigator           = navigator, 
-            settings            = settings, 
-            last_call           = time.time(),
-            pages               = pages,
-            last_bot_message    = None,
-            peer_id             = peer_id
+            navigator        = navigator, 
+            settings         = settings, 
+            last_call        = time.time(),
+            pages            = pages,
+            last_everything  = None,
+            last_bot_message = None,
+            peer_id          = peer_id
         )
 
         logger.info("created ctx for vk {}", peer_id)
@@ -112,12 +135,13 @@ class Ctx:
         pages = pagination.Container.default()
 
         self.tg[chat.id] = TgCtx(
-            navigator           = navigator, 
-            settings            = settings, 
-            last_call           = time.time(),
-            pages               = pages,
-            last_bot_message    = None,
-            chat                = chat
+            navigator        = navigator, 
+            settings         = settings, 
+            last_call        = time.time(),
+            pages            = pages,
+            last_everything  = None,
+            last_bot_message = None,
+            chat             = chat
         )
 
         logger.info("created ctx for tg {}", chat.id)

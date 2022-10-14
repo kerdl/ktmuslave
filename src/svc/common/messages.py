@@ -38,15 +38,26 @@ class Builder:
 #### Common footers and headers ####
 
 def default_footer_addition(everything: common.CommonEverything):
+    """
+    # Notice about bot mentioning
+
+    ## Why
+    - we filter anything that is not for us
+    - so we should ask user to reply
+    or mention the bot
+    """
+
     from src import defs
 
     mention = ""
     footer_addition = ""
 
     if everything.is_group_chat:
+
         if everything.is_from_vk:
             mention = defs.vk_bot_mention
             footer_addition = format_mention_me(mention)
+
         elif everything.is_from_tg:
             footer_addition = format_reply_to_me()
     
@@ -129,6 +140,13 @@ PAGE_NUM = (
 )
 def format_page_num(current: int, last: int):
     return PAGE_NUM.format(current=current, last=last)
+
+YOU_CAN_ADD_MORE = (
+    "🤓 | Ты можешь добавить больше, "
+    "просто отправь ещё одно сообщение с данными"
+)
+def format_you_can_add_more():
+    return YOU_CAN_ADD_MORE
 
 
 #### Full messages for specific states ####

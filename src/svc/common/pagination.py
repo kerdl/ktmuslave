@@ -4,7 +4,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append(".")
 
-from typing import Generator, Union, TypeVar
+from typing import Generator, Union, TypeVar, Optional
 from dataclasses import dataclass
 
 from src.svc.common.keyboard import BACK_BUTTON, Keyboard, Button, Color, Payload
@@ -25,7 +25,9 @@ def chunks(lst: list[T], n: int) -> Generator[list[T], None, None]:
 @dataclass
 class Container:
     list: list[common.CommonBotTemplate]
+    """ ## List of pages, containing messsage templates """
     current_num: int
+    """ ## On which page number user is currently on """
 
     @classmethod
     def default(cls: type[Container]):
@@ -33,11 +35,13 @@ class Container:
     
     @property
     def current(self):
+        """ ## Current page """
         return self.list[self.current_num]
 
 def from_zoom(
     data: Union[list[zoom.Data], set[zoom.Data]], 
     per_page: int = 6, 
+    text_footer: Optional[str] = None,
     keyboard_width: int = 2,
     keyboard_header: list[Button] = [],
     keyboard_footer: list[Button] = [BACK_BUTTON]
@@ -67,6 +71,11 @@ def from_zoom(
             current = page_num + 1, 
             last = len(pages)
         )
+
+        # add custom text footer
+        if text_footer is not None:
+            text += "\n\n"
+            text += text_footer
 
         # whole keyboard schema
         kb_schema = []

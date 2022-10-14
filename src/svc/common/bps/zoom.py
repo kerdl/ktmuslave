@@ -1,5 +1,5 @@
+from typing import Optional
 from loguru import logger
-from aiogram.exceptions import TelegramBadRequest
 
 from src import defs
 from src.parse import pattern
@@ -68,33 +68,38 @@ async def to_entry(everything: CommonEverything):
 
 
 @r.on_callback(StateFilter(Zoom.II_BROWSE))
-async def browse(everything: CommonEverything):
+async def browse(
+    everything: CommonEverything, 
+    text_footer: Optional[str] = None
+):
     ctx = everything.ctx
 
     if everything.is_from_event:
-        # user selected an entry in list
+        # try to check if user selected an entry in list
         event = everything.event
         payload = event.payload
 
-        in_zoom_entries = ctx.settings.zoom.has_in_entries(payload)
-        in_zoom_new_entries = ctx.settings.zoom.has_in_new_entries(payload)
-
-        related_to_entry = in_zoom_entries or in_zoom_new_entries
+        related_to_entry = ctx.settings.zoom.has(payload)
 
         if related_to_entry:
+            # user really selected someone
+            ctx.settings.zoom.focused.select(payload)
+
             return await to_entry(everything)
 
-    if Zoom.I_MASS in ctx.navigator.trace:
+    if ctx.settings.zoom.is_focused_on_new_entries:
         # user came here from adding mass zoom data
         ctx.pages.list = pagination.from_zoom(
-            data = ctx.settings.zoom.new_entries,
-            keyboard_footer = [BACK_BUTTON, ADD_ALL_BUTTON]
+            data = ctx.settings.zoom.new_entries.set,
+            text_footer = text_footer,
+            keyboard_footer = [BACK_BUTTON, ADD_ALL_BUTTON],
         )
-    else:
-        # user came here from regular browser
+    elif ctx.settings.zoom.is_focused_on_entries:
+        # user came here from hub
         ctx.pages.list = pagination.from_zoom(
-            data = ctx.settings.zoom.entries,
-            keyboard_header = [ADD_BUTTON]
+            data = ctx.settings.zoom.entries.set,
+            text_footer = text_footer,
+            keyboard_header = [ADD_BUTTON],
         )
 
     return await everything.edit_or_answer(
@@ -102,12 +107,22 @@ async def browse(everything: CommonEverything):
         keyboard = ctx.pages.current.keyboard,
     )
 
-async def to_browse(everything: CommonEverything):
-    everything.navigator.append(Zoom.II_BROWSE)
-    return await browse(everything)
+async def to_browse(
+    everything: CommonEverything, 
+    text_footer: Optional[str] = None
+):
+    if everything.navigator.current != Zoom.II_BROWSE:
+        everything.navigator.append(Zoom.II_BROWSE)
+
+    return await browse(everything, text_footer)
 
 
-@r.on_everything(StateFilter(Zoom.I_MASS))
+@r.on_everything(
+    UnionFilter((
+        StateFilter(Zoom.I_MASS),
+        StateFilter(Zoom.II_BROWSE)
+    ))
+)
 async def mass(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -116,7 +131,7 @@ async def mass(everything: CommonEverything):
         event = everything.event
 
         footer_addition = messages.default_footer_addition(everything)
-        has_new_entries = ctx.settings.zoom.has_new_entries
+        has_new_entries = ctx.settings.zoom.new_entries.has_something
 
         answer_text = (
             messages.Builder()
@@ -135,14 +150,26 @@ async def mass(everything: CommonEverything):
         # user sent a message with links
         message = everything.message
 
+        # addition about if user
+        # should mention or reply
+        # so bot notices his message
+        footer_addition = messages.default_footer_addition(everything)
+
+        # text that'll be shown
+        # at the bottom of browser,
+        # may contain the `footer_addition`
+        text_footer = (
+            messages.Builder()
+                    .add(messages.format_you_can_add_more())
+                    .add(footer_addition)
+        )
+
         # parse from text
         parsed = zoom.Data.parse(message.text)
 
         # if no data found in text
-        if len(parsed) < 1:
-
-            footer_addition = messages.default_footer_addition(everything)
-
+        # and user didn't added anything yet
+        if len(parsed) < 1 and ctx.navigator.current != Zoom.II_BROWSE:
             answer_text = (
                 messages.Builder()
                         .add(messages.format_zoom_data_format())
@@ -155,11 +182,20 @@ async def mass(everything: CommonEverything):
                 text     = answer_text.make(),
                 keyboard = answer_keyboard
             )
+        # elif no data found in text
+        # but user already added something
+        elif len(parsed) < 1 and ctx.navigator.current == Zoom.II_BROWSE:
+            text_footer = (
+                messages.Builder()
+                        .add(messages.format_doesnt_contain_zoom())
+                        .add(footer_addition)
+            )
 
-        # add everything parsed
-        ctx.settings.zoom.add_new_entry(parsed)
+        if len(parsed) > 0:
+            # add everything parsed
+            ctx.settings.zoom.new_entries.add(parsed, overwrite=True)
 
-        return await to_browse(everything)
+        return await to_browse(everything, text_footer.make())
 
 async def to_mass(everything: CommonEverything):
     everything.navigator.append(Zoom.I_MASS)
