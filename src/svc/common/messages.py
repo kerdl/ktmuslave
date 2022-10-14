@@ -363,7 +363,7 @@ def format_zoom_mass_adding_overview(
     return "\n".join(sections)
 
 ZOOM_DATA_WARNING = (
-    "❗ | Проверь, чтобы у преподов "
+    "❗ | Проверь, чтобы у преподов были "
     "точно такие же имена, как в расписании на ktmu-sutd.ru\n"
     "   ╰ ❌ | Ебанько Хуйловик Йоба\n"
     "   ╰ ✅ | Ебанько Х.Й.\n"
