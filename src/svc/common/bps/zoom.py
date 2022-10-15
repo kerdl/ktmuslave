@@ -11,6 +11,7 @@ from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import (
     NEXT_BUTTON,
     Keyboard, 
+    Button,
     Payload,
     TRUE_BUTTON,
     FALSE_BUTTON,
@@ -70,11 +71,18 @@ async def name(everything: CommonEverything):
 
 
 async def entry(everything: CommonEverything):
+    ctx = everything.ctx
+    
+    selected = ctx.settings.zoom.focused.selected
+
     answer_text = (
         messages.Builder()
-                .add("пососи жопу пока что пупс")
+                .add(selected.format())
+                .add(messages.format_press_buttons_to_change())
     )
-    answer_keyboard = Keyboard.default()
+    answer_keyboard = Keyboard.from_dataclass(
+        dataclass = selected
+    )
 
     await everything.edit_or_answer(
         text     = answer_text.make(),

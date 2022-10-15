@@ -32,10 +32,23 @@ class Container:
     @classmethod
     def default(cls: type[Container]):
         return cls([], 0)
-    
+
+    def keep_num_in_range(self) -> None:
+        last_page_index = len(self.list) - 1
+
+        if last_page_index < self.current_num:
+            self.current_num = last_page_index
+
     @property
     def current(self):
         """ ## Current page """
+        if len(self.list) < 1:
+            raise common.error.NoPages(
+                "no pages in container, can't return current page"
+            )
+
+        self.keep_num_in_range()
+
         return self.list[self.current_num]
 
 def from_zoom(

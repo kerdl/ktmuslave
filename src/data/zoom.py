@@ -1,36 +1,21 @@
 from __future__ import annotations
 
-from loguru import logger
-
 if __name__ == "__main__":
     import sys
     sys.path.append(".")
 
-from typing import Literal, Optional, Union, Any
+from loguru import logger
+from typing import Literal, Optional, Union, Any, ClassVar
 from dataclasses import dataclass
 
 from src.svc import common
 from src.data import error
+from src.data.types import Emojized, Translated
 
 
 COMPLETE   = "🔹"
 INCOMPLETE = "🔸"
-URL        = "🌐"
-ID         = "📍"
-PWD        = "🔑"
 NONE       = "❓"
-
-
-FIELDS_EMOJIS = {
-    "url": URL,
-    "id": ID,
-    "pwd": PWD
-}
-FIELDS_TRANSLATIONS = {
-    "url": "Ссылка",
-    "id": "ID",
-    "pwd": "Пароль"
-}
 
 NAME = (
     "{emoji} | {name}"
@@ -67,11 +52,24 @@ NO = "нет"
 
 
 @dataclass
-class Data:
+class Data(Translated, Emojized):
     name: str
     url: Optional[str]
     id: Optional[str]
     pwd: Optional[str]
+
+    __translation__: ClassVar[dict[str, str]] = {
+        "name": "Имя",
+        "url": "Ссылка",
+        "id": "ID",
+        "pwd": "Пароль",
+    }
+    __emojis__: ClassVar[dict[str, str]] = {
+        "name": "🐷",
+        "url": "🌐",
+        "id": "📍",
+        "pwd": "🔑",
+    }
 
     @classmethod
     def parse(cls: type[Data], text: str) -> list[Data]:
@@ -104,18 +102,15 @@ class Data:
         
         fmt_name = format_name(completeness, name)
 
-        for field in self.fields():
-            field_name = field[0]
-            field_value = field[1]
-
-            if field_value is not None:
-                emoji = FIELDS_EMOJIS.get(field_name)
+        for (key, value) in self.fields():
+            if value is not None:
+                emoji = self.__emojis__.get(key)
             else:
                 emoji = NONE
             
-            translation = FIELDS_TRANSLATIONS.get(field_name)
+            translation = self.__translation__.get(key)
             
-            line = format_field(emoji, translation, field_value or NO)
+            line = format_field(emoji, translation, value or NO)
             
             fmt_fields.append(line)
 
@@ -134,7 +129,7 @@ class Entries:
     """
     # The collection of data itself
     """
-    selected: Optional[str] = None
+    selected_name: Optional[str] = None
     """
     # Name of entry that is currently selected
     - used for selecting an entry from pagination,
@@ -148,6 +143,10 @@ class Entries:
     @classmethod
     def from_set(cls: type[Entries], set: set[Data]):
         return cls(set = set)
+    
+    @property
+    def selected(self) -> Data:
+        return self.get(self.selected_name)
 
     def select(self, name: str) -> Data:
         """ ## Mark this name as selected, return its data """
@@ -160,7 +159,7 @@ class Entries:
                 "that is not in database"
             )
         
-        self.selected = name
+        self.selected_name = name
 
         return self.get(name)
     

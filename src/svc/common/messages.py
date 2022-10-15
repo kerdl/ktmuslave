@@ -150,6 +150,12 @@ PAGE_NUM = (
 def format_page_num(current: int, last: int):
     return PAGE_NUM.format(current=current, last=last)
 
+PRESS_BUTTONS_TO_CHANGE = (
+    "🖕 | Нажми на параметр, чтобы его изменить"
+)
+def format_press_buttons_to_change():
+    return PRESS_BUTTONS_TO_CHANGE
+
 
 #### Full messages for specific states ####
 

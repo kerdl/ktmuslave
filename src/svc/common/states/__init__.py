@@ -1,8 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Callable, Optional, Literal, Iterable
-from src.data import zoom
+from typing import Callable, ClassVar, Optional, Literal, Iterable
 
+from src.data import zoom
 from src.svc import common
 from src.svc.common import error
 
@@ -125,8 +125,8 @@ class State:
 
 @dataclass
 class Tree:
-    __space__: SPACE_LITERAL = None
-    __states__: list[State] = None
+    __space__: ClassVar[SPACE_LITERAL] = None
+    __states__: ClassVar[list[State]] = None
 
     def __init__(self) -> None:
         if self.__space__ is None:

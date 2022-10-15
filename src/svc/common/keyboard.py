@@ -1,6 +1,6 @@
 from __future__ import annotations
 from copy import deepcopy
-from typing import Optional
+from typing import Any, Optional, Union
 from typing import Literal
 from vkbottle import (
     Keyboard as VkKeyboard, 
@@ -13,8 +13,9 @@ from aiogram.types import (
     ForceReply as TgForceReply
 )
 from dataclasses import dataclass
-from src.svc import common
 
+from src.svc import common
+from src.data.types import Emojized, Translated
 from src.svc.vk.keyboard import CMD
 
 
@@ -85,18 +86,36 @@ class Color:
 
 @dataclass
 class Button:
-    """
-    # Represents a common button
-
-    - `text` - button text
-    - `callback` - payload that will be sent
-    on press
-    - `color` (VK ONLY) - controls 
-    tilt angle on `Messerschmitt Me 262`
-    """
+    """ # Represents a common button """
     text: str
+    """ ## Button text """
     callback: str
+    """ ## Payload that will be sent on press """
     color: Optional[COLOR_LITERAL] = None
+    """ ## Controls tilt angle on `Messerschmitt Me 262` """
+
+    @classmethod
+    def value_button(
+        cls: type[Button], 
+        name: str, 
+        value: Any, 
+        callback: str, 
+        color: COLOR_LITERAL, 
+        limit: int = 5
+    ):
+        value = str(value)
+        limited_value = value
+
+        if value > limit:
+            limited_value = value[:limit] + "..."
+        
+        full_name = f"{name}: {limited_value}"
+
+        return cls(
+            text     = full_name, 
+            callback = callback, 
+            color    = color
+        )
 
     def only_if(self, condition: bool) -> Optional[Button]:
         """ ## Return `Button` if `condition` is `True`, else return `None` """
@@ -118,9 +137,42 @@ class Keyboard:
     """ ## `Next` button, will be placed to the right of `Back` """
 
     @classmethod
-    def default(cls: type[Keyboard]):
+    def default(cls: type[Keyboard]) -> Keyboard:
         return cls(schema=[])
     
+    @classmethod
+    def from_dataclass(
+        cls: type[Keyboard],
+        dataclass: Union[Translated, Emojized], 
+        color: COLOR_LITERAL = Color.BLUE,
+        add_back: bool = True, 
+        next_button: Optional[Button] = None,
+    ) -> Keyboard:
+        schema: list[Button] = []
+
+        for (key, value) in dataclass.__dict__.items():
+            emojized_key = dataclass.__emojis__.get(key) or ""
+            translated_key = dataclass.__translation__.get(key) or key
+
+            if emojized_key and translated_key:
+                text = f"{emojized_key} {translated_key}: {common.text.shorten(value)}"
+            else:
+                text = f"{translated_key}: {common.text.shorten(value)}"
+
+            button = Button(
+                text     = text,
+                callback = key,
+                color    = color
+            )
+
+            schema.append([button])
+        
+        return cls(
+            schema      = schema,
+            add_back    = add_back,
+            next_button = next_button
+        )
+
     @classmethod
     def without_back(cls: type[Keyboard]):
         """ ## Shortcut to create `Keyboard` without `Back` button """

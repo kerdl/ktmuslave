@@ -41,10 +41,9 @@ async def finish(everything: CommonEverything):
     )
     answer_keyboard = Keyboard.default().assign_next(FINISH_BUTTON)
 
-
     await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard,
+        text        = answer_text.make(),
+        keyboard    = answer_keyboard,
         add_tree    = True,
         tree_values = ctx.settings
     )
@@ -100,8 +99,8 @@ async def add_zoom(everything: CommonEverything):
 
 
     await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard,
+        text        = answer_text.make(),
+        keyboard    = answer_keyboard,
         add_tree    = True,
         tree_values = ctx.settings
     )
