@@ -1,9 +1,9 @@
-from typing import Optional
+from typing import Any, Callable, Optional
 from loguru import logger
 
 from src import defs
 from src.parse import pattern
-from src.svc.common import CommonEverything, messages, pagination
+from src.svc.common import CommonEverything, messages, pagination, Ctx
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import Zoom
 from src.svc.common.router import r
@@ -26,8 +26,53 @@ from src.svc.common.keyboard import (
     MANUALLY_BUTTON,
     FINISH_BUTTON
 )
-from src.data import zoom
+from src.data import zoom, Field
 
+
+async def set_attribute(
+    everything: CommonEverything,
+    getter: Callable[[], Any],
+    setter: Callable[[Any], None],
+    main_message: str
+):
+    footer_addition = messages.default_footer_addition(everything)
+    answer_keyboard = Keyboard.default()
+
+    if everything.is_from_message:
+        message = everything.message
+
+        if not message.text:
+            answer_text = (
+                messages.Builder()
+                        .add(messages.format_no_text())
+                        .add(messages.format_current_value(getter()))
+                        .add(main_message)
+                        .add(footer_addition)
+            )
+
+            return await message.answer(
+                text     = answer_text.make(),
+                keyboard = answer_keyboard
+            )
+
+        setter(message.text)
+
+        return await to_entry(everything)
+
+    if everything.is_from_event:
+        event = everything.event
+
+        answer_text = (
+            messages.Builder()
+                    .add(messages.format_current_value(getter()))
+                    .add(main_message)
+                    .add(footer_addition)
+        )
+
+        return await event.edit_message(
+            text     = answer_text.make(),
+            keyboard = answer_keyboard
+        )
 
 
 async def mass_check(everything: CommonEverything):
@@ -53,8 +98,21 @@ async def to_mass_check(everything: CommonEverything):
     return await mass_check(everything)
 
 
+@r.on_message(StateFilter(Zoom.IIII_PWD))
 async def pwd(everything: CommonEverything):
-    ...
+
+    def getter():
+        return everything.ctx.settings.zoom.focused.selected.pwd.value
+
+    def setter(value: Any):
+        everything.ctx.settings.zoom.focused.selected.pwd = Field(value)
+
+    return await set_attribute(
+        everything   = everything,
+        getter       = getter,
+        setter       = setter,
+        main_message = messages.format_enter_pwd()
+    )
 
 @r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.PWD))
 async def to_pwd(everything: CommonEverything):
@@ -62,8 +120,21 @@ async def to_pwd(everything: CommonEverything):
     return await pwd(everything)
 
 
+@r.on_message(StateFilter(Zoom.IIII_ID))
 async def id_(everything: CommonEverything):
-    ...
+
+    def getter():
+        return everything.ctx.settings.zoom.focused.selected.id.value
+
+    def setter(value: Any):
+        everything.ctx.settings.zoom.focused.selected.id = Field(value)
+
+    return await set_attribute(
+        everything   = everything,
+        getter       = getter,
+        setter       = setter,
+        main_message = messages.format_enter_id()
+    )
 
 @r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.ID))
 async def to_id(everything: CommonEverything):
@@ -71,8 +142,21 @@ async def to_id(everything: CommonEverything):
     return await id_(everything)
 
 
+@r.on_message(StateFilter(Zoom.IIII_URL))
 async def url(everything: CommonEverything):
-    ...
+
+    def getter():
+        return everything.ctx.settings.zoom.focused.selected.url.value
+
+    def setter(value: Any):
+        everything.ctx.settings.zoom.focused.selected.url = Field(value)
+
+    return await set_attribute(
+        everything   = everything,
+        getter       = getter,
+        setter       = setter,
+        main_message = messages.format_enter_url()
+    )
 
 @r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.URL))
 async def to_url(everything: CommonEverything):
@@ -80,8 +164,26 @@ async def to_url(everything: CommonEverything):
     return await url(everything)
 
 
+@r.on_message(StateFilter(Zoom.IIII_NAME))
 async def name(everything: CommonEverything):
-    ...
+
+    def getter():
+        return everything.ctx.settings.zoom.focused.selected.name.value
+
+    def setter(value: Any):
+        old = everything.ctx.settings.zoom.focused.selected.name.value
+
+        everything.ctx.settings.zoom.focused.change_name(old, value)
+
+        # select this backup
+        everything.ctx.settings.zoom.focused.select(value)
+
+    return await set_attribute(
+        everything   = everything,
+        getter       = getter,
+        setter       = setter,
+        main_message = messages.format_enter_name()
+    )
 
 @r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.NAME))
 async def to_name(everything: CommonEverything):
@@ -109,7 +211,7 @@ async def entry(everything: CommonEverything):
     )
 
 async def to_entry(everything: CommonEverything):
-    everything.navigator.append(Zoom.III_ENTRY)
+    everything.navigator.jump_back_to_or_append(Zoom.III_ENTRY)
     return await entry(everything)
 
 
@@ -163,8 +265,11 @@ async def to_browse(
     everything: CommonEverything, 
     text_footer: Optional[str] = None
 ):
-    if everything.navigator.current != Zoom.II_BROWSE:
-        everything.navigator.append(Zoom.II_BROWSE)
+
+    everything.navigator.jump_back_to_or_append(Zoom.II_BROWSE)
+
+    #if everything.navigator.current != Zoom.II_BROWSE:
+    #    everything.navigator.append(Zoom.II_BROWSE)
 
     return await browse(everything, text_footer)
 

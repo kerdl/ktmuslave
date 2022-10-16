@@ -252,8 +252,7 @@ async def schedule_broadcast(everything: CommonEverything):
 
 
 async def to_schedule_broadcast(everything: CommonEverything):
-    if everything.navigator.current == Init.II_UNKNOWN_GROUP:
-        everything.navigator.back(trace_it = False)
+    everything.navigator.jump_back_to_or_append(Init.I_GROUP)
 
     everything.navigator.append(Init.I_SCHEDULE_BROADCAST)
 
@@ -312,8 +311,7 @@ async def group(everything: CommonEverything):
     ctx = everything.ctx
     is_group_set = ctx.settings.group.confirmed is not None
 
-    if everything.navigator.current == Init.II_UNKNOWN_GROUP:
-        everything.navigator.back(trace_it = False)
+    everything.navigator.jump_back_to_or_append(Init.I_GROUP)
 
     footer_addition = ""
 

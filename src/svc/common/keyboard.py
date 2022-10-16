@@ -15,7 +15,7 @@ from aiogram.types import (
 from dataclasses import dataclass
 
 from src.svc import common
-from src.data import Emojized, Repred, Translated
+from src.data import Emojized, Repred, Translated, Field, Emoji
 from src.svc.vk.keyboard import CMD
 
 
@@ -126,29 +126,42 @@ class Keyboard:
     def from_dataclass(
         cls: type[Keyboard],
         dataclass: Union[Translated, Emojized, Repred], 
-        color: COLOR_LITERAL = Color.BLUE,
         add_back: bool = True, 
         next_button: Optional[Button] = None,
     ) -> Keyboard:
         schema: list[Button] = []
 
         for (key, value) in dataclass.__dict__.items():
-            if issubclass(type(value), Repred):
+            emoji = None
+
+            if isinstance(value, Field):
+                value: Field
+                
+                if value.has_warnings:
+                    emoji = Emoji.WARN
+                
+                value = value.value
+
+            elif issubclass(type(value), Repred):
                 value: Repred
                 value = value.__repr_name__()
 
-            emojized_key = dataclass.__emojis__.get(key) or ""
-            translated_key = dataclass.__translation__.get(key) or key
+            if emoji is None:
+                emoji = dataclass.__emojis__.get(key) if value is not None else "🔳"
 
-            if emojized_key and translated_key:
-                text = f"{emojized_key} {translated_key}: {common.text.shorten(value)}"
+            translated = dataclass.__translation__.get(key) or key
+
+            if emoji and translated and value is not None:
+                text = f"{emoji} {translated}: {common.text.shorten(value)}"
+            elif emoji and translated:
+                text = f"{emoji} {translated}"
             else:
-                text = f"{translated_key}: {common.text.shorten(value)}"
+                text = translated
 
             button = Button(
                 text     = text,
                 callback = key,
-                color    = color
+                color    = Color.BLUE if value is not None else Color.GRAY
             )
 
             schema.append([button])

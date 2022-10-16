@@ -125,8 +125,17 @@ def from_zoom(
         for (section_i, section) in enumerate(page):
             is_last_section = section_i + 1 == len(page)
 
+            name_emoji = section.name_emoji(
+                warn_sources = lambda entry: [
+                    entry.name,
+                    entry.url,
+                    entry.id,
+                    entry.pwd
+                ]
+            )
+
             button = Button(
-                text     = section.name.__repr_name__(), 
+                text     = f"{name_emoji} {section.name.__repr_name__()}", 
                 callback = section.name.__repr_name__(),
                 color    = Color.BLUE
             )

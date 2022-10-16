@@ -8,20 +8,16 @@ if __name__ == "__main__":
 
 from loguru import logger
 from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from src.svc import common
-from src.data import Repred, error
+from src.data import error
 from src.data import Emojized, Translated, Warning, Field
+from src.parse import pattern
 
 
 T = TypeVar("T")
 
-
-COMPLETE   = "🔹"
-INCOMPLETE = "🔸"
-NONE       = "❓"
-WARN       = "❗"
 
 NAME = (
     "{emoji} | {name}"
@@ -54,8 +50,6 @@ def format_section(name: str, fields: list[str]):
         fields = merged_fields
     )
 
-NO = "нет"
-
 
 @dataclass
 class Data(Translated, Emojized):
@@ -82,6 +76,42 @@ class Data(Translated, Emojized):
         from src.parse import zoom
         return zoom.Parser(text).parse()
     
+    @staticmethod
+    def check_name(name: str) -> set[Warning]:
+        warns = set()
+
+        if not pattern.SHORT_NAME.match(name):
+            warns.add(data.INCORRECT_NAME_FORMAT)
+
+        return warns
+    
+    @staticmethod
+    def check_url(url: str) -> set[Warning]:
+        warns = set()
+
+        if url.replace(" ", "").endswith(("..", "...", "…")):
+            warns.add(data.URL_MAY_BE_CUTTED)
+        
+        return warns
+
+    @staticmethod
+    def check_id(id: str) -> set[Warning]:
+        warns = set()
+    
+        if pattern.LETTER.search(id):
+            warns.add(data.ID_CONTAINS_LETTERS)
+
+        return warns
+    
+    def check(self):
+        self.name.warnings = self.check_name(self.name.value)
+
+        if hasattr(self, "url") and self.url.value is not None:
+            self.url.warnings = self.check_url(self.url.value)
+        
+        if hasattr(self, "id") and self.url.value is not None:
+            self.id.warnings = self.check_id(self.id.value)
+
     def fields(
         self, 
         filter_: Callable[[tuple[str, Any]], bool] = lambda field: True
@@ -99,34 +129,35 @@ class Data(Translated, Emojized):
         return all([not field[1].has_warnings for field in self.fields(filter_)])
 
     def completeness_emoji(self) -> str:
-        completeness = COMPLETE
+        completeness = data.Emoji.COMPLETE
 
         if not self.all_fields_are_set():
-            completeness = INCOMPLETE
+            completeness = data.Emoji.INCOMPLETE
         
         return completeness
+    
+    def name_emoji(
+        self,
+        warn_sources: Callable[[Data], list[Field]] = lambda self: [self.name]
+    ) -> str:
+
+        any_warns = any([field.has_warnings for field in warn_sources(self)])
+
+        if any_warns:
+            return data.Emoji.WARN
+        
+        return self.completeness_emoji()
 
     def choose_emoji(self, key: str, field: Field) -> str:
         if field.has_warnings:
-            return WARN
+            return data.Emoji.WARN
         elif field.value is not None:
             return self.__emojis__.get(key)
         else:
-            return NONE
+            return data.Emoji.NONE
 
-    def format_name(
-        self, 
-        warn_sources: Callable[[Data], list[Field]] = lambda self: [self.name]
-    ) -> str:
-        emoji = self.completeness_emoji()
-
-        has_warn_sources = warn_sources(self)
-        any_warns_in_sources = any([
-            field.has_warnings for field in warn_sources(self)
-        ])
-
-        if has_warn_sources and any_warns_in_sources:
-            emoji = WARN
+    def format_name(self) -> str:
+        emoji = self.name_emoji()
 
         fmt_name = self.name.format(
             emoji         = emoji, 
@@ -178,11 +209,16 @@ class Data(Translated, Emojized):
         
         return fmt_name + "\n" + fmt_fields
 
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        super().__setattr__(__name, __value)
+
+        self.check()
+
     def __hash__(self):
-        return hash(self.name)
+        return hash(self.name.value)
     
     def __eq__(self, other):
-        return self.name == other
+        return self.name.value == other
 
 
 @dataclass
@@ -209,6 +245,24 @@ class Entries:
     @property
     def selected(self) -> Data:
         return self.get(self.selected_name)
+
+    def change_name(self, old: str, new: str):
+        if old not in self.set:
+            raise error.ZoomNameNotInDatabase(
+                "you're trying to change inexistent name"
+            )
+        
+        # get current data from old name
+        data = self.get(old)
+
+        # remove it from the actual set
+        self.remove(old)
+
+        # change our backup with a new name
+        data.name = Field(new)
+
+        # add this backup with changed name back
+        self.add(data)
 
     def select(self, name: str) -> Data:
         """ ## Mark this name as selected, return its data """
@@ -260,33 +314,14 @@ class Entries:
         return len(self.set) > 0
 
     def remove(self, name: Union[str, set[str]]):
-        def remove_with_dummy(name: str):
-            """
-            ## Make a dummy `Data`, remove with it
-            """
-
-            # since Data is compared
-            # by the `name` field inside it,
-            # we can make a dummy
-            # and delete the REAL entry
-            # from this FAKE one
-            dummy = Data(
-                name = data.Field(n),
-                url  = data.Field(""),
-                id   = data.Field(""),
-                pwd  = data.Field("")
-            )
-
-            self.set.remove(dummy)
-
         if isinstance(name, set):
             for n in name:
-                remove_with_dummy(n)
+                self.set.remove(n)
             
             return None
 
         if isinstance(name, str):
-            remove_with_dummy(name)
+            self.set.remove(name)
 
             return None
     

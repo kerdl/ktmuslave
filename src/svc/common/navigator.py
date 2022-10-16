@@ -159,3 +159,19 @@ class Navigator:
                 return True
         
         return False
+
+    def jump_back_to(self, state: State, trace_it: bool = False):
+        if state not in self.trace:
+            raise error.ThisStateNotInTrace(
+                "you tried to jump back to state "
+                "that is not in trace"
+            )
+        
+        while self.current != state:
+            self.back(trace_it = trace_it)
+    
+    def jump_back_to_or_append(self, state: State, trace_it: bool = False):
+        try:
+            self.jump_back_to(state)
+        except error.ThisStateNotInTrace:
+            self.append(state)

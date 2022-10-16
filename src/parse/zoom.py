@@ -64,12 +64,6 @@ class Parser:
 
             return name.rstrip().lstrip()
     
-    def check_name(self, name: str) -> Optional[Warning]:
-        if not SHORT_NAME.match(name):
-            return data.INCORRECT_NAME_FORMAT
-
-        return None
-    
     def parse_id(self, line: str) -> Optional[str]:
         no_spaces = line.replace(" ", "")
         id = ZOOM_ID.search(no_spaces)
@@ -97,13 +91,6 @@ class Parser:
         
         return None
 
-    @staticmethod
-    def check_url(url: str) -> Optional[Warning]:
-        if url.replace(" ", "").endswith(("...", "…")):
-            return data.URL_MAY_BE_CUTTED
-        
-        return None
-
     def parse_section(self, text: str) -> Optional[zoom.Data]:
         name: data.Field[Optional[str]] = data.Field(None)
         url:  data.Field[Optional[str]] = data.Field(None)
@@ -122,12 +109,6 @@ class Parser:
 
                 if parsed is not None:
                     name.value = parsed
-
-                    warn = self.check_name(name.value)
-
-                    if warn:
-                        name.warnings.add(warn)
-
                     continue
                     
             # if url is not found yet
@@ -137,10 +118,6 @@ class Parser:
                 if "zoom" in parsed.netloc and "/j/" in parsed.path:
                     clean_url = line.lstrip().rstrip().replace("\n", "")
                     url.value = clean_url
-
-                    warn = self.check_url(url.value)
-                    if warn:
-                        url.warnings.add(warn)
 
                     if id.value is None:
                         id.value = self.parse_id(parsed.path)
@@ -170,6 +147,8 @@ class Parser:
             id   = id,
             pwd  = pwd
         )
+
+        model.check()
 
         return model
     

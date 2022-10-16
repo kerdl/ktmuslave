@@ -26,6 +26,12 @@ class Repred:
     def __repr_name__(self) -> str: ...
 
 
+class Emoji:
+    COMPLETE   = "🔹"
+    INCOMPLETE = "🔸"
+    NONE       = "❓"
+    WARN       = "❗"
+
 @dataclass
 class Warning:
     anchor: str
@@ -64,7 +70,7 @@ class Field(Generic[T], Repred):
             base_formatted = VALUE_FIELD_FMT.format(
                 emoji = emoji, 
                 name  = name, 
-                value = self.value if self.value is not None else "нет",
+                value = common.messages.value_repr(self.value),
             )
         else:
             base_formatted = FIELD_FMT.format(
@@ -96,5 +102,9 @@ INCORRECT_NAME_FORMAT = Warning(
 )
 URL_MAY_BE_CUTTED = Warning(
     "url_may_be_cutted",
-    "🔴 возможно обрезана: на конце есть \"...\""
+    "🔴 возможно обрезана: на конце есть многоточие"
+)
+ID_CONTAINS_LETTERS = Warning(
+    "id_contains_letters",
+    "🔴 есть буквы, хотя должны быть только цифры"
 )

@@ -4,14 +4,9 @@ if __name__ == "__main__":
 
 from typing import Any, Optional
 
+from src.svc.common import messages
 from src.svc.common.navigator import Navigator
 from src.svc.common.states import State, Values
-
-
-BOOL_REPR = {
-    True:  "да",
-    False: "нет"
-}
 
 
 def tabs(level: int) -> str:
@@ -82,7 +77,7 @@ def tree(navigator: Navigator, values: Optional[Values] = None, base_lvl: int = 
                 value = values.get_from_state(state)
 
                 if isinstance(value, bool):
-                    value = BOOL_REPR.get(value)
+                    value = messages.value_repr(value)
 
             if state == current_state:
                 return current(state, value)

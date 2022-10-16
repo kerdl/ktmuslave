@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Optional
+from types import NoneType
+from typing import Any, Optional, Union
 from src.data.settings import Settings
 
 from src.svc import common
@@ -34,6 +35,16 @@ class Builder:
 
     def make(self) -> str:
         return self.separator.join(self.components)
+
+
+PYTHON_VALUE_REPR = {
+    True:  "да",
+    False: "нет",
+    None:  "н/а"
+}
+
+def value_repr(value: Any) -> str:
+    return PYTHON_VALUE_REPR.get(value) or value
 
 
 #### Common footers and headers ####
@@ -144,17 +155,35 @@ CHAT_WILL_MIGRATE = (
 def format_chat_will_migrate():
     return CHAT_WILL_MIGRATE
 
+
 PAGE_NUM = (
     "📄 | Страница {current}/{last}"
 )
 def format_page_num(current: int, last: int):
     return PAGE_NUM.format(current=current, last=last)
 
+
 PRESS_BUTTONS_TO_CHANGE = (
-    "🖕 | Нажми на параметр, чтобы его изменить"
+    "👇 | Нажми на параметр, чтобы его изменить"
 )
 def format_press_buttons_to_change():
     return PRESS_BUTTONS_TO_CHANGE
+
+
+NO_TEXT = (
+    "❌ | Ну ты быдло, тут нет текста"
+)
+def format_no_text():
+    return NO_TEXT
+
+
+CURRENT_VALUE = (
+    "📝 | Текущее значение: {value}"
+)
+def format_current_value(value: Any):
+    return CURRENT_VALUE.format(
+        value = value_repr(value)
+    )
 
 
 #### Full messages for specific states ####
@@ -321,6 +350,38 @@ YOU_CAN_ADD_MORE = (
 )
 def format_you_can_add_more():
     return YOU_CAN_ADD_MORE
+
+
+ENTER_NAME = (
+    "🐷 | Отправь новое имя этой записи\n"
+    "👉 | Например: Ебанько Х.Й., Ебанько Х."
+)
+def format_enter_name():
+    return ENTER_NAME
+
+
+ENTER_URL = (
+    "🌐 | Отправь новую ссылку для этой записи\n"
+    "👉 | Например: https://us04web.zoom.us/j/2281337300?pwd=p0s0siMOEpotn0e0CHKOmudilaEBANYA"
+)
+def format_enter_url():
+    return ENTER_URL
+
+
+ENTER_ID = (
+    "📍 | Отправь новый ID для этой записи\n"
+    "👉 | Например: 2281337300"
+)
+def format_enter_id():
+    return ENTER_ID
+
+
+ENTER_PWD = (
+    "🔑 | Отправь новый пароль для этой записи\n"
+    "👉 | Например: 0oChKo или др."
+)
+def format_enter_pwd():
+    return ENTER_PWD
 
 
 WILL_BE_ADDED = (
