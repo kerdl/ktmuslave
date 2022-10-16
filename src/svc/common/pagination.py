@@ -126,8 +126,8 @@ def from_zoom(
             is_last_section = section_i + 1 == len(page)
 
             button = Button(
-                text     = section.name, 
-                callback = section.name,
+                text     = section.name.__repr_name__(), 
+                callback = section.name.__repr_name__(),
                 color    = Color.BLUE
             )
 
@@ -142,6 +142,9 @@ def from_zoom(
                 cur_row = []
 
         for row in keyboard_footer:
+            if not row:
+                continue
+
             kb_schema.append(row)
 
         message = common.CommonBotTemplate(

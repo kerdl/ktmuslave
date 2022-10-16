@@ -1,33 +1,39 @@
 from __future__ import annotations
 
+from src import data
+
 if __name__ == "__main__":
     import sys
     sys.path.append(".")
 
 from loguru import logger
-from typing import Literal, Optional, Union, Any, ClassVar
-from dataclasses import dataclass
+from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar
+from dataclasses import dataclass, field
 
 from src.svc import common
-from src.data import error
-from src.data.types import Emojized, Translated
+from src.data import Repred, error
+from src.data import Emojized, Translated, Warning, Field
+
+
+T = TypeVar("T")
 
 
 COMPLETE   = "🔹"
 INCOMPLETE = "🔸"
 NONE       = "❓"
+WARN       = "❗"
 
 NAME = (
     "{emoji} | {name}"
 )
-def format_name(emoji: str, name: str):
-    return NAME.format(emoji=emoji, name=name)
+def format_name(emoji: str, name: Union[str, Field]):
+    if isinstance(name, str):
+        return NAME.format(emoji = emoji, name = name)
 
-FIELD = (
-    "{emoji} {name}: {value}"
-)
-def format_field(emoji: str, name: str, value: str):
-    return FIELD.format(emoji=emoji, name=name, value=value)
+    return NAME.format(
+        emoji = emoji, 
+        name  = name.__repr_name__()
+    )
 
 SECTION = (
     "{name}\n"
@@ -38,7 +44,7 @@ def format_section(name: str, fields: list[str]):
     merged_fields = ""
 
     for field in fields:
-        indented_field = common.text.indent(f"╰ {field}")
+        indented_field = common.text.indent(field, add_dropdown = True)
         indented_fields.append(indented_field)
     
     merged_fields = "\n".join(indented_fields)
@@ -53,10 +59,10 @@ NO = "нет"
 
 @dataclass
 class Data(Translated, Emojized):
-    name: str
-    url: Optional[str]
-    id: Optional[str]
-    pwd: Optional[str]
+    name: Field[str]
+    url: Field[Optional[str]]
+    id: Field[Optional[str]]
+    pwd: Field[Optional[str]]
 
     __translation__: ClassVar[dict[str, str]] = {
         "name": "Имя",
@@ -76,15 +82,23 @@ class Data(Translated, Emojized):
         from src.parse import zoom
         return zoom.Parser(text).parse()
     
-    def fields(self) -> list[tuple[Union[str, Any]]]:
-        # get all class fields except for `name` field
-        #        tuple    tuple     generator of tuples       key
-        return [field for field in self.__dict__.items() if field[0] != "name"]
+    def fields(
+        self, 
+        filter_: Callable[[tuple[str, Any]], bool] = lambda field: True
+    ) -> list[tuple[str, Field[Optional[str]]]]:
+        #        tuple    tuple     generator of tuples       condition
+        return [field for field in self.__dict__.items() if filter_(field)]
 
     def all_fields_are_set(self) -> bool:
-        return all([field[1] for field in self.fields()])
+        return all([field[1].value for field in self.fields()])
 
-    def completeness_badge(self) -> str:
+    def all_fields_without_warns(
+        self, 
+        filter_: Callable[[tuple[str, Any]], bool] = lambda field: field[0] != "name"
+    ) -> bool:
+        return all([not field[1].has_warnings for field in self.fields(filter_)])
+
+    def completeness_emoji(self) -> str:
         completeness = COMPLETE
 
         if not self.all_fields_are_set():
@@ -92,29 +106,77 @@ class Data(Translated, Emojized):
         
         return completeness
 
-    def format(self) -> str:
-        name = self.name
-        fmt_name = ""
+    def choose_emoji(self, key: str, field: Field) -> str:
+        if field.has_warnings:
+            return WARN
+        elif field.value is not None:
+            return self.__emojis__.get(key)
+        else:
+            return NONE
 
+    def format_name(
+        self, 
+        warn_sources: Callable[[Data], list[Field]] = lambda self: [self.name]
+    ) -> str:
+        emoji = self.completeness_emoji()
+
+        has_warn_sources = warn_sources(self)
+        any_warns_in_sources = any([
+            field.has_warnings for field in warn_sources(self)
+        ])
+
+        if has_warn_sources and any_warns_in_sources:
+            emoji = WARN
+
+        fmt_name = self.name.format(
+            emoji         = emoji, 
+            name          = self.name.value, 
+            display_value = False
+        )
+
+        return fmt_name
+
+    def format_fields(
+        self,
+        filter_: Callable[[tuple[str, Any]], bool] = (
+            lambda field: field[0] != "name"
+        )
+    ) -> str:
         fmt_fields = []
 
-        completeness = self.completeness_badge()
+        for (key, field) in self.fields(filter_):
+            emoji = self.choose_emoji(key, field)
+            name = self.__translation__.get(key)
+
+            fmt = field.format(emoji, name)
+            fmt_fields.append(fmt)
         
-        fmt_name = format_name(completeness, name)
+        return "\n".join(fmt_fields)
 
-        for (key, value) in self.fields():
-            if value is not None:
-                emoji = self.__emojis__.get(key)
-            else:
-                emoji = NONE
-            
-            translation = self.__translation__.get(key)
-            
-            line = format_field(emoji, translation, value or NO)
-            
-            fmt_fields.append(line)
+    def format_fields_with_warns(self) -> Optional[str]:
+        if self.all_fields_without_warns():
+            return None
+        
+        def field_filter(key_field: tuple[str, Field]) -> bool:
+            key = key_field[0]
+            value = key_field[1]
 
-        return format_section(fmt_name, fmt_fields)
+            return key != "name" and value.has_warnings
+        
+        return self.format_fields(field_filter)
+
+    def format(
+        self,
+        field_filter: Callable[[tuple[str, Any]], bool] = (
+            lambda field: field[0] != "name"
+        )
+    ) -> str:
+        fmt_name = self.format_name()
+
+        fmt_fields = self.format_fields(field_filter)
+        fmt_fields = common.text.indent(fmt_fields, add_dropdown = True)
+        
+        return fmt_name + "\n" + fmt_fields
 
     def __hash__(self):
         return hash(self.name)
@@ -209,10 +271,10 @@ class Entries:
             # and delete the REAL entry
             # from this FAKE one
             dummy = Data(
-                name = n,
-                url  = "",
-                id   = "",
-                pwd  = ""
+                name = data.Field(n),
+                url  = data.Field(""),
+                id   = data.Field(""),
+                pwd  = data.Field("")
             )
 
             self.set.remove(dummy)
@@ -232,8 +294,16 @@ class Entries:
         names: list[str] = []
 
         for entry in self.set:
-            completeness = entry.completeness_badge()
-            name = format_name(completeness, entry.name)
+            warns_text: Optional[str] = None
+
+            if not entry.all_fields_without_warns():
+                warns_text = entry.format_fields_with_warns()
+                warns_text = common.text.indent(warns_text, add_dropdown = True)
+            
+            name = entry.format_name()
+
+            if warns_text:
+                name = name + "\n" + warns_text
 
             names.append(name)
 

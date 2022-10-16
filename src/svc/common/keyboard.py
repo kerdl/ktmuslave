@@ -15,7 +15,7 @@ from aiogram.types import (
 from dataclasses import dataclass
 
 from src.svc import common
-from src.data.types import Emojized, Translated
+from src.data import Emojized, Repred, Translated
 from src.svc.vk.keyboard import CMD
 
 
@@ -30,6 +30,11 @@ class Payload:
 
     PAGE_BACK = "page_back"
     PAGE_NEXT = "page_next"
+
+    NAME = "name"
+    URL  = "url"
+    ID   = "id"
+    PWD  = "pwd"
 
     BEGIN     = "begin"
     DO_PIN    = "do_pin"
@@ -94,29 +99,6 @@ class Button:
     color: Optional[COLOR_LITERAL] = None
     """ ## Controls tilt angle on `Messerschmitt Me 262` """
 
-    @classmethod
-    def value_button(
-        cls: type[Button], 
-        name: str, 
-        value: Any, 
-        callback: str, 
-        color: COLOR_LITERAL, 
-        limit: int = 5
-    ):
-        value = str(value)
-        limited_value = value
-
-        if value > limit:
-            limited_value = value[:limit] + "..."
-        
-        full_name = f"{name}: {limited_value}"
-
-        return cls(
-            text     = full_name, 
-            callback = callback, 
-            color    = color
-        )
-
     def only_if(self, condition: bool) -> Optional[Button]:
         """ ## Return `Button` if `condition` is `True`, else return `None` """
         if condition is True:
@@ -143,7 +125,7 @@ class Keyboard:
     @classmethod
     def from_dataclass(
         cls: type[Keyboard],
-        dataclass: Union[Translated, Emojized], 
+        dataclass: Union[Translated, Emojized, Repred], 
         color: COLOR_LITERAL = Color.BLUE,
         add_back: bool = True, 
         next_button: Optional[Button] = None,
@@ -151,6 +133,10 @@ class Keyboard:
         schema: list[Button] = []
 
         for (key, value) in dataclass.__dict__.items():
+            if issubclass(type(value), Repred):
+                value: Repred
+                value = value.__repr_name__()
+
             emojized_key = dataclass.__emojis__.get(key) or ""
             translated_key = dataclass.__translation__.get(key) or key
 

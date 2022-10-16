@@ -39,7 +39,6 @@ async def mass_check(everything: CommonEverything):
     answer_text = (
         messages.Builder()
                 .add(messages.format_zoom_mass_adding_overview(adding, overwriting))
-                .add(messages.format_zoom_data_warning())
     )
     answer_keyboard = Keyboard.default()
 
@@ -57,17 +56,37 @@ async def to_mass_check(everything: CommonEverything):
 async def pwd(everything: CommonEverything):
     ...
 
+@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.PWD))
+async def to_pwd(everything: CommonEverything):
+    everything.navigator.append(Zoom.IIII_PWD)
+    return await pwd(everything)
+
 
 async def id_(everything: CommonEverything):
     ...
+
+@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.ID))
+async def to_id(everything: CommonEverything):
+    everything.navigator.append(Zoom.IIII_ID)
+    return await id_(everything)
 
 
 async def url(everything: CommonEverything):
     ...
 
+@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.URL))
+async def to_url(everything: CommonEverything):
+    everything.navigator.append(Zoom.IIII_URL)
+    return await url(everything)
+
 
 async def name(everything: CommonEverything):
     ...
+
+@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.NAME))
+async def to_name(everything: CommonEverything):
+    everything.navigator.append(Zoom.IIII_NAME)
+    return await name(everything)
 
 
 async def entry(everything: CommonEverything):
