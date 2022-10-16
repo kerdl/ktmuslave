@@ -338,7 +338,7 @@ def format_zoom_data_format():
 
 DOESNT_CONTAIN_ZOOM = (
     "❌ | Eblan? Посмотри формат, по нему тут нихуя нет 🤨\n"
-    "🤔 | Блоки без ФИО игнорируются"
+    "   ╰ 🤔 Блоки без ФИО игнорируются"
 )
 def format_doesnt_contain_zoom():
     return DOESNT_CONTAIN_ZOOM
@@ -354,7 +354,7 @@ def format_you_can_add_more():
 
 ENTER_NAME = (
     "🐷 | Отправь новое имя этой записи\n"
-    "👉 | Например: Ебанько Х.Й., Ебанько Х."
+    "   ╰ 👉 Например: Ебанько Х.Й., Ебанько Х."
 )
 def format_enter_name():
     return ENTER_NAME
@@ -362,7 +362,7 @@ def format_enter_name():
 
 ENTER_URL = (
     "🌐 | Отправь новую ссылку для этой записи\n"
-    "👉 | Например: https://us04web.zoom.us/j/2281337300?pwd=p0s0siMOEpotn0e0CHKOmudilaEBANYA"
+    "   ╰ 👉 Например: https://us04web.zoom.us/j/2281337300?pwd=p0s0siMOEpotn0e0CHKOmudilaEBANYA"
 )
 def format_enter_url():
     return ENTER_URL
@@ -370,7 +370,7 @@ def format_enter_url():
 
 ENTER_ID = (
     "📍 | Отправь новый ID для этой записи\n"
-    "👉 | Например: 2281337300"
+    "   ╰ 👉 Например: 2281337300"
 )
 def format_enter_id():
     return ENTER_ID
@@ -378,7 +378,7 @@ def format_enter_id():
 
 ENTER_PWD = (
     "🔑 | Отправь новый пароль для этой записи\n"
-    "👉 | Например: 0oChKo или др."
+    "   ╰ 👉 Например: 0oChKo или др."
 )
 def format_enter_pwd():
     return ENTER_PWD
