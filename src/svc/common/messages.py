@@ -94,6 +94,7 @@ def format_debug(trace: list[State], back_trace: list[State], last_bot_message: 
     back_trace_str = fmt_trace(back_trace)
 
     last_bot_message = "впизду этот мессадж он огромный как член у меня в жопе"
+    settings         = "похуй"
 
     return DEBUG.format(
         trace            = trace_str,
@@ -187,23 +188,6 @@ def format_current_value(value: Any):
 
 
 #### Full messages for specific states ####
-
-def adding_case(number: int):
-    ending = int(str(number)[-1])
-
-    if ending in range(2, 9):
-        return "добавлено"
-    else:
-        return "добавлена"
-
-def overwriting_case(number: int):
-    ending = int(str(number)[-1])
-
-    if ending in range(2, 9):
-        return "перезаписано"
-    else:
-        return "перезаписана"
-
 
 WELCOME =  (
     "👨🏿 Буду пиздить расписание "
@@ -360,6 +344,13 @@ def format_enter_name():
     return ENTER_NAME
 
 
+NAME_IN_DATABASE = (
+    "❌ | Это имя уже в баZе"
+)
+def format_name_in_database():
+    return NAME_IN_DATABASE
+
+
 ENTER_URL = (
     "🌐 | Отправь новую ссылку для этой записи\n"
     "   ╰ 👉 Например: https://us04web.zoom.us/j/2281337300?pwd=p0s0siMOEpotn0e0CHKOmudilaEBANYA"
@@ -385,22 +376,20 @@ def format_enter_pwd():
 
 
 WILL_BE_ADDED = (
-    "❇ Будет {add_case} {count}"
+    "❇ Будет добавлено: {count}"
 )
 def format_will_be_added(count: int):
     return WILL_BE_ADDED.format(
-        add_case     = adding_case(count),
-        count        = str(count),
+        count = count,
     )
 
 
 WILL_BE_OVERWRITTEN = (
-    "♻ Будет {overwrite_case} {count}"
+    "♻ Будет перезаписано: {count}"
 )
 def format_will_be_overwritten(count: int):
     return WILL_BE_OVERWRITTEN.format(
-        overwrite_case = overwriting_case(count),
-        count          = str(count),
+        count = count,
     )
 
 
@@ -414,7 +403,7 @@ def format_zoom_mass_adding_overview(
     if len(adding) > 0:
         entries = common.text.indent(adding.format_compact())
         text = format_will_be_added(len(adding))
-        text += ":\n"
+        text += "\n"
         text += entries
 
         sections.append(text)
@@ -422,7 +411,7 @@ def format_zoom_mass_adding_overview(
     if len(overwriting) > 0:
         entries = common.text.indent(overwriting.format_compact())
         text = format_will_be_overwritten(len(overwriting))
-        text += ":\n"
+        text += "\n"
         text += entries
 
         sections.append(text)
@@ -447,8 +436,3 @@ FINISH = (
 )
 def format_finish():
     return FINISH
-
-
-if __name__ == "__main__":
-    #print(format_group(groups="mommy", should_mention=True, mention="@mommy", should_reply=False))
-    print(format_invalid_group("mommy"))

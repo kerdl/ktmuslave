@@ -97,9 +97,9 @@ class Data(Translated, Emojized):
     @staticmethod
     def check_id(id: str) -> set[Warning]:
         warns = set()
-    
-        if pattern.LETTER.search(id):
-            warns.add(data.ID_CONTAINS_LETTERS)
+
+        if not pattern.ZOOM_ID.match(id):
+            warns.add(data.INCORRECT_ID_FORMAT)
 
         return warns
     
@@ -109,7 +109,7 @@ class Data(Translated, Emojized):
         if hasattr(self, "url") and self.url.value is not None:
             self.url.warnings = self.check_url(self.url.value)
         
-        if hasattr(self, "id") and self.url.value is not None:
+        if hasattr(self, "id") and self.id.value is not None:
             self.id.warnings = self.check_id(self.id.value)
 
     def fields(
@@ -246,10 +246,15 @@ class Entries:
     def selected(self) -> Data:
         return self.get(self.selected_name)
 
-    def change_name(self, old: str, new: str):
+    def change_name(self, old: str, new: str) -> None:
         if old not in self.set:
             raise error.ZoomNameNotInDatabase(
                 "you're trying to change inexistent name"
+            )
+        
+        if new in self.set:
+            raise error.ZoomNameInDatabase(
+                "new name is already in database"
             )
         
         # get current data from old name
@@ -431,6 +436,14 @@ class Container:
             return self.entries
         if self.is_focused_on_new_entries:
             return self.new_entries
+
+    def confirm_new_entries(self) -> None:
+        # add data from `new_entries` to `entries`
+        self.entries.add(self.new_entries.set)
+        # clear new entries
+        self.new_entries.set.clear()
+
+        self.finish()
 
     def has(self, name: str) -> bool:
         """ ## If `name` is in some container """

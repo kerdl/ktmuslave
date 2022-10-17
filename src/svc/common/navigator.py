@@ -160,6 +160,14 @@ class Navigator:
         
         return False
 
+    def is_space_mixed(self) -> bool:
+        unique_spaces: set[SPACE_LITERAL] = set()
+
+        for state in self.trace:
+            unique_spaces.add(state.space)
+        
+        return len(unique_spaces) > 1
+
     def jump_back_to(self, state: State, trace_it: bool = False):
         if state not in self.trace:
             raise error.ThisStateNotInTrace(
@@ -170,8 +178,20 @@ class Navigator:
         while self.current != state:
             self.back(trace_it = trace_it)
     
+    def space_jump_back(self, trace_it: bool = False):
+        if not self.is_space_mixed():
+            raise error.NotSpaceMixed(
+                "jumping back from current space to other isn't possible, "
+                "'cause there's only one type of space in trace"
+            )
+
+        initial_space = self.space
+
+        while initial_space == self.space:
+            self.back(trace_it = trace_it)
+    
     def jump_back_to_or_append(self, state: State, trace_it: bool = False):
         try:
-            self.jump_back_to(state)
+            self.jump_back_to(state, trace_it = trace_it)
         except error.ThisStateNotInTrace:
             self.append(state)

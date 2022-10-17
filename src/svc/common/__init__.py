@@ -227,6 +227,7 @@ class BaseCommonEvent:
         
         return text
 
+
 @dataclass
 class CommonMessage(BaseCommonEvent):
     """

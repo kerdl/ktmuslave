@@ -3,7 +3,7 @@ from loguru import logger
 
 from src import defs
 from src.parse import pattern
-from src.svc.common import CommonEverything, messages, pagination, Ctx
+from src.svc.common import CommonEverything, messages, pagination, Ctx, bps
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import Zoom
 from src.svc.common.router import r
@@ -19,6 +19,9 @@ from src.svc.common.keyboard import (
     BACK_BUTTON,
     ADD_BUTTON,
     ADD_ALL_BUTTON,
+    CONFIRM_BUTTON,
+    REMOVE_BUTTON,
+    NULL_BUTTON,
 
     BEGIN_BUTTON,
     DO_PIN_BUTTON,
@@ -26,17 +29,39 @@ from src.svc.common.keyboard import (
     MANUALLY_BUTTON,
     FINISH_BUTTON
 )
-from src.data import zoom, Field
+from src.data import zoom, Field, error
 
+
+@r.on_callback(PayloadFilter(Payload.REMOVE))
+async def remove_entry(everything: CommonEverything):
+    focused = everything.ctx.settings.zoom.focused
+    selected = focused.selected
+
+    if selected is None:
+        # usually it should not happen,
+        # only in case of rate limit
+        return await to_browse(everything)
+
+    focused.remove(selected.name.value)
+
+    return await to_browse(everything)
 
 async def set_attribute(
     everything: CommonEverything,
+    main_message: str,
     getter: Callable[[], Any],
     setter: Callable[[Any], None],
-    main_message: str
+    nuller: Callable[[], None] = lambda: None,
 ):
+    ctx = everything.ctx
+
     footer_addition = messages.default_footer_addition(everything)
-    answer_keyboard = Keyboard.default()
+    answer_keyboard = Keyboard([
+        [NULL_BUTTON.only_if(
+            ctx.navigator.current != Zoom.IIII_NAME
+            and getter() is not None
+        )]
+    ])
 
     if everything.is_from_message:
         message = everything.message
@@ -55,12 +80,31 @@ async def set_attribute(
                 keyboard = answer_keyboard
             )
 
-        setter(message.text)
+        try:
+            setter(message.text)
+        except error.ZoomNameInDatabase:
+            answer_text = (
+                messages.Builder()
+                        .add(messages.format_name_in_database())
+                        .add(messages.format_current_value(getter()))
+                        .add(main_message)
+                        .add(footer_addition)
+            )
+
+            return await message.answer(
+                text     = answer_text.make(),
+                keyboard = answer_keyboard
+            )
 
         return await to_entry(everything)
 
     if everything.is_from_event:
         event = everything.event
+
+        if event.payload == Payload.NULL:
+            nuller()
+
+            return await to_entry(everything)
 
         answer_text = (
             messages.Builder()
@@ -74,6 +118,26 @@ async def set_attribute(
             keyboard = answer_keyboard
         )
 
+@r.on_callback(
+    StateFilter(Zoom.I_MASS_CHECK), 
+    PayloadFilter(Payload.CONFIRM)
+)
+async def confirm_mass_add(everything: CommonEverything):
+    ctx = everything.ctx
+
+    # move everything from `new_entries` to `entries`
+    ctx.settings.zoom.confirm_new_entries()
+    # jump back to space that is different from current one
+    ctx.navigator.space_jump_back()
+
+    # get module for current space
+    space = bps.get_module_space(ctx.navigator.space)
+
+    # get handler for current state
+    handler = space.STATE_MAP.get(ctx.navigator.current)
+    # call this handler
+    return await handler(everything)
+
 
 async def mass_check(everything: CommonEverything):
     ctx = everything.ctx
@@ -85,7 +149,9 @@ async def mass_check(everything: CommonEverything):
         messages.Builder()
                 .add(messages.format_zoom_mass_adding_overview(adding, overwriting))
     )
-    answer_keyboard = Keyboard.default()
+    answer_keyboard = Keyboard([
+        [CONFIRM_BUTTON]
+    ])
 
     return await everything.edit_or_answer(
         text     = answer_text.make(),
@@ -98,7 +164,7 @@ async def to_mass_check(everything: CommonEverything):
     return await mass_check(everything)
 
 
-@r.on_message(StateFilter(Zoom.IIII_PWD))
+@r.on_everything(StateFilter(Zoom.IIII_PWD))
 async def pwd(everything: CommonEverything):
 
     def getter():
@@ -107,11 +173,15 @@ async def pwd(everything: CommonEverything):
     def setter(value: Any):
         everything.ctx.settings.zoom.focused.selected.pwd = Field(value)
 
+    def nuller():
+        everything.ctx.settings.zoom.focused.selected.pwd = Field(None)
+
     return await set_attribute(
         everything   = everything,
+        main_message = messages.format_enter_pwd(),
         getter       = getter,
         setter       = setter,
-        main_message = messages.format_enter_pwd()
+        nuller       = nuller,
     )
 
 @r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.PWD))
@@ -120,7 +190,7 @@ async def to_pwd(everything: CommonEverything):
     return await pwd(everything)
 
 
-@r.on_message(StateFilter(Zoom.IIII_ID))
+@r.on_everything(StateFilter(Zoom.IIII_ID))
 async def id_(everything: CommonEverything):
 
     def getter():
@@ -129,11 +199,15 @@ async def id_(everything: CommonEverything):
     def setter(value: Any):
         everything.ctx.settings.zoom.focused.selected.id = Field(value)
 
+    def nuller():
+        everything.ctx.settings.zoom.focused.selected.id = Field(None)
+
     return await set_attribute(
         everything   = everything,
+        main_message = messages.format_enter_id(),
         getter       = getter,
         setter       = setter,
-        main_message = messages.format_enter_id()
+        nuller       = nuller,
     )
 
 @r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.ID))
@@ -142,7 +216,7 @@ async def to_id(everything: CommonEverything):
     return await id_(everything)
 
 
-@r.on_message(StateFilter(Zoom.IIII_URL))
+@r.on_everything(StateFilter(Zoom.IIII_URL))
 async def url(everything: CommonEverything):
 
     def getter():
@@ -151,11 +225,15 @@ async def url(everything: CommonEverything):
     def setter(value: Any):
         everything.ctx.settings.zoom.focused.selected.url = Field(value)
 
+    def nuller():
+        everything.ctx.settings.zoom.focused.selected.url = Field(None)
+
     return await set_attribute(
         everything   = everything,
+        main_message = messages.format_enter_url(),
         getter       = getter,
         setter       = setter,
-        main_message = messages.format_enter_url()
+        nuller       = nuller,
     )
 
 @r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.URL))
@@ -180,9 +258,9 @@ async def name(everything: CommonEverything):
 
     return await set_attribute(
         everything   = everything,
+        main_message = messages.format_enter_name(),
         getter       = getter,
         setter       = setter,
-        main_message = messages.format_enter_name()
     )
 
 @r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.NAME))
@@ -202,7 +280,8 @@ async def entry(everything: CommonEverything):
                 .add(messages.format_press_buttons_to_change())
     )
     answer_keyboard = Keyboard.from_dataclass(
-        dataclass = selected
+        dataclass = selected,
+        footer=[[REMOVE_BUTTON]]
     )
 
     await everything.edit_or_answer(

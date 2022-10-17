@@ -27,6 +27,9 @@ class Payload:
     SKIP    = "skip"
     ADD     = "add"
     ADD_ALL = "add_all"
+    CONFIRM = "confirm"
+    REMOVE  = "remove"
+    NULL    = "null"
 
     PAGE_BACK = "page_back"
     PAGE_NEXT = "page_next"
@@ -40,6 +43,7 @@ class Payload:
     DO_PIN    = "do_pin"
     FROM_TEXT = "from_text"
     MANUALLY  = "manually"
+    NEXT_ZOOM = "next_zoom"
     FINISH    = "finish"
 
 class Text:
@@ -50,6 +54,9 @@ class Text:
     SKIP    = "→ Пропустить"
     ADD     = "+ Добавить"
     ADD_ALL = "✓ Добавить всё"
+    CONFIRM = "✓ Подтвердить"
+    REMOVE  = "✕ Удалить"
+    NULL    = "✕ Обнулить"
 
     BEGIN     = "→ Начать"
     DO_PIN    = "✓ Закреплять"
@@ -126,6 +133,7 @@ class Keyboard:
     def from_dataclass(
         cls: type[Keyboard],
         dataclass: Union[Translated, Emojized, Repred], 
+        footer: list[list[Button]] = [[]],
         add_back: bool = True, 
         next_button: Optional[Button] = None,
     ) -> Keyboard:
@@ -166,6 +174,12 @@ class Keyboard:
 
             schema.append([button])
         
+        for row in footer:
+            if not row:
+                continue
+            
+            schema.append(row)
+
         return cls(
             schema      = schema,
             add_back    = add_back,
@@ -271,9 +285,13 @@ NEXT_BUTTON    = Button(Text.NEXT, Payload.NEXT)
 SKIP_BUTTON    = Button(Text.SKIP, Payload.SKIP)
 ADD_BUTTON     = Button(Text.ADD, Payload.ADD, Color.GREEN)
 ADD_ALL_BUTTON = Button(Text.ADD_ALL, Payload.ADD_ALL, Color.GREEN)
+CONFIRM_BUTTON = Button(Text.CONFIRM, Payload.CONFIRM, Color.GREEN)
+NULL_BUTTON    = Button(Text.NULL, Payload.NULL, Color.RED)
+REMOVE_BUTTON  = Button(Text.REMOVE, Payload.REMOVE, Color.RED)
 
 BEGIN_BUTTON     = Button(Text.BEGIN, Payload.BEGIN)
 DO_PIN_BUTTON    = Button(Text.DO_PIN, Payload.DO_PIN, Color.GREEN)
 FROM_TEXT_BUTTON = Button(Text.FROM_TEXT, Payload.FROM_TEXT, Color.GREEN)
 MANUALLY_BUTTON  = Button(Text.MANUALLY, Payload.MANUALLY, Color.BLUE)
+NEXT_ZOOM_BUTTON = Button(Text.NEXT, Payload.NEXT_ZOOM)
 FINISH_BUTTON    = Button(Text.FINISH, Payload.FINISH)

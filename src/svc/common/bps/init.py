@@ -23,6 +23,7 @@ from src.svc.common.keyboard import (
     DO_PIN_BUTTON,
     FROM_TEXT_BUTTON,
     MANUALLY_BUTTON,
+    NEXT_ZOOM_BUTTON,
     FINISH_BUTTON
 )
 
@@ -54,6 +55,10 @@ async def to_finish(everything: CommonEverything):
 
     return await finish(everything)
 
+
+@r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.NEXT_ZOOM))
+async def next_add_zoom(everything: CommonEverything):
+    return await to_finish(everything)
 
 @r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.SKIP))
 async def skip_add_zoom(everything: CommonEverything):
@@ -95,8 +100,11 @@ async def add_zoom(everything: CommonEverything):
     )
     answer_keyboard = Keyboard([
         [FROM_TEXT_BUTTON, MANUALLY_BUTTON],
-    ]).assign_next(SKIP_BUTTON)
-
+    ]).assign_next(
+        NEXT_ZOOM_BUTTON.only_if(
+            ctx.settings.zoom.entries.has_something
+        ) or SKIP_BUTTON
+    )
 
     await everything.edit_or_answer(
         text        = answer_text.make(),
@@ -192,8 +200,8 @@ async def should_pin(everything: CommonEverything):
 
 
     await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard,
+        text        = answer_text.make(),
+        keyboard    = answer_keyboard,
         add_tree    = True,
         tree_values = ctx.settings
     )
