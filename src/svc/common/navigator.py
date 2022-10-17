@@ -18,7 +18,7 @@ class Navigator:
     """
     # Example:
     ```
-    [ Init.I_MAIN, Init.I_GROUP, Init.I_SCHEDULE_BROADCAST ]
+    [ Settings.I_MAIN, Settings.I_GROUP, Settings.I_UPDATES ]
             ^                             ^
         where started                current state
     ```notpython
@@ -76,6 +76,14 @@ class Navigator:
         ## Get space of current state
         """
         return self.current.space
+
+    @property
+    def previous_space(self) -> SPACE_LITERAL:
+        for state in reversed(self.trace):
+            if state.space != self.space:
+                return state.space
+        
+        return self.space
 
     def append(self, state: State):
         """ ## Add state to trace """
@@ -213,3 +221,7 @@ class Navigator:
             self.jump_back_to(state, trace_it = trace_it)
         except error.ThisStateNotInTrace:
             self.append(state)
+    
+    def clear(self) -> None:
+        self.trace = []
+        self.back_trace = []

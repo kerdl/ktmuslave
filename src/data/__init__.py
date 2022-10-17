@@ -108,3 +108,7 @@ INCORRECT_ID_FORMAT = Warning(
     "incorrect_id_format",
     "🔴 не соответствует формату: от 10 цифр"
 )
+ID_CONTAINS_NON_DIGITS = Warning(
+    "id_contains_non_digits",
+    "🔴 есть другие символы кроме цифр"
+)

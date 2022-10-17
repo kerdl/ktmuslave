@@ -69,7 +69,7 @@ class Defs:
             from src.svc.telegram import middlewares
         
         if init_handlers:
-            from src.svc.common.bps import init, hub
+            from src.svc.common.bps import settings, init, zoom, hub
             from src.svc.common.router import r
             r.assign()
 

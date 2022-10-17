@@ -4,7 +4,7 @@ from vkbottle.bot import Message
 from src import defs
 from src.svc import vk
 from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages
-from src.svc.common.states.tree import Init
+from src.svc.common.states.tree import Init, Settings
 from .types import RawEvent
 
 
@@ -66,7 +66,7 @@ class CtxCheckRaw(BaseMiddleware[RawEvent]):
             user_ctx = ctx.add_vk(peer_id)
 
         if not vk.is_group_chat(peer_id, from_id):
-            user_ctx.navigator.ignored.add(Init.II_SHOULD_PIN)
+            user_ctx.navigator.ignored.add(Settings.II_SHOULD_PIN)
 
 class CtxCheckMessage(BaseMiddleware[Message]):
     """
@@ -83,7 +83,7 @@ class CtxCheckMessage(BaseMiddleware[Message]):
             user_ctx = ctx.add_vk(peer_id)
         
         if not vk.is_group_chat(peer_id, from_id):
-            user_ctx.navigator.ignored.add(Init.II_SHOULD_PIN)
+            user_ctx.navigator.ignored.add(Settings.II_SHOULD_PIN)
 
 class CommonMessageMaker(BaseMiddleware[Message]):
     """

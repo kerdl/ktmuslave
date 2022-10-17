@@ -12,7 +12,8 @@ class Space:
     ## In what space the user currently in
 
     By space I mean these types of environments:
-    - `init` - where user gets first time to specify
+    - `init` - where user gets first time with welcome message
+    - `settings` - common area, where user can specify:
         - his group
         - if he wants to get updates
         - if the bot should pin the updates
@@ -27,6 +28,7 @@ class Space:
         - delete them
     """
     INIT        = "init"
+    SETTINGS    = "settings"
     HUB         = "hub"
     ZOOM        = "zoom"
 
@@ -207,7 +209,7 @@ INIT_MAIN = {
 HUB_MAIN = {
     "name": "Главная",
 }
-HUB_SETTINGS = {
+SETTINGS_MAIN = {
     "name": "Настройки",
 }
 GROUP = {
@@ -217,7 +219,7 @@ UNKNOWN_GROUP = {
     "name": "Неизвестная группа",
     "back_trace": False,
 }
-SCHEDULE_BROADCAST = {
+UPDATES = {
     "name": "Рассылка расписания",
 }
 SHOULD_PIN = {

@@ -17,7 +17,7 @@ class Group:
 class Settings(Values):
     group: Group
     zoom: zoom.Container
-    schedule_broadcast: Optional[bool] = None
+    updates: Optional[bool] = None
     should_pin: Optional[bool] = None
 
     @classmethod
@@ -29,10 +29,10 @@ class Settings(Values):
 
     def get_from_state(self, state: State) -> Any:
         VALUES = {
-            Init.I_GROUP:              self.group.confirmed,
-            Init.I_SCHEDULE_BROADCAST: self.schedule_broadcast,
-            Init.II_SHOULD_PIN:        self.should_pin,
-            Init.I_ZOOM:               len(self.zoom.entries) if self.zoom.is_finished else None
+            Settings.I_GROUP:              self.group.confirmed,
+            Settings.I_UPDATES: self.updates,
+            Settings.II_SHOULD_PIN:        self.should_pin,
+            Settings.I_ZOOM:               len(self.zoom.entries) if self.zoom.is_finished else None
         }
 
         return VALUES.get(state)

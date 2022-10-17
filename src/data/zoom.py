@@ -98,8 +98,11 @@ class Data(Translated, Emojized):
     def check_id(id: str) -> set[Warning]:
         warns = set()
 
-        if not pattern.ZOOM_ID.match(id):
+        if not pattern.ZOOM_ID.search(id):
             warns.add(data.INCORRECT_ID_FORMAT)
+        
+        if pattern.NON_LETTER.search(id) or pattern.LETTER.search(id):
+            warns.add(data.ID_CONTAINS_NON_DIGITS)
 
         return warns
     

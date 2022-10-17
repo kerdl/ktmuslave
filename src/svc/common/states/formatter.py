@@ -50,7 +50,7 @@ def tree(navigator: Navigator, values: Optional[Values] = None, base_lvl: int = 
     trace = navigator.trace
     ignored = navigator.ignored
 
-    current_state = trace[-1]
+    current_state = navigator.current
     tree = current_state.tree
     last_lvl = base_lvl
     last_branch: list[State] = []

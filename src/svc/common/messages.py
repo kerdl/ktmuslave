@@ -225,11 +225,11 @@ def format_invalid_group():
     return INVALID_GROUP
 
 
-SCHEDULE_BROADCAST = (
+UPDATES = (
     "🔔 | Хочешь получать здесь обновления расписания?"
 )
-def format_schedule_broadcast():
-    return SCHEDULE_BROADCAST
+def format_updates():
+    return UPDATES
 
 
 DO_PIN = (
@@ -284,9 +284,9 @@ def format_recommend_adding_zoom():
 
 
 ZOOM_ADDING_TYPES_EXPLAIN = (
-    f"💬 | {Text.FROM_TEXT} - пересылаешь сообщения с ссылками, "
+    f"{Text.FROM_TEXT} - пересылаешь сообщения с ссылками, "
     f"автоматом берёт все данные\n"
-    f"✍️ | {Text.MANUALLY} - добавляешь, изменяешь, удаляешь "
+    f"{Text.MANUALLY} - добавляешь, изменяешь, удаляешь "
     f"по отдельности"
 )
 def format_zoom_adding_types_explain():

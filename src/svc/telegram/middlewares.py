@@ -5,7 +5,7 @@ from typing import Callable, Any, Awaitable, Optional
 from src import defs
 from src.svc import telegram as tg
 from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages
-from src.svc.common.states.tree import Init
+from src.svc.common.states.tree import Init, Settings
 
 
 def get_chat(event: Update) -> Optional[Chat]:
@@ -116,7 +116,7 @@ class CtxCheck:
             user_ctx = ctx.add_tg(chat)
 
         if not tg.is_group_chat(chat.type):
-            user_ctx.navigator.ignored.add(Init.II_SHOULD_PIN)
+            user_ctx.navigator.ignored.add(Settings.II_SHOULD_PIN)
 
         return await handler(event, data)
 

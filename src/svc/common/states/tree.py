@@ -4,10 +4,10 @@ from . import (
     Tree,
     INIT_MAIN,
     HUB_MAIN,
-    HUB_SETTINGS,
+    SETTINGS_MAIN,
     GROUP,
     UNKNOWN_GROUP,
-    SCHEDULE_BROADCAST,
+    UPDATES,
     SHOULD_PIN,
     INIT_FINISH,
     INIT_ZOOM,
@@ -30,7 +30,7 @@ class Init(Tree):
     GROUP
       ┝ UNKNOWN_GROUP
       ↓
-    SCHEDULE_BROADCAST
+    UPDATES
       ↓
     SHOULD_PIN
       ↓
@@ -41,13 +41,28 @@ class Init(Tree):
     """
     __space__ = Space.INIT
 
-    I_MAIN               = State(**INIT_MAIN)
-    I_GROUP              = State(**GROUP)
-    II_UNKNOWN_GROUP     = State(**UNKNOWN_GROUP)
-    I_SCHEDULE_BROADCAST = State(**SCHEDULE_BROADCAST)
-    II_SHOULD_PIN        = State(**SHOULD_PIN)
-    I_ZOOM               = State(**INIT_ZOOM)
-    I_FINISH             = State(**INIT_FINISH)
+    I_MAIN   = State(**INIT_MAIN)
+    I_FINISH = State(**INIT_FINISH)
+
+class Settings(Tree):
+    """
+    ```
+    GROUP
+      ┝ UNKNOWN_GROUP
+    UPDATES
+      ┝ SHOULD_PIN
+    ZOOM
+    ```notpython
+    """
+
+    __space__ = Space.SETTINGS
+
+    I_MAIN           = State(**SETTINGS_MAIN)
+    I_GROUP          = State(**GROUP)
+    II_UNKNOWN_GROUP = State(**UNKNOWN_GROUP)
+    I_UPDATES        = State(**UPDATES)
+    II_SHOULD_PIN    = State(**SHOULD_PIN)
+    I_ZOOM           = State(**INIT_ZOOM)
 
 
 class Hub(Tree):
@@ -55,20 +70,12 @@ class Hub(Tree):
     ```
     MAIN
       ┕ SETTINGS
-           ┝ GROUP
-           |   ┕ UNKNOWN_GROUP
-           ┝ SCHEDULE_BROADCAST
-           ┕ SHOULD_PIN
+        ┕ (other states inherited from Init)
     ```notpython
     """
     __space__ = Space.HUB
 
     I_MAIN                 = State(**HUB_MAIN)
-    II_SETTINGS            = State(**HUB_SETTINGS)
-    III_GROUP              = State(**GROUP)
-    IIII_UNKNOWN_GROUP     = State(**UNKNOWN_GROUP)
-    III_SCHEDULE_BROADCAST = State(**SCHEDULE_BROADCAST)
-    III_SHOULD_PIN         = State(**SHOULD_PIN)
 
 
 class Zoom(Tree):
