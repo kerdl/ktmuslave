@@ -96,6 +96,11 @@ async def set_attribute(
                 keyboard = answer_keyboard
             )
 
+        ctx.navigator.jump_back_to(
+            Zoom.II_BROWSE, 
+            execute_actions = False
+        )
+
         return await to_entry(everything)
 
     if everything.is_from_event:
@@ -244,17 +249,34 @@ async def to_url(everything: CommonEverything):
 
 @r.on_message(StateFilter(Zoom.IIII_NAME))
 async def name(everything: CommonEverything):
+    ctx = everything.ctx
 
     def getter():
-        return everything.ctx.settings.zoom.focused.selected.name.value
+        focused = ctx.settings.zoom.focused
+
+        if focused.selected is None:
+            return None
+
+        return ctx.settings.zoom.focused.selected.name.value
 
     def setter(value: Any):
-        old = everything.ctx.settings.zoom.focused.selected.name.value
+        focused = ctx.settings.zoom.focused
 
-        everything.ctx.settings.zoom.focused.change_name(old, value)
+        if focused.selected is None:
+            # user tries to add a new entry
+            focused.add_from_name(value)
+            focused.select(value)
+
+            ctx.settings.zoom.finish()
+
+            return None
+
+        old = focused.selected.name.value
+
+        focused.change_name(old, value)
 
         # select this backup
-        everything.ctx.settings.zoom.focused.select(value)
+        focused.select(value)
 
     return await set_attribute(
         everything   = everything,
@@ -292,6 +314,11 @@ async def entry(everything: CommonEverything):
 async def to_entry(everything: CommonEverything):
     everything.navigator.jump_back_to_or_append(Zoom.III_ENTRY)
     return await entry(everything)
+
+
+@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(Payload.ADD))
+async def add_entry(everything: CommonEverything):
+    return await to_name(everything)
 
 
 @r.on_callback(StateFilter(Zoom.II_BROWSE))
@@ -344,7 +371,6 @@ async def to_browse(
     everything: CommonEverything, 
     text_footer: Optional[str] = None
 ):
-
     everything.navigator.jump_back_to_or_append(Zoom.II_BROWSE)
 
     #if everything.navigator.current != Zoom.II_BROWSE:
@@ -361,6 +387,9 @@ async def to_browse(
 )
 async def mass(everything: CommonEverything):
     ctx = everything.ctx
+
+    if Zoom.I_MASS not in ctx.navigator.trace:
+        return None
 
     if everything.is_from_event:
         # user came to this state from button

@@ -109,13 +109,21 @@ class Navigator:
         # so we call `on_enter`
         self.current.on_enter(self.everything)
 
-    def back(self, trace_it: bool = True):
+    def back(
+        self, 
+        trace_it: bool = True,
+        execute_actions: bool = True
+    ):
         """
         # Remove last state from current space
 
         ## Params
         - `trace_it` - if current state
         should be appended to `back_trace`
+        - `execute_actions` - we can assign
+        actions to do when we enter/exit
+        specific state. This parameter
+        tells if we should execute them
         """
         if len(self.trace) < 2:
             return None
@@ -123,15 +131,17 @@ class Navigator:
         if trace_it and self.trace[-1].back_trace:
             self.back_trace.append(self.current)
 
-        # this state won't be in trace
-        # anymore, so we call `on_exit`
-        self.current.on_exit(self.everything)
+        if execute_actions:
+            # this state won't be in trace
+            # anymore, so we call `on_exit`
+            self.current.on_exit(self.everything)
 
         del self.trace[-1]
 
-        # state we just got to was
-        # in trace, so we call `on_traced_enter`
-        self.current.on_traced_enter(self.everything)
+        if execute_actions:
+            # state we just got to was
+            # in trace, so we call `on_traced_enter`
+            self.current.on_traced_enter(self.everything)
 
     def next(self):
         if len(self.back_trace) > 0:
@@ -168,7 +178,12 @@ class Navigator:
         
         return len(unique_spaces) > 1
 
-    def jump_back_to(self, state: State, trace_it: bool = False):
+    def jump_back_to(
+        self, 
+        state: State, 
+        trace_it: bool = False, 
+        execute_actions: bool = True
+    ):
         if state not in self.trace:
             raise error.ThisStateNotInTrace(
                 "you tried to jump back to state "
@@ -176,7 +191,10 @@ class Navigator:
             )
         
         while self.current != state:
-            self.back(trace_it = trace_it)
+            self.back(
+                trace_it = trace_it, 
+                execute_actions = execute_actions
+            )
     
     def space_jump_back(self, trace_it: bool = False):
         if not self.is_space_mixed():

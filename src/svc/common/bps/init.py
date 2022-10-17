@@ -60,6 +60,7 @@ async def to_finish(everything: CommonEverything):
 async def next_add_zoom(everything: CommonEverything):
     return await to_finish(everything)
 
+
 @r.on_callback(StateFilter(Init.I_ZOOM), PayloadFilter(Payload.SKIP))
 async def skip_add_zoom(everything: CommonEverything):
     ctx = everything.ctx
@@ -102,7 +103,7 @@ async def add_zoom(everything: CommonEverything):
         [FROM_TEXT_BUTTON, MANUALLY_BUTTON],
     ]).assign_next(
         NEXT_ZOOM_BUTTON.only_if(
-            ctx.settings.zoom.entries.has_something
+            ctx.settings.zoom.is_finished
         ) or SKIP_BUTTON
     )
 

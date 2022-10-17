@@ -239,6 +239,7 @@ ZOOM_MASS_CHECK = {
 ZOOM_BROWSE = {
     "name": "Выбор препода",
     "on_enter": zoom.focus_auto,
+    "on_traced_enter": zoom.unselect,
     "on_exit": zoom.unfocus,
 }
 ZOOM_ENTRY = {

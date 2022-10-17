@@ -283,7 +283,10 @@ class Entries:
         self.selected_name = name
 
         return self.get(name)
-    
+
+    def unselect(self) -> None:
+        self.selected_name = None
+
     def add(
         self, 
         data: Union[Data, set[Data], list[Data]], 
@@ -301,6 +304,16 @@ class Entries:
                 self.set.remove(data)
 
             self.set.add(data)
+
+    def add_from_name(self, name: str):
+        data = Data(
+            name = Field(name),
+            url = Field(None),
+            id = Field(None),
+            pwd = Field(None),
+        )
+
+        self.add(data)
 
     def get(self, name: str) -> Optional[Data]:
         for entry in self.set:
@@ -439,7 +452,7 @@ class Container:
 
     def confirm_new_entries(self) -> None:
         # add data from `new_entries` to `entries`
-        self.entries.add(self.new_entries.set)
+        self.entries.add(self.new_entries.set, overwrite = True)
         # clear new entries
         self.new_entries.set.clear()
 
@@ -513,3 +526,7 @@ def focus_to_new_entries(everything: common.CommonEverything):
 def unfocus(everything: common.CommonEverything):
     logger.info("unfocus")
     everything.ctx.settings.zoom.unfocus()
+
+def unselect(everything: common.CommonEverything):
+    logger.info("unselect")
+    everything.ctx.settings.zoom.focused.unselect()
