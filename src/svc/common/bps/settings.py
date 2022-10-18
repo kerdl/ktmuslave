@@ -4,7 +4,7 @@ import re
 from src import defs
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages
-from src.svc.common.bps import zoom as zoom_bp, hub as hub_bp, init as init_bp
+from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
 from src.svc.common.states import formatter as states_fmt, Space
 from src.svc.common.states.tree import Init, Zoom, Settings, Hub
@@ -35,8 +35,16 @@ async def auto_route(everything: CommonEverything):
     if current_state in [Settings.I_GROUP, Settings.II_UNKNOWN_GROUP]:
         return await to_updates(everything)
     
+    if current_state == Settings.I_UPDATES and ctx.settings.updates and everything.is_group_chat:
+        return await to_should_pin(everything)
+    
     if current_state in [Settings.I_UPDATES, Settings.II_SHOULD_PIN]:
         return await to_add_zoom(everything)
+    
+    if current_state in [Settings.I_ZOOM]:
+        from src.svc.common.bps import init
+        return await init.to_finish(everything)
+
 
 
 """ ZOOM ACTIONS """
@@ -140,7 +148,7 @@ async def check_do_pin(everything: CommonEverything):
     PayloadFilter(Payload.SKIP)
 )
 async def skip_pin(everything: CommonEverything):
-    return await auto_route(everything)
+    return await deny_pin(everything)
 
 @r.on_callback(
     StateFilter(Settings.II_SHOULD_PIN),

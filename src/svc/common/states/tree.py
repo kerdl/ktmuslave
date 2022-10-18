@@ -27,14 +27,7 @@ class Init(Tree):
     ```
     MAIN
       ↓
-    GROUP
-      ┝ UNKNOWN_GROUP
-      ↓
-    UPDATES
-      ↓
-    SHOULD_PIN
-      ↓
-    ZOOM
+    (Settings space)
       ↓
     FINISH
     ```notpython
@@ -91,6 +84,7 @@ class Zoom(Tree):
     I_MASS_CHECK = State(**ZOOM_MASS_CHECK)
 
 
-INIT = Init()
-HUB  = Hub()
-ZOOM = Zoom()
+INIT     = Init()
+HUB      = Hub()
+ZOOM     = Zoom()
+SETTINGS = Settings()

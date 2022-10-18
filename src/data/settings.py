@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from src.data import zoom
 from src.svc.common.states import State, Values
-from src.svc.common.states.tree import Init
+from src.svc.common.states.tree import Init, Settings as SettingsState
 
 
 @dataclass
@@ -29,10 +29,10 @@ class Settings(Values):
 
     def get_from_state(self, state: State) -> Any:
         VALUES = {
-            Settings.I_GROUP:              self.group.confirmed,
-            Settings.I_UPDATES: self.updates,
-            Settings.II_SHOULD_PIN:        self.should_pin,
-            Settings.I_ZOOM:               len(self.zoom.entries) if self.zoom.is_finished else None
+            SettingsState.I_GROUP:       self.group.confirmed,
+            SettingsState.I_UPDATES:     self.updates,
+            SettingsState.II_SHOULD_PIN: self.should_pin,
+            SettingsState.I_ZOOM:        len(self.zoom.entries) if self.zoom.is_finished else None
         }
 
         return VALUES.get(state)

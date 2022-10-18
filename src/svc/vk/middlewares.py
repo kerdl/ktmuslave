@@ -82,6 +82,8 @@ class CtxCheckMessage(BaseMiddleware[Message]):
         if user_ctx is None:
             user_ctx = ctx.add_vk(peer_id)
         
+        user_ctx.navigator.ignored.add(Settings.I_MAIN)
+        
         if not vk.is_group_chat(peer_id, from_id):
             user_ctx.navigator.ignored.add(Settings.II_SHOULD_PIN)
 

@@ -320,6 +320,9 @@ class CommonMessage(BaseCommonEvent):
         return await vk.has_admin_rights(self.vk.peer_id)
 
     async def can_pin(self) -> bool:
+        if not self.is_group_chat:
+            return False
+        
         if self.is_from_vk:
             return await self.vk_has_admin_rights()
         if self.is_from_tg:
@@ -577,6 +580,9 @@ class CommonEvent(BaseCommonEvent):
         return await vk.has_admin_rights(self.vk["object"]["peer_id"])
 
     async def can_pin(self) -> bool:
+        if not self.is_group_chat:
+            return False
+
         if self.is_from_vk:
             return await self.vk_has_admin_rights()
 

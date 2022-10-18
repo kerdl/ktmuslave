@@ -49,8 +49,6 @@ async def finish(everything: CommonEverything):
     await everything.edit_or_answer(
         text        = answer_text.make(),
         keyboard    = answer_keyboard,
-        add_tree    = True,
-        tree_values = ctx.settings
     )
 
 

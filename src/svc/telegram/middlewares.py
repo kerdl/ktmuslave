@@ -114,6 +114,8 @@ class CtxCheck:
 
         if user_ctx is None:
             user_ctx = ctx.add_tg(chat)
+        
+        user_ctx.navigator.ignored.add(Settings.I_MAIN)
 
         if not tg.is_group_chat(chat.type):
             user_ctx.navigator.ignored.add(Settings.II_SHOULD_PIN)
