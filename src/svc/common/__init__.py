@@ -21,7 +21,7 @@ from src.svc.vk.types import RawEvent
 from src.svc.common.keyboard import Keyboard
 from src.data import zoom
 from src.data.settings import Settings, Group
-from .states.tree import Init, Hub
+from .states.tree import Init, Hub, Space
 
 
 @dataclass
@@ -203,8 +203,9 @@ class BaseCommonEvent:
     def preprocess_text(
         self, 
         text: str, 
-        add_tree: bool, 
-        tree_values: Values
+        add_tree: bool,
+        base_lvl: int = 1,
+        tree_values: Values = None
     ) -> str:
         """
         ## Add generic components to `text`
@@ -214,7 +215,8 @@ class BaseCommonEvent:
         if add_tree:
             text = states_fmt.tree(
                 navigator = self.ctx.navigator, 
-                values    = tree_values
+                values    = tree_values,
+                base_lvl  = base_lvl
             ) + "\n\n" + text
 
         if messages.DEBUGGING:
@@ -340,11 +342,16 @@ class CommonMessage(BaseCommonEvent):
         add_tree: bool = False,
         tree_values: Optional[Values] = None
     ):
+        base_lvl = 1
+
+        if Space.INIT in self.ctx.navigator.spaces:
+            base_lvl = 2
 
         text = self.preprocess_text(
             text        = text, 
             add_tree    = add_tree, 
-            tree_values = tree_values
+            tree_values = tree_values,
+            base_lvl    = base_lvl
         )
 
         if self.is_from_vk:
@@ -627,10 +634,16 @@ class CommonEvent(BaseCommonEvent):
         ## Edit message by id inside event
         """
 
+        base_lvl = 1
+
+        if Space.INIT in self.ctx.navigator.spaces:
+            base_lvl = 2
+
         text = self.preprocess_text(
             text        = text, 
             add_tree    = add_tree, 
-            tree_values = tree_values
+            tree_values = tree_values,
+            base_lvl    = base_lvl
         )
 
         if self.is_from_vk:

@@ -66,7 +66,7 @@ class CtxCheckRaw(BaseMiddleware[RawEvent]):
             user_ctx = ctx.add_vk(peer_id)
 
         if not vk.is_group_chat(peer_id, from_id):
-            user_ctx.navigator.ignored.add(Settings.II_SHOULD_PIN)
+            user_ctx.navigator.ignored.add(Settings.III_SHOULD_PIN)
 
 class CtxCheckMessage(BaseMiddleware[Message]):
     """
@@ -85,7 +85,7 @@ class CtxCheckMessage(BaseMiddleware[Message]):
         user_ctx.navigator.ignored.add(Settings.I_MAIN)
         
         if not vk.is_group_chat(peer_id, from_id):
-            user_ctx.navigator.ignored.add(Settings.II_SHOULD_PIN)
+            user_ctx.navigator.ignored.add(Settings.III_SHOULD_PIN)
 
 class CommonMessageMaker(BaseMiddleware[Message]):
     """

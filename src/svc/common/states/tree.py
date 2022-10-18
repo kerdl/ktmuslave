@@ -40,22 +40,23 @@ class Init(Tree):
 class Settings(Tree):
     """
     ```
-    GROUP
-      ┝ UNKNOWN_GROUP
-    UPDATES
-      ┝ SHOULD_PIN
-    ZOOM
+    MAIN
+      ┝ GROUP
+      |   ┝ UNKNOWN_GROUP
+      ┝ UPDATES
+      |   ┝ SHOULD_PIN
+      ┕ ZOOM
     ```notpython
     """
 
     __space__ = Space.SETTINGS
 
-    I_MAIN           = State(**SETTINGS_MAIN)
-    I_GROUP          = State(**GROUP)
-    II_UNKNOWN_GROUP = State(**UNKNOWN_GROUP)
-    I_UPDATES        = State(**UPDATES)
-    II_SHOULD_PIN    = State(**SHOULD_PIN)
-    I_ZOOM           = State(**INIT_ZOOM)
+    I_MAIN            = State(**SETTINGS_MAIN)
+    II_GROUP          = State(**GROUP)
+    III_UNKNOWN_GROUP = State(**UNKNOWN_GROUP)
+    II_UPDATES        = State(**UPDATES)
+    III_SHOULD_PIN    = State(**SHOULD_PIN)
+    II_ZOOM           = State(**INIT_ZOOM)
 
 
 class Hub(Tree):

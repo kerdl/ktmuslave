@@ -118,7 +118,7 @@ class CtxCheck:
         user_ctx.navigator.ignored.add(Settings.I_MAIN)
 
         if not tg.is_group_chat(chat.type):
-            user_ctx.navigator.ignored.add(Settings.II_SHOULD_PIN)
+            user_ctx.navigator.ignored.add(Settings.III_SHOULD_PIN)
 
         return await handler(event, data)
 

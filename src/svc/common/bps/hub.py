@@ -47,6 +47,7 @@ async def hub(everything: CommonEverything):
 
 async def to_hub(everything: CommonEverything):
     everything.navigator.clear()
+    everything.navigator.append(Hub.I_MAIN)
     return await hub(everything)
 
 

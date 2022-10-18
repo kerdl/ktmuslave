@@ -1,7 +1,3 @@
-if __name__ == "__main__":
-    import sys
-    sys.path.append('.')
-
 from typing import Any, Optional
 
 from src.svc.common import messages
@@ -90,7 +86,7 @@ def tree(navigator: Navigator, values: Optional[Values] = None, base_lvl: int = 
             
         def construct_state(state: State) -> str:
             fmt = ""
-            fmt += tabs(state.level)
+            fmt += tabs(state.level - (base_lvl - 1))
             fmt += choose_state_format(state)
 
             return fmt
@@ -147,15 +143,3 @@ def tree(navigator: Navigator, values: Optional[Values] = None, base_lvl: int = 
     output = "\n".join(formatted_states)
 
     return output
-
-
-if __name__ == "__main__":
-    from src.svc.common.states.tree import INIT, HUB
-
-    nav = Navigator(
-        trace = [INIT.I_MAIN, INIT.I_GROUP, INIT.II_UNKNOWN_GROUP],
-        back_trace = [],
-        ignored = []
-    )
-
-    print(tree(nav, base_lvl=1))

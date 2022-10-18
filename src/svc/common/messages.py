@@ -9,7 +9,7 @@ from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
 
-DEBUGGING = False
+DEBUGGING = True
 
 
 class Builder:

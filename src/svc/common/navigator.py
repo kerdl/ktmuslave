@@ -18,7 +18,7 @@ class Navigator:
     """
     # Example:
     ```
-    [ Settings.I_MAIN, Settings.I_GROUP, Settings.I_UPDATES ]
+    [ Settings.I_MAIN, Settings.II_GROUP, Settings.I_UPDATES ]
             ^                             ^
         where started                current state
     ```notpython
@@ -107,7 +107,8 @@ class Navigator:
         # but it will remain
         # in trace, we can go back
         # to it, so we call `on_traced_exit`
-        self.current.on_traced_exit(self.everything)
+        if self.current:
+            self.current.on_traced_exit(self.everything)
     
         self.trace.append(state)
 
@@ -178,13 +179,17 @@ class Navigator:
         
         return False
 
-    def is_space_mixed(self) -> bool:
+    @property
+    def spaces(self) -> set[SPACE_LITERAL]:
         unique_spaces: set[SPACE_LITERAL] = set()
 
         for state in self.trace:
             unique_spaces.add(state.space)
         
-        return len(unique_spaces) > 1
+        return unique_spaces
+
+    def is_space_mixed(self) -> bool:        
+        return len(self.spaces) > 1
 
     def jump_back_to(
         self, 
@@ -225,3 +230,4 @@ class Navigator:
     def clear(self) -> None:
         self.trace = []
         self.back_trace = []
+        self.ignored = set()

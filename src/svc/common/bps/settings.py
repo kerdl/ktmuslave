@@ -32,16 +32,16 @@ async def auto_route(everything: CommonEverything):
         return None
 
 
-    if current_state in [Settings.I_GROUP, Settings.II_UNKNOWN_GROUP]:
+    if current_state in [Settings.II_GROUP, Settings.III_UNKNOWN_GROUP]:
         return await to_updates(everything)
     
-    if current_state == Settings.I_UPDATES and ctx.settings.updates and everything.is_group_chat:
+    if current_state == Settings.II_UPDATES and ctx.settings.updates and everything.is_group_chat:
         return await to_should_pin(everything)
     
-    if current_state in [Settings.I_UPDATES, Settings.II_SHOULD_PIN]:
+    if current_state in [Settings.II_UPDATES, Settings.III_SHOULD_PIN]:
         return await to_add_zoom(everything)
     
-    if current_state in [Settings.I_ZOOM]:
+    if current_state in [Settings.II_ZOOM]:
         from src.svc.common.bps import init
         return await init.to_finish(everything)
 
@@ -50,14 +50,14 @@ async def auto_route(everything: CommonEverything):
 """ ZOOM ACTIONS """
 
 @r.on_callback(
-    StateFilter(Settings.I_ZOOM), 
+    StateFilter(Settings.II_ZOOM), 
     PayloadFilter(Payload.NEXT_ZOOM)
 )
 async def next_add_zoom(everything: CommonEverything):
     return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(Settings.I_ZOOM), 
+    StateFilter(Settings.II_ZOOM), 
     PayloadFilter(Payload.SKIP)
 )
 async def skip_add_zoom(everything: CommonEverything):
@@ -78,7 +78,7 @@ async def skip_add_zoom(everything: CommonEverything):
     return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(Settings.I_ZOOM), 
+    StateFilter(Settings.II_ZOOM), 
     PayloadFilter(Payload.FROM_TEXT)
 )
 async def add_zoom_from_text(everything: CommonEverything):
@@ -86,7 +86,7 @@ async def add_zoom_from_text(everything: CommonEverything):
 
 
 @r.on_callback(
-    StateFilter(Settings.I_ZOOM), 
+    StateFilter(Settings.II_ZOOM), 
     PayloadFilter(Payload.MANUALLY)
 )
 async def add_zoom_manually(everything: CommonEverything):
@@ -96,7 +96,7 @@ async def add_zoom_manually(everything: CommonEverything):
 
 """ ZOOM STATE """
 
-@r.on_everything(StateFilter(Settings.I_ZOOM))
+@r.on_everything(StateFilter(Settings.II_ZOOM))
 async def add_zoom(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -121,7 +121,7 @@ async def add_zoom(everything: CommonEverything):
     )
 
 async def to_add_zoom(everything: CommonEverything):
-    everything.navigator.append(Settings.I_ZOOM)
+    everything.navigator.append(Settings.II_ZOOM)
     return await add_zoom(everything)
 
 
@@ -129,7 +129,7 @@ async def to_add_zoom(everything: CommonEverything):
 """ PIN ACTIONS """
 
 @r.on_callback(
-    StateFilter(Settings.II_SHOULD_PIN), 
+    StateFilter(Settings.III_SHOULD_PIN), 
     PayloadFilter(Payload.DO_PIN)
 )
 async def check_do_pin(everything: CommonEverything):
@@ -144,14 +144,14 @@ async def check_do_pin(everything: CommonEverything):
         return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(Settings.II_SHOULD_PIN), 
+    StateFilter(Settings.III_SHOULD_PIN), 
     PayloadFilter(Payload.SKIP)
 )
 async def skip_pin(everything: CommonEverything):
     return await deny_pin(everything)
 
 @r.on_callback(
-    StateFilter(Settings.II_SHOULD_PIN),
+    StateFilter(Settings.III_SHOULD_PIN),
     PayloadFilter(Payload.FALSE)
 )
 async def deny_pin(everything: CommonEverything):
@@ -162,7 +162,7 @@ async def deny_pin(everything: CommonEverything):
     return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(Settings.II_SHOULD_PIN), 
+    StateFilter(Settings.III_SHOULD_PIN), 
     PayloadFilter(Payload.TRUE)
 )
 async def approve_pin(everything: CommonEverything):
@@ -176,7 +176,7 @@ async def approve_pin(everything: CommonEverything):
 
 """ PIN STATE """
 
-@r.on_everything(StateFilter(Settings.II_SHOULD_PIN))
+@r.on_everything(StateFilter(Settings.III_SHOULD_PIN))
 async def should_pin(everything: CommonEverything):
     ctx = everything.ctx
     is_should_pin_set = everything.ctx.settings.should_pin is not None
@@ -225,7 +225,7 @@ async def should_pin(everything: CommonEverything):
     )
 
 async def to_should_pin(everything: CommonEverything):
-    everything.navigator.append(Settings.II_SHOULD_PIN)
+    everything.navigator.append(Settings.III_SHOULD_PIN)
     return await should_pin(everything)
 
 
@@ -233,7 +233,7 @@ async def to_should_pin(everything: CommonEverything):
 """ UPDATES ACTIONS """
 
 @r.on_callback(
-    StateFilter(Settings.I_UPDATES), 
+    StateFilter(Settings.II_UPDATES), 
     PayloadFilter(Payload.FALSE)
 )
 async def deny_updates(everything: CommonEverything):
@@ -243,12 +243,12 @@ async def deny_updates(everything: CommonEverything):
 
     # after deny, it's impossible to
     # get to `should_pin`
-    ctx.navigator.delete_back_trace(Settings.II_SHOULD_PIN)
+    ctx.navigator.delete_back_trace(Settings.III_SHOULD_PIN)
 
     return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(Settings.I_UPDATES), 
+    StateFilter(Settings.II_UPDATES), 
     PayloadFilter(Payload.TRUE)
 )
 async def approve_updates(everything: CommonEverything):
@@ -262,7 +262,7 @@ async def approve_updates(everything: CommonEverything):
 
 """ UPDATES STATE """
 
-@r.on_everything(StateFilter(Settings.I_UPDATES))
+@r.on_everything(StateFilter(Settings.II_UPDATES))
 async def updates(everything: CommonEverything):
     ctx = everything.ctx
     is_updates_set = everything.ctx.settings.updates is not None
@@ -284,9 +284,9 @@ async def updates(everything: CommonEverything):
     )
 
 async def to_updates(everything: CommonEverything):
-    everything.navigator.jump_back_to_or_append(Settings.I_GROUP)
+    everything.navigator.jump_back_to_or_append(Settings.II_GROUP)
 
-    everything.navigator.append(Settings.I_UPDATES)
+    everything.navigator.append(Settings.II_UPDATES)
 
     return await updates(everything)
 
@@ -295,7 +295,7 @@ async def to_updates(everything: CommonEverything):
 """ UNKNOWN_GROUP ACTIONS """
 
 @r.on_callback(
-    StateFilter(Settings.II_UNKNOWN_GROUP), 
+    StateFilter(Settings.III_UNKNOWN_GROUP), 
     PayloadFilter(Payload.TRUE)
 )
 async def confirm_unknown_group(everything: CommonEverything):
@@ -327,14 +327,14 @@ async def unknown_group(everything: CommonEverything):
         ])
 
         await message.answer(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard,
+            text        = answer_text.make(),
+            keyboard    = answer_keyboard,
             add_tree    = True,
             tree_values = ctx.settings
         )
 
 async def to_unknown_group(everything: CommonEverything):
-    everything.navigator.append(Settings.II_UNKNOWN_GROUP)
+    everything.navigator.append(Settings.III_UNKNOWN_GROUP)
     return await unknown_group(everything)
 
 
@@ -342,16 +342,17 @@ async def to_unknown_group(everything: CommonEverything):
 """ GROUP STATE """
 
 @r.on_everything(UnionFilter([
-    StateFilter(Settings.I_GROUP), 
-    StateFilter(Settings.II_UNKNOWN_GROUP)
+    StateFilter(Settings.II_GROUP), 
+    StateFilter(Settings.III_UNKNOWN_GROUP)
 ]))
 async def group(everything: CommonEverything):
     ctx = everything.ctx
     is_group_set = ctx.settings.group.confirmed is not None
+    is_from_hub = Hub.I_MAIN in ctx.navigator.trace
     footer_addition = messages.default_footer_addition(everything)
 
-    if ctx.navigator.current != Settings.I_GROUP:
-        ctx.navigator.jump_back_to_or_append(Settings.I_GROUP)
+    if ctx.navigator.current != Settings.II_GROUP:
+        ctx.navigator.jump_back_to_or_append(Settings.II_GROUP)
 
 
     #if (everything.is_group_chat and everything.is_from_vk):
@@ -364,7 +365,7 @@ async def group(everything: CommonEverything):
     #    footer_addition = messages.format_reply_to_me()
     
     answer_keyboard = Keyboard.default().assign_next(
-        kb.NEXT_BUTTON.only_if(is_group_set)
+        kb.NEXT_BUTTON.only_if(is_group_set and not is_from_hub)
     )
 
 
@@ -444,7 +445,7 @@ async def group(everything: CommonEverything):
     ))
 )
 async def to_group(everything: CommonEverything):
-    everything.navigator.append(Settings.I_GROUP)
+    everything.navigator.append(Settings.II_GROUP)
     return await group(everything)
 
 
@@ -479,9 +480,10 @@ async def to_main(everything: CommonEverything):
 
 
 STATE_MAP = {
-    Settings.I_GROUP: group,
-    Settings.II_UNKNOWN_GROUP: unknown_group,
-    Settings.I_UPDATES: updates,
-    Settings.II_SHOULD_PIN: should_pin,
-    Settings.I_ZOOM: add_zoom,
+    Settings.I_MAIN: main,
+    Settings.II_GROUP: group,
+    Settings.III_UNKNOWN_GROUP: unknown_group,
+    Settings.II_UPDATES: updates,
+    Settings.III_SHOULD_PIN: should_pin,
+    Settings.II_ZOOM: add_zoom,
 }

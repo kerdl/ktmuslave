@@ -29,10 +29,10 @@ class Settings(Values):
 
     def get_from_state(self, state: State) -> Any:
         VALUES = {
-            SettingsState.I_GROUP:       self.group.confirmed,
-            SettingsState.I_UPDATES:     self.updates,
-            SettingsState.II_SHOULD_PIN: self.should_pin,
-            SettingsState.I_ZOOM:        len(self.zoom.entries) if self.zoom.is_finished else None
+            SettingsState.II_GROUP:       self.group.confirmed,
+            SettingsState.II_UPDATES:     self.updates,
+            SettingsState.III_SHOULD_PIN: self.should_pin,
+            SettingsState.II_ZOOM:        len(self.zoom.entries) if self.zoom.is_finished else None
         }
 
         return VALUES.get(state)
