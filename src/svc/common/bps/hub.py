@@ -26,7 +26,7 @@ async def update(everything: CommonEverything):
         )
     else:
         await everything.event.show_notification(
-            messages.format_too_fast_retry_after(int(ctx.schedule.next_allowed_time))
+            messages.format_too_fast_retry_after(int(ctx.schedule.until_allowed))
         )
 
 @r.on_callback(StateFilter(Hub.I_MAIN), PayloadFilter(kb.Payload.WEEKLY))

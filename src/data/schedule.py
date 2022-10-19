@@ -74,6 +74,10 @@ class Schedule:
     @property
     def next_allowed_time(self):
         return self.last_update + 60
+    
+    @property
+    def until_allowed(self):
+        return self.next_allowed_time - time()
 
     def update(self) -> bool:
         self.last_update = time()
