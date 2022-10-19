@@ -114,11 +114,6 @@ class CtxCheck:
 
         if user_ctx is None:
             user_ctx = ctx.add_tg(chat)
-        
-        user_ctx.navigator.ignored.add(Settings.I_MAIN)
-
-        if not tg.is_group_chat(chat.type):
-            user_ctx.navigator.ignored.add(Settings.III_SHOULD_PIN)
 
         return await handler(event, data)
 
@@ -152,6 +147,14 @@ class CommonMessageMaker:
 
         common_message = CommonMessage.from_tg(event)
         common_everything = CommonEverything.from_message(common_message)
+
+        if common_everything.ctx.last_everything is None:
+            # this is first event for this ctx
+            common_everything.ctx.set_everything(common_everything)
+            common_everything.navigator.auto_ignored()
+            common_everything.ctx.settings.defaults_from_everything(common_everything)
+        else:
+            common_everything.ctx.set_everything(common_everything)
 
         data["common_message"] = common_message
         data["everything"] = common_everything

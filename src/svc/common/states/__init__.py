@@ -15,8 +15,8 @@ class Space:
     - `init` - where user gets first time with welcome message
     - `settings` - common area, where user can specify:
         - his group
-        - if he wants to get updates
-        - if the bot should pin the updates
+        - if he wants to get broadcast
+        - if the bot should pin the broadcast
         - if he wants to add zoom data
     - `hub` - the main user area, where he can 
         - view schedule, 
@@ -158,9 +158,20 @@ class Tree:
 
             if (last_parent() is None):
                 parent_trace.append(state)
+            elif (last_parent().level < state.level):
+                state.parent = last_parent()
+                parent_trace.append(state)
             elif (last_parent().level == state.level):
                 del parent_trace[-1]
                 parent_trace.append(state)
+            elif (last_parent().level > state.level):
+                if state.level < 2:
+                    state.parent = last_parent()
+                else:
+                    while last_parent().level != state.level - 1:
+                        del parent_trace[-1]
+
+                    state.parent = last_parent()
             else:
                 state.parent = last_parent()
 
@@ -211,6 +222,7 @@ HUB_MAIN = {
 }
 SETTINGS_MAIN = {
     "name": "Настройки",
+    "back_trace": False,
 }
 GROUP = {
     "name": "Группа",
@@ -219,7 +231,7 @@ UNKNOWN_GROUP = {
     "name": "Неизвестная группа",
     "back_trace": False,
 }
-UPDATES = {
+BROADCAST = {
     "name": "Рассылка расписания",
 }
 SHOULD_PIN = {

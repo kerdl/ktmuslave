@@ -33,12 +33,16 @@ async def auto_route(everything: CommonEverything):
 
 
     if current_state in [Settings.II_GROUP, Settings.III_UNKNOWN_GROUP]:
-        return await to_updates(everything)
+        return await to_broadcast(everything)
     
-    if current_state == Settings.II_UPDATES and ctx.settings.updates and everything.is_group_chat:
+    if (
+        current_state == Settings.II_BROADCAST 
+        and ctx.settings.broadcast 
+        and everything.is_group_chat
+    ):
         return await to_should_pin(everything)
     
-    if current_state in [Settings.II_UPDATES, Settings.III_SHOULD_PIN]:
+    if current_state in [Settings.II_BROADCAST, Settings.III_SHOULD_PIN]:
         return await to_add_zoom(everything)
     
     if current_state in [Settings.II_ZOOM]:
@@ -99,6 +103,7 @@ async def add_zoom_manually(everything: CommonEverything):
 @r.on_everything(StateFilter(Settings.II_ZOOM))
 async def add_zoom(everything: CommonEverything):
     ctx = everything.ctx
+    is_from_hub = Hub.I_MAIN in ctx.navigator.trace
 
     answer_text = (
         messages.Builder()
@@ -107,19 +112,25 @@ async def add_zoom(everything: CommonEverything):
     )
     answer_keyboard = Keyboard([
         [kb.FROM_TEXT_BUTTON, kb.MANUALLY_BUTTON],
-    ]).assign_next(
-        kb.NEXT_ZOOM_BUTTON.only_if(
-            ctx.settings.zoom.is_finished
-        ) or kb.SKIP_BUTTON
-    )
+    ])
+
+    if not is_from_hub:
+        answer_keyboard.assign_next(
+            kb.NEXT_ZOOM_BUTTON.only_if(
+                ctx.settings.zoom.is_finished
+            ) or kb.SKIP_BUTTON
+        )
 
     await everything.edit_or_answer(
         text        = answer_text.make(),
         keyboard    = answer_keyboard,
-        add_tree    = True,
+        add_tree    = not is_from_hub,
         tree_values = ctx.settings
     )
-
+@r.on_callback(
+    PayloadFilter(Payload.ZOOM),
+    StateFilter(Settings.I_MAIN)
+)
 async def to_add_zoom(everything: CommonEverything):
     everything.navigator.append(Settings.II_ZOOM)
     return await add_zoom(everything)
@@ -180,6 +191,7 @@ async def approve_pin(everything: CommonEverything):
 async def should_pin(everything: CommonEverything):
     ctx = everything.ctx
     is_should_pin_set = everything.ctx.settings.should_pin is not None
+    is_from_hub = Hub.I_MAIN in ctx.navigator.trace
 
     answer_text = (
         messages.Builder()
@@ -191,7 +203,12 @@ async def should_pin(everything: CommonEverything):
         # we should pin (TRUE) or not (FALSE)
         answer_keyboard = Keyboard([
             [kb.TRUE_BUTTON, kb.FALSE_BUTTON],
-        ]).assign_next(kb.NEXT_BUTTON.only_if(is_should_pin_set))
+        ])
+
+        if not is_from_hub:
+            answer_keyboard.assign_next(
+                kb.NEXT_BUTTON.only_if(is_should_pin_set)
+            )
     
         # simply ask if user wants to pin
         answer_text.add(messages.format_do_pin())
@@ -203,7 +220,10 @@ async def should_pin(everything: CommonEverything):
         # or skip if he doesn't want to pin
         answer_keyboard = Keyboard([
             [kb.DO_PIN_BUTTON],
-        ]).assign_next(kb.SKIP_BUTTON)
+        ])
+        
+        if not is_from_hub:
+            answer_keyboard.assign_next(kb.SKIP_BUTTON)
 
         # make recommendation messages
         answer_text.add(messages.format_recommend_pin())
@@ -220,26 +240,31 @@ async def should_pin(everything: CommonEverything):
     await everything.edit_or_answer(
         text        = answer_text.make(),
         keyboard    = answer_keyboard,
-        add_tree    = True,
+        add_tree    = not is_from_hub,
         tree_values = ctx.settings
     )
 
+@r.on_callback(
+    PayloadFilter(Payload.PIN),
+    StateFilter(Settings.I_MAIN)
+)
 async def to_should_pin(everything: CommonEverything):
     everything.navigator.append(Settings.III_SHOULD_PIN)
     return await should_pin(everything)
 
 
 
-""" UPDATES ACTIONS """
+""" BROADCAST ACTIONS """
 
 @r.on_callback(
-    StateFilter(Settings.II_UPDATES), 
+    StateFilter(Settings.II_BROADCAST), 
     PayloadFilter(Payload.FALSE)
 )
-async def deny_updates(everything: CommonEverything):
+async def deny_broadcast(everything: CommonEverything):
     ctx = everything.ctx
 
-    ctx.settings.updates = False
+    ctx.settings.broadcast = False
+    ctx.settings.should_pin = False
 
     # after deny, it's impossible to
     # get to `should_pin`
@@ -248,47 +273,51 @@ async def deny_updates(everything: CommonEverything):
     return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(Settings.II_UPDATES), 
+    StateFilter(Settings.II_BROADCAST), 
     PayloadFilter(Payload.TRUE)
 )
-async def approve_updates(everything: CommonEverything):
+async def approve_broadcast(everything: CommonEverything):
     ctx = everything.ctx
 
-    ctx.settings.updates = True
+    ctx.settings.broadcast = True
     
     return await auto_route(everything)
 
 
 
-""" UPDATES STATE """
+""" BROADCAST STATE """
 
-@r.on_everything(StateFilter(Settings.II_UPDATES))
-async def updates(everything: CommonEverything):
+@r.on_everything(StateFilter(Settings.II_BROADCAST))
+async def broadcast(everything: CommonEverything):
     ctx = everything.ctx
-    is_updates_set = everything.ctx.settings.updates is not None
+    is_broadcast_set = everything.ctx.settings.broadcast is not None
+    is_from_hub = Hub.I_MAIN in ctx.navigator.trace
 
     answer_text = (
         messages.Builder()
-                .add(messages.format_updates())
+                .add(messages.format_broadcast())
     )
     answer_keyboard = Keyboard([
         [kb.TRUE_BUTTON, kb.FALSE_BUTTON],
-    ]).assign_next(kb.NEXT_BUTTON.only_if(is_updates_set))
+    ]).assign_next(kb.NEXT_BUTTON.only_if(
+        is_broadcast_set and not is_from_hub
+    ))
 
 
     await everything.edit_or_answer(
         text     = answer_text.make(),
         keyboard = answer_keyboard,
-        add_tree    = True,
+        add_tree    = not is_from_hub,
         tree_values = ctx.settings
     )
 
-async def to_updates(everything: CommonEverything):
-    everything.navigator.jump_back_to_or_append(Settings.II_GROUP)
-
-    everything.navigator.append(Settings.II_UPDATES)
-
-    return await updates(everything)
+@r.on_callback(
+    PayloadFilter(Payload.BROADCAST),
+    StateFilter(Settings.I_MAIN)
+)
+async def to_broadcast(everything: CommonEverything):
+    everything.navigator.append(Settings.II_BROADCAST)
+    return await broadcast(everything)
 
 
 
@@ -305,6 +334,8 @@ async def confirm_unknown_group(everything: CommonEverything):
     # set it as confirmed
     everything.ctx.settings.group.confirmed = valid_group
     
+    everything.navigator.jump_back_to_or_append(Settings.II_GROUP)
+
     return await auto_route(everything)
 
 
@@ -314,6 +345,7 @@ async def confirm_unknown_group(everything: CommonEverything):
 async def unknown_group(everything: CommonEverything):
     ctx = everything.ctx
     group = everything.ctx.settings.group.valid
+    is_from_hub = Hub.I_MAIN in ctx.navigator.trace
 
     if everything.is_from_message:
         message = everything.message
@@ -329,7 +361,7 @@ async def unknown_group(everything: CommonEverything):
         await message.answer(
             text        = answer_text.make(),
             keyboard    = answer_keyboard,
-            add_tree    = True,
+            add_tree    = not is_from_hub,
             tree_values = ctx.settings
         )
 
@@ -389,7 +421,7 @@ async def group(everything: CommonEverything):
             return await message.answer(
                 text        = answer_text.make(),
                 keyboard    = answer_keyboard,
-                add_tree    = True,
+                add_tree    = not is_from_hub,
                 tree_values = ctx.settings
             )
 
@@ -430,7 +462,7 @@ async def group(everything: CommonEverything):
         await event.edit_message(
             text        = answer_text.make(),
             keyboard    = answer_keyboard,
-            add_tree    = True,
+            add_tree    = not is_from_hub,
             tree_values = ctx.settings
         )
 
@@ -453,15 +485,25 @@ async def to_group(everything: CommonEverything):
 """ MAIN STATE """
 
 async def main(everything: CommonEverything):
+    ctx = everything.ctx
+
+    if ctx.navigator.first == Hub.I_MAIN:
+        ctx.navigator.clear()
+        ctx.navigator.auto_ignored()
+        ctx.navigator.append(Hub.I_MAIN)
+        ctx.navigator.append(Settings.I_MAIN)
+
     answer_text = (
         messages.Builder()
                 .add("i love niggers")
     )
     answer_keyboard = Keyboard([
-        [kb.GROUP_BUTTON],
-        [kb.UPDATES_BUTTON],
-        [kb.PIN_BUTTON],
-        [kb.ZOOM_BUTTON]
+        [kb.GROUP_BUTTON.with_value(ctx.settings.group.confirmed)],
+        [kb.BROADCAST_BUTTON.with_value(ctx.settings.broadcast)],
+        [kb.PIN_BUTTON.with_value(ctx.settings.should_pin).only_if(
+            Settings.III_SHOULD_PIN not in ctx.navigator.ignored
+        )],
+        [kb.ZOOM_BUTTON.with_value(len(ctx.settings.zoom.entries))]
     ])
 
     return await everything.edit_or_answer(
@@ -483,7 +525,7 @@ STATE_MAP = {
     Settings.I_MAIN: main,
     Settings.II_GROUP: group,
     Settings.III_UNKNOWN_GROUP: unknown_group,
-    Settings.II_UPDATES: updates,
+    Settings.II_BROADCAST: broadcast,
     Settings.III_SHOULD_PIN: should_pin,
     Settings.II_ZOOM: add_zoom,
 }

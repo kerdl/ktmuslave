@@ -8,31 +8,11 @@ from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import Zoom
 from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
-from src.svc.common.keyboard import (
-    NEXT_BUTTON,
-    Keyboard, 
-    Button,
-    Payload,
-    TRUE_BUTTON,
-    FALSE_BUTTON,
-    SKIP_BUTTON,
-    BACK_BUTTON,
-    ADD_BUTTON,
-    ADD_ALL_BUTTON,
-    CONFIRM_BUTTON,
-    REMOVE_BUTTON,
-    NULL_BUTTON,
-
-    BEGIN_BUTTON,
-    DO_PIN_BUTTON,
-    FROM_TEXT_BUTTON,
-    MANUALLY_BUTTON,
-    FINISH_BUTTON
-)
+from src.svc.common import keyboard as kb
 from src.data import zoom, Field, error
 
 
-@r.on_callback(PayloadFilter(Payload.REMOVE))
+@r.on_callback(PayloadFilter(kb.Payload.REMOVE))
 async def remove_entry(everything: CommonEverything):
     focused = everything.ctx.settings.zoom.focused
     selected = focused.selected
@@ -56,8 +36,8 @@ async def set_attribute(
     ctx = everything.ctx
 
     footer_addition = messages.default_footer_addition(everything)
-    answer_keyboard = Keyboard([
-        [NULL_BUTTON.only_if(
+    answer_keyboard = kb.Keyboard([
+        [kb.NULL_BUTTON.only_if(
             ctx.navigator.current != Zoom.IIII_NAME
             and getter() is not None
         )]
@@ -106,7 +86,7 @@ async def set_attribute(
     if everything.is_from_event:
         event = everything.event
 
-        if event.payload == Payload.NULL:
+        if event.payload == kb.Payload.NULL:
             nuller()
 
             return await to_entry(everything)
@@ -123,9 +103,26 @@ async def set_attribute(
             keyboard = answer_keyboard
         )
 
+@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(kb.Payload.CLEAR))
+async def clear_new_entries(everything: CommonEverything):
+    ctx = everything.ctx
+
+    ctx.settings.zoom.new_entries.clear()
+
+    ctx.navigator.jump_back_to(Zoom.I_MASS)
+    return await mass(everything)
+
+@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(kb.Payload.REMOVE_ALL))
+async def remove_entries(everything: CommonEverything):
+    ctx = everything.ctx
+
+    ctx.settings.zoom.entries.clear()
+
+    return await browse(everything)
+
 @r.on_callback(
     StateFilter(Zoom.I_MASS_CHECK), 
-    PayloadFilter(Payload.CONFIRM)
+    PayloadFilter(kb.Payload.CONFIRM)
 )
 async def confirm_mass_add(everything: CommonEverything):
     ctx = everything.ctx
@@ -154,8 +151,8 @@ async def mass_check(everything: CommonEverything):
         messages.Builder()
                 .add(messages.format_zoom_mass_adding_overview(adding, overwriting))
     )
-    answer_keyboard = Keyboard([
-        [CONFIRM_BUTTON]
+    answer_keyboard = kb.Keyboard([
+        [kb.CONFIRM_BUTTON]
     ])
 
     return await everything.edit_or_answer(
@@ -163,7 +160,7 @@ async def mass_check(everything: CommonEverything):
         keyboard = answer_keyboard,
     )
 
-@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(Payload.ADD_ALL))
+@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(kb.Payload.ADD_ALL))
 async def to_mass_check(everything: CommonEverything):
     everything.navigator.append(Zoom.I_MASS_CHECK)
     return await mass_check(everything)
@@ -189,7 +186,7 @@ async def pwd(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.PWD))
+@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(kb.Payload.PWD))
 async def to_pwd(everything: CommonEverything):
     everything.navigator.append(Zoom.IIII_PWD)
     return await pwd(everything)
@@ -215,7 +212,7 @@ async def id_(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.ID))
+@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(kb.Payload.ID))
 async def to_id(everything: CommonEverything):
     everything.navigator.append(Zoom.IIII_ID)
     return await id_(everything)
@@ -241,7 +238,7 @@ async def url(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.URL))
+@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(kb.Payload.URL))
 async def to_url(everything: CommonEverything):
     everything.navigator.append(Zoom.IIII_URL)
     return await url(everything)
@@ -285,7 +282,7 @@ async def name(everything: CommonEverything):
         setter       = setter,
     )
 
-@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(Payload.NAME))
+@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(kb.Payload.NAME))
 async def to_name(everything: CommonEverything):
     everything.navigator.append(Zoom.IIII_NAME)
     return await name(everything)
@@ -301,9 +298,9 @@ async def entry(everything: CommonEverything):
                 .add(selected.format())
                 .add(messages.format_press_buttons_to_change())
     )
-    answer_keyboard = Keyboard.from_dataclass(
+    answer_keyboard = kb.Keyboard.from_dataclass(
         dataclass = selected,
-        footer=[[REMOVE_BUTTON]]
+        footer=[[kb.REMOVE_BUTTON]]
     )
 
     await everything.edit_or_answer(
@@ -316,7 +313,7 @@ async def to_entry(everything: CommonEverything):
     return await entry(everything)
 
 
-@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(Payload.ADD))
+@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(kb.Payload.ADD))
 async def add_entry(everything: CommonEverything):
     return await to_name(everything)
 
@@ -327,6 +324,8 @@ async def browse(
     text_footer: Optional[str] = None
 ):
     ctx = everything.ctx
+    has_entries = ctx.settings.zoom.entries.has_something
+    has_new_entries = ctx.settings.zoom.new_entries.has_something
 
     if everything.is_from_event:
         # try to check if user selected an entry in list
@@ -347,8 +346,8 @@ async def browse(
             data = ctx.settings.zoom.new_entries.set,
             text_footer = text_footer,
             keyboard_footer = [
-                [ADD_ALL_BUTTON], 
-                [BACK_BUTTON]
+                [kb.ADD_ALL_BUTTON, kb.CLEAR_BUTTON.only_if(has_new_entries)], 
+                [kb.BACK_BUTTON]
             ],
         )
     elif ctx.settings.zoom.is_focused_on_entries:
@@ -357,8 +356,8 @@ async def browse(
             data = ctx.settings.zoom.entries.set,
             text_footer = text_footer,
             keyboard_footer = [
-                [ADD_BUTTON], 
-                [BACK_BUTTON]
+                [kb.ADD_BUTTON, kb.REMOVE_ALL_BUTTON.only_if(has_entries)], 
+                [kb.BACK_BUTTON]
             ],
         )
 
@@ -404,7 +403,7 @@ async def mass(everything: CommonEverything):
                     .add(messages.format_send_zoom_data(everything.src, everything.is_group_chat))
                     .add(footer_addition)
         )
-        answer_keyboard = Keyboard.default().assign_next(NEXT_BUTTON.only_if(has_new_entries))
+        answer_keyboard = kb.Keyboard.default().assign_next(kb.NEXT_BUTTON.only_if(has_new_entries))
 
         await event.edit_message(
             text        = answer_text.make(),
@@ -450,7 +449,7 @@ async def mass(everything: CommonEverything):
                         .add(messages.format_doesnt_contain_zoom())
                         .add(footer_addition)
             )
-            answer_keyboard = Keyboard.default()
+            answer_keyboard = kb.Keyboard.default()
 
             return await message.answer(
                 text     = answer_text.make(),

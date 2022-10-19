@@ -100,8 +100,6 @@ class Router:
         tg_callback_decorator(self.choose_handler)
 
     async def choose_handler(self, *args, everything: CommonEverything):
-        everything.ctx.set_everything(everything)
-
         for handler in self.handlers:
 
             # if filter condition interrupted this

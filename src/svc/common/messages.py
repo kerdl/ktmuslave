@@ -44,6 +44,9 @@ PYTHON_VALUE_REPR = {
 }
 
 def value_repr(value: Any) -> str:
+    if type(value) == int:
+        return value
+
     return PYTHON_VALUE_REPR.get(value) or value
 
 
@@ -225,22 +228,22 @@ def format_invalid_group():
     return INVALID_GROUP
 
 
-UPDATES = (
-    "🔔 | Хочешь получать здесь обновления расписания?"
+BROADCAST = (
+    "🔔 | Хочешь получать здесь рассылку расписания?"
 )
-def format_updates():
-    return UPDATES
+def format_broadcast():
+    return BROADCAST
 
 
 DO_PIN = (
-    "📌 | Хочешь шоб я закреплял обновления расписания?"
+    "📌 | Хочешь шоб я закреплял рассылку расписания?"
 )
 def format_do_pin():
     return DO_PIN
 
 
 RECOMMEND_PIN = (
-    "📌 | Я могу закреплять эти обновления расписания, "
+    "📌 | Я могу закреплять рассылку расписания, "
     "но сейчас у меня нет прав"
 )
 def format_recommend_pin():

@@ -21,75 +21,79 @@ from src.svc.vk.keyboard import CMD
 
 class Payload:
     # common buttons
-    TRUE      = "true"
-    FALSE     = "false"
-    BACK      = "back"
-    NEXT      = "next"
-    SKIP      = "skip"
-    PAGE_BACK = "page_back"
-    PAGE_NEXT = "page_next"
+    TRUE       = "true"
+    FALSE      = "false"
+    BACK       = "back"
+    NEXT       = "next"
+    SKIP       = "skip"
+    PAGE_BACK  = "page_back"
+    PAGE_NEXT  = "page_next"
 
     # Init buttons
-    BEGIN     = "begin"
-    DO_PIN    = "do_pin"
-    FINISH    = "finish"
+    BEGIN      = "begin"
+    DO_PIN     = "do_pin"
+    FINISH     = "finish"
 
     # Settings buttons
-    GROUP     = "group"
-    UPDATES   = "updates"
-    PIN       = "pin"
-    ZOOM      = "zoom"
+    GROUP      = "group"
+    BROADCAST  = "broadcast"
+    PIN        = "pin"
+    ZOOM       = "zoom"
 
     # Zoom buttons
-    FROM_TEXT = "from_text"
-    MANUALLY  = "manually"
-    ADD       = "add"
-    ADD_ALL   = "add_all"
-    CONFIRM   = "confirm"
-    NULL      = "null"
-    REMOVE    = "remove"
-    NEXT_ZOOM = "next_zoom"
+    FROM_TEXT  = "from_text"
+    MANUALLY   = "manually"
+    ADD        = "add"
+    ADD_ALL    = "add_all"
+    CONFIRM    = "confirm"
+    NULL       = "null"
+    REMOVE     = "remove"
+    REMOVE_ALL = "remove_all"
+    CLEAR      = "clear"
+    NEXT_ZOOM  = "next_zoom"
 
-    NAME      = "name"
-    URL       = "url"
-    ID        = "id"
-    PWD       = "pwd"
+    NAME       = "name"
+    URL        = "url"
+    ID         = "id"
+    PWD        = "pwd"
 
     # Hub buttons
-    UPDATE    = "update"
-    SETTINGS  = "settings"
+    UPDATE     = "update"
+    SETTINGS   = "settings"
 
 class Text:
     # common buttons
-    TRUE      = "✓ ПизДА!"
-    FALSE     = "✕ МиНЕТ..."
-    BACK      = "← Назад"
-    NEXT      = "→ Далее"
-    SKIP      = "→ Пропустить"
+    TRUE       = "✓ ПизДА!"
+    FALSE      = "✕ МиНЕТ..."
+    BACK       = "← Назад"
+    NEXT       = "→ Далее"
+    SKIP       = "→ Пропустить"
 
     # Init buttons
-    BEGIN     = "→ Начать"
-    DO_PIN    = "✓ Закреплять"
-    FINISH    = "→ Закончить"
+    BEGIN      = "→ Начать"
+    DO_PIN     = "✓ Закреплять"
+    FINISH     = "→ Закончить"
 
     # Settings buttons
-    GROUP     = "👥 Группа"
-    UPDATES   = "✉️ Обновления"
-    PIN       = "📌 Закрепление"
-    ZOOM      = "🖥️ Zoom"
+    GROUP      = "👥 Группа"
+    BROADCAST  = "✉️ Рассылка"
+    PIN        = "📌 Закрепление"
+    ZOOM       = "🖥️ Zoom"
 
     # Zoom buttons
-    FROM_TEXT = "💬 Из сообщения"
-    MANUALLY  = "✍️ Вручную"
-    ADD       = "+ Добавить"
-    ADD_ALL   = "✓ Добавить всё"
-    CONFIRM   = "✓ Подтвердить"
-    NULL      = "✕ Обнулить"
-    REMOVE    = "✕ Удалить"
+    FROM_TEXT  = "💬 Из сообщения"
+    MANUALLY   = "✍️ Вручную"
+    ADD        = "+ Добавить"
+    ADD_ALL    = "✓ Добавить всё"
+    CONFIRM    = "✓ Подтвердить"
+    NULL       = "✕ Обнулить"
+    REMOVE     = "✕ Удалить"
+    REMOVE_ALL = "✕ Удалить всё"
+    CLEAR      = "✕ Очистить"
 
     # Hub buttons
-    UPDATE    = "↻ Обновить"
-    SETTINGS  = "⚙️ Настройки"
+    UPDATE     = "↻ Обновить"
+    SETTINGS   = "⚙️ Настройки"
 
 COLOR_LITERAL = Literal["gray", "blue", "green", "red"]
 
@@ -139,6 +143,14 @@ class Button:
             return self
         else:
             return None
+    
+    def with_value(self, value: Any) -> Button:
+        value_repr = common.messages.value_repr(value)
+
+        copied_self = deepcopy(self)
+        copied_self.text += f": {value_repr}"
+
+        return copied_self
 
 @dataclass
 class Keyboard:
@@ -305,27 +317,29 @@ class Keyboard:
         return tg_kb
 
 
-TRUE_BUTTON      = Button(Text.TRUE, Payload.TRUE, Color.GREEN)
-FALSE_BUTTON     = Button(Text.FALSE, Payload.FALSE, Color.RED)
-BACK_BUTTON      = Button(Text.BACK, Payload.BACK)
-NEXT_BUTTON      = Button(Text.NEXT, Payload.NEXT)
-SKIP_BUTTON      = Button(Text.SKIP, Payload.SKIP)
-ADD_BUTTON       = Button(Text.ADD, Payload.ADD, Color.GREEN)
-ADD_ALL_BUTTON   = Button(Text.ADD_ALL, Payload.ADD_ALL, Color.GREEN)
-CONFIRM_BUTTON   = Button(Text.CONFIRM, Payload.CONFIRM, Color.GREEN)
-NULL_BUTTON      = Button(Text.NULL, Payload.NULL, Color.RED)
-REMOVE_BUTTON    = Button(Text.REMOVE, Payload.REMOVE, Color.RED)
+TRUE_BUTTON       = Button(Text.TRUE, Payload.TRUE, Color.GREEN)
+FALSE_BUTTON      = Button(Text.FALSE, Payload.FALSE, Color.RED)
+BACK_BUTTON       = Button(Text.BACK, Payload.BACK)
+NEXT_BUTTON       = Button(Text.NEXT, Payload.NEXT)
+SKIP_BUTTON       = Button(Text.SKIP, Payload.SKIP)
+ADD_BUTTON        = Button(Text.ADD, Payload.ADD, Color.GREEN)
+ADD_ALL_BUTTON    = Button(Text.ADD_ALL, Payload.ADD_ALL, Color.GREEN)
+CONFIRM_BUTTON    = Button(Text.CONFIRM, Payload.CONFIRM, Color.GREEN)
+NULL_BUTTON       = Button(Text.NULL, Payload.NULL, Color.RED)
+REMOVE_BUTTON     = Button(Text.REMOVE, Payload.REMOVE, Color.RED)
+REMOVE_ALL_BUTTON = Button(Text.REMOVE_ALL, Payload.REMOVE_ALL, Color.RED)
+CLEAR_BUTTON      = Button(Text.CLEAR, Payload.CLEAR, Color.RED)
 
-BEGIN_BUTTON     = Button(Text.BEGIN, Payload.BEGIN)
-DO_PIN_BUTTON    = Button(Text.DO_PIN, Payload.DO_PIN, Color.GREEN)
-FROM_TEXT_BUTTON = Button(Text.FROM_TEXT, Payload.FROM_TEXT, Color.GREEN)
-MANUALLY_BUTTON  = Button(Text.MANUALLY, Payload.MANUALLY, Color.BLUE)
-NEXT_ZOOM_BUTTON = Button(Text.NEXT, Payload.NEXT_ZOOM)
-FINISH_BUTTON    = Button(Text.FINISH, Payload.FINISH)
-UPDATE_BUTTON    = Button(Text.UPDATE, Payload.UPDATE, Color.BLUE)
-SETTINGS_BUTTON  = Button(Text.SETTINGS, Payload.SETTINGS, Color.BLUE)
+BEGIN_BUTTON      = Button(Text.BEGIN, Payload.BEGIN)
+DO_PIN_BUTTON     = Button(Text.DO_PIN, Payload.DO_PIN, Color.GREEN)
+FROM_TEXT_BUTTON  = Button(Text.FROM_TEXT, Payload.FROM_TEXT, Color.GREEN)
+MANUALLY_BUTTON   = Button(Text.MANUALLY, Payload.MANUALLY, Color.BLUE)
+NEXT_ZOOM_BUTTON  = Button(Text.NEXT, Payload.NEXT_ZOOM)
+FINISH_BUTTON     = Button(Text.FINISH, Payload.FINISH)
+UPDATE_BUTTON     = Button(Text.UPDATE, Payload.UPDATE, Color.BLUE)
+SETTINGS_BUTTON   = Button(Text.SETTINGS, Payload.SETTINGS, Color.BLUE)
 
-GROUP_BUTTON     = Button(Text.GROUP, Payload.GROUP, Color.BLUE)
-UPDATES_BUTTON   = Button(Text.UPDATES, Payload.UPDATES, Color.BLUE)
-PIN_BUTTON       = Button(Text.PIN, Payload.PIN, Color.BLUE)
-ZOOM_BUTTON      = Button(Text.ZOOM, Payload.ZOOM, Color.BLUE)
+GROUP_BUTTON      = Button(Text.GROUP, Payload.GROUP, Color.BLUE)
+BROADCAST_BUTTON  = Button(Text.BROADCAST, Payload.BROADCAST, Color.BLUE)
+PIN_BUTTON        = Button(Text.PIN, Payload.PIN, Color.BLUE)
+ZOOM_BUTTON       = Button(Text.ZOOM, Payload.ZOOM, Color.BLUE)

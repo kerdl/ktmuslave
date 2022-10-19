@@ -7,7 +7,7 @@ from . import (
     SETTINGS_MAIN,
     GROUP,
     UNKNOWN_GROUP,
-    UPDATES,
+    BROADCAST,
     SHOULD_PIN,
     INIT_FINISH,
     INIT_ZOOM,
@@ -43,7 +43,7 @@ class Settings(Tree):
     MAIN
       ┝ GROUP
       |   ┝ UNKNOWN_GROUP
-      ┝ UPDATES
+      ┝ BROADCAST
       |   ┝ SHOULD_PIN
       ┕ ZOOM
     ```notpython
@@ -54,7 +54,7 @@ class Settings(Tree):
     I_MAIN            = State(**SETTINGS_MAIN)
     II_GROUP          = State(**GROUP)
     III_UNKNOWN_GROUP = State(**UNKNOWN_GROUP)
-    II_UPDATES        = State(**UPDATES)
+    II_BROADCAST      = State(**BROADCAST)
     III_SHOULD_PIN    = State(**SHOULD_PIN)
     II_ZOOM           = State(**INIT_ZOOM)
 

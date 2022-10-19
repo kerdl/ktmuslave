@@ -81,11 +81,6 @@ class CtxCheckMessage(BaseMiddleware[Message]):
 
         if user_ctx is None:
             user_ctx = ctx.add_vk(peer_id)
-        
-        user_ctx.navigator.ignored.add(Settings.I_MAIN)
-        
-        if not vk.is_group_chat(peer_id, from_id):
-            user_ctx.navigator.ignored.add(Settings.III_SHOULD_PIN)
 
 class CommonMessageMaker(BaseMiddleware[Message]):
     """
@@ -108,6 +103,14 @@ class CommonEventMaker(BaseMiddleware[RawEvent]):
         event = CommonEvent.from_vk(self.event)
         everything = CommonEverything.from_event(event)
         
+        if everything.ctx.last_everything is None:
+            # this is first event for this ctx
+            everything.ctx.set_everything(everything)
+            everything.navigator.auto_ignored()
+            everything.ctx.settings.defaults_from_everything(everything)
+        else:
+            everything.ctx.set_everything(everything)
+
         self.send({"common_event": event})
         self.send({"everything": everything})
 

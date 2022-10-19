@@ -3,8 +3,9 @@ from typing import Optional, Any
 from dataclasses import dataclass
 
 from src.data import zoom
+from src.svc import common
 from src.svc.common.states import State, Values
-from src.svc.common.states.tree import Init, Settings as SettingsState
+from src.svc.common.states.tree import Init, Settings as SettingsTree
 
 
 @dataclass
@@ -17,7 +18,7 @@ class Group:
 class Settings(Values):
     group: Group
     zoom: zoom.Container
-    updates: Optional[bool] = None
+    broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None
 
     @classmethod
@@ -29,10 +30,14 @@ class Settings(Values):
 
     def get_from_state(self, state: State) -> Any:
         VALUES = {
-            SettingsState.II_GROUP:       self.group.confirmed,
-            SettingsState.II_UPDATES:     self.updates,
-            SettingsState.III_SHOULD_PIN: self.should_pin,
-            SettingsState.II_ZOOM:        len(self.zoom.entries) if self.zoom.is_finished else None
+            SettingsTree.II_GROUP:       self.group.confirmed,
+            SettingsTree.II_BROADCAST:     self.broadcast,
+            SettingsTree.III_SHOULD_PIN: self.should_pin,
+            SettingsTree.II_ZOOM:        len(self.zoom.entries) if self.zoom.is_finished else None
         }
 
         return VALUES.get(state)
+    
+    def defaults_from_everything(self, everything: common.CommonEverything):
+        if SettingsTree.III_SHOULD_PIN in everything.navigator.ignored:
+            self.should_pin = False

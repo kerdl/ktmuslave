@@ -18,7 +18,7 @@ class Navigator:
     """
     # Example:
     ```
-    [ Settings.I_MAIN, Settings.II_GROUP, Settings.I_UPDATES ]
+    [ Settings.I_MAIN, Settings.II_GROUP, Settings.I_BROADCAST ]
             ^                             ^
         where started                current state
     ```notpython
@@ -59,6 +59,13 @@ class Navigator:
             return None
 
         return self.trace[-1]
+
+    @property
+    def first(self) -> Optional[State]:
+        if len(self.trace) < 1:
+            return None
+        
+        return self.trace[0]
 
     @property
     def current_back_trace(self) -> Optional[State]:
@@ -231,3 +238,13 @@ class Navigator:
         self.trace = []
         self.back_trace = []
         self.ignored = set()
+    
+    def auto_ignored(self):
+        if tree.Init.I_MAIN in self.spaces:
+            self.ignored.add(tree.Settings.I_MAIN)
+        
+        if tree.Settings.I_MAIN in self.spaces:
+            ...
+        
+        if not self.everything.is_group_chat:
+            self.ignored.add(tree.Settings.III_SHOULD_PIN)

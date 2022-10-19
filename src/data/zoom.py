@@ -9,6 +9,7 @@ if __name__ == "__main__":
 from loguru import logger
 from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from src.svc import common
 from src.data import error
@@ -80,7 +81,9 @@ class Data(Translated, Emojized):
     def check_name(name: str) -> set[Warning]:
         warns = set()
 
-        if not pattern.SHORT_NAME.match(name):
+        match = pattern.SHORT_NAME.match(name)
+
+        if not match or match.group() != name:
             warns.add(data.INCORRECT_NAME_FORMAT)
 
         return warns
@@ -89,7 +92,13 @@ class Data(Translated, Emojized):
     def check_url(url: str) -> set[Warning]:
         warns = set()
 
-        if url.replace(" ", "").endswith(("..", "...", "…")):
+        if urlparse(url).netloc is None:
+            warns.add(data.NOT_AN_URL)
+
+        if (
+            data.NOT_AN_URL not in warns 
+            and url.replace(" ", "").endswith(("..", "...", "…"))
+        ):
             warns.add(data.URL_MAY_BE_CUTTED)
         
         return warns
@@ -101,8 +110,11 @@ class Data(Translated, Emojized):
         if not pattern.ZOOM_ID.search(id):
             warns.add(data.INCORRECT_ID_FORMAT)
         
-        if pattern.NON_LETTER.search(id) or pattern.LETTER.search(id):
-            warns.add(data.ID_CONTAINS_NON_DIGITS)
+        if pattern.PUNCTUATION.search(id):
+            warns.add(data.HAS_PUNCTUATION)
+        
+        if pattern.LETTER.search(id):
+            warns.add(data.HAS_LETTERS)
 
         return warns
     
@@ -311,9 +323,9 @@ class Entries:
     def add_from_name(self, name: str):
         data = Data(
             name = Field(name),
-            url = Field(None),
-            id = Field(None),
-            pwd = Field(None),
+            url  = Field(None),
+            id   = Field(None),
+            pwd  = Field(None),
         )
 
         self.add(data)
@@ -364,6 +376,9 @@ class Entries:
             names.append(name)
 
         return "\n".join(names)
+
+    def clear(self):
+        self.set = set()
 
     def __len__(self):
         return len(self.set)

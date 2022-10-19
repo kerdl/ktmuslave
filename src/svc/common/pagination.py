@@ -53,7 +53,7 @@ class Container:
 
 def from_zoom(
     data: Union[list[zoom.Data], set[zoom.Data]], 
-    per_page: int = 6, 
+    per_page: int = 4, 
     text_footer: Optional[str] = None,
     keyboard_width: int = 2,
     keyboard_header: list[list[Button]] = [[]],
