@@ -421,6 +421,7 @@ def format_zoom_mass_adding_overview(
 
     return "\n".join(sections)
 
+
 ZOOM_DATA_WARNING = (
     "❗ | Проверь, чтобы у преподов были "
     "точно такие же имена, как в расписании на ktmu-sutd.ru\n"
@@ -434,8 +435,27 @@ ZOOM_DATA_WARNING = (
 def format_zoom_data_warning():
     return ZOOM_DATA_WARNING
 
+
 FINISH = (
     f"👍 | Фпринципи фсё, можешь перепроверить или нажать {Text.FINISH}"
 )
 def format_finish():
     return FINISH
+
+
+NO_UPDATES = (
+    "Обновлений не найдено"
+)
+def format_no_updates():
+    return NO_UPDATES
+
+
+TOO_FAST_RETRY_AFTER = (
+    "Лее куда торопишься, повтори через {secs}"
+)
+def format_too_fast_retry_after(secs: int):
+    fmt_secs = f"{secs} с."
+
+    return TOO_FAST_RETRY_AFTER.format(
+        secs = fmt_secs
+    )

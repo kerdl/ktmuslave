@@ -58,6 +58,10 @@ class Payload:
     PWD        = "pwd"
 
     # Hub buttons
+    WEEKLY     = "weekly"
+    DAILY      = "daily"
+    FOLD       = "fold"
+    UNFOLD     = "unfold"
     UPDATE     = "update"
     SETTINGS   = "settings"
 
@@ -92,6 +96,10 @@ class Text:
     CLEAR      = "✕ Очистить"
 
     # Hub buttons
+    WEEKLY     = "⇋ Недельное"
+    DAILY      = "⇋ Дневное"
+    FOLD       = "⮟ Свернуть"
+    UNFOLD     = "⮝ Развернуть"
     UPDATE     = "↻ Обновить"
     SETTINGS   = "⚙️ Настройки"
 
@@ -336,8 +344,13 @@ FROM_TEXT_BUTTON  = Button(Text.FROM_TEXT, Payload.FROM_TEXT, Color.GREEN)
 MANUALLY_BUTTON   = Button(Text.MANUALLY, Payload.MANUALLY, Color.BLUE)
 NEXT_ZOOM_BUTTON  = Button(Text.NEXT, Payload.NEXT_ZOOM)
 FINISH_BUTTON     = Button(Text.FINISH, Payload.FINISH)
+
+WEEKLY_BUTTON     = Button(Text.WEEKLY, Payload.WEEKLY, Color.BLUE)
+DAILY_BUTTON      = Button(Text.DAILY, Payload.DAILY, Color.BLUE)
+FOLD_BUTTON       = Button(Text.FOLD, Payload.FOLD, Color.BLUE)
+UNFOLD_BUTTON     = Button(Text.UNFOLD, Payload.UNFOLD, Color.BLUE)
 UPDATE_BUTTON     = Button(Text.UPDATE, Payload.UPDATE, Color.BLUE)
-SETTINGS_BUTTON   = Button(Text.SETTINGS, Payload.SETTINGS, Color.BLUE)
+SETTINGS_BUTTON   = Button(Text.SETTINGS, Payload.SETTINGS)
 
 GROUP_BUTTON      = Button(Text.GROUP, Payload.GROUP, Color.BLUE)
 BROADCAST_BUTTON  = Button(Text.BROADCAST, Payload.BROADCAST, Color.BLUE)

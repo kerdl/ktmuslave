@@ -1,5 +1,8 @@
 vkbottle==4.3.9
 aiogram==3.0.0b4
 
+aiohttp==3.8.3
+aiofiles==22.1.0
+dataclasses-json==0.5.7
 python-dotenv==0.20.0
 loguru==0.6.0

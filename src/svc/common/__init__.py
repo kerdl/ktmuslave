@@ -20,6 +20,7 @@ from src.svc.common import pagination, messages, error
 from src.svc.vk.types import RawEvent
 from src.svc.common.keyboard import Keyboard
 from src.data import zoom
+from src.data.schedule import Schedule
 from src.data.settings import Settings, Group
 from .states.tree import Init, Hub, Space
 
@@ -30,6 +31,9 @@ class BaseCtx:
     """ # `Back`, `next` buttons tracer """
     settings: Settings
     """ # Storage for settings and zoom data """
+    schedule: Schedule
+    """ # Schedule data """
+    
     last_call: float
     """
     # Last UNIX time when user interacted with bot
@@ -38,6 +42,7 @@ class BaseCtx:
     - to throttle users who
     click buttons too fast
     """
+
     pages: pagination.Container
     """
     # Page storage for big data
@@ -110,15 +115,16 @@ class Ctx:
     - stored in a dict of `{chat_id: ctx}`
     """
 
-
     def add_vk(self, peer_id: int) -> VkCtx:
         navigator = Navigator.default()
         settings = Settings.default()
+        schedule = Schedule.default()
         pages = pagination.Container.default()
 
         self.vk[peer_id] = VkCtx(
             navigator        = navigator, 
             settings         = settings, 
+            schedule         = schedule,
             last_call        = time.time(),
             pages            = pages,
             last_everything  = None,
@@ -133,11 +139,13 @@ class Ctx:
     def add_tg(self, chat: TgChat) -> TgCtx:
         navigator = Navigator.default()
         settings = Settings.default()
+        schedule = Schedule.default()
         pages = pagination.Container.default()
 
         self.tg[chat.id] = TgCtx(
             navigator        = navigator, 
             settings         = settings, 
+            schedule         = schedule,
             last_call        = time.time(),
             pages            = pages,
             last_everything  = None,

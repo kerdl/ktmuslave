@@ -2,8 +2,6 @@ from __future__ import annotations
 from typing import ClassVar, Iterable, TypeVar, Generic
 from dataclasses import dataclass, field
 
-from src.svc import common
-
 
 T = TypeVar("T")
 
@@ -66,6 +64,8 @@ class Field(Generic[T], Repred):
         return len(self.warnings) > 0
 
     def format(self, emoji: str, name: str, display_value: bool = True) -> str:
+        from src.svc import common
+
         if display_value:
             base_formatted = VALUE_FIELD_FMT.format(
                 emoji = emoji, 
