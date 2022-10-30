@@ -1,7 +1,7 @@
 import re
 
 
-GROUP               = re.compile(r"(\d)([-]{0,1})([а-яёА-ЯЁ]{3})([-]{0,1})(\d{2})")
+GROUP               = re.compile(r"(\d)([-]{0,1})([а-яёА-ЯЁ]{3})([-]{0,1})(\d{1,2})")
 NAME                = re.compile(r"[А-ЯЁ][а-яё]{1,}")
 SHORT_NAME          = re.compile(r"([А-ЯЁ][а-яё]{1,})(\s)([А-ЯЁ]{1}[.])([А-ЯЁ]{1}[.]{0,1}){0,1}")
 SPACE               = re.compile(r"\s")
