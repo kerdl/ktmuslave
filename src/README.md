@@ -1,6 +1,6 @@
 # `S`ou`rc`e code root
 
-- `data` - settings, zoom data dataclasses
+- `data` - dataclasses of settings, zoom, etc.
 - `parse` - parsing and conversion
 - `svc` - services, code for specific messengers with shared functionality,
     - so user's message `"HAVE SEX WITH ME 🥺"` will output the same result everywhere
