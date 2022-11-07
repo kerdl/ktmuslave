@@ -86,6 +86,9 @@ class Data(Translated, Emojized):
         if not match or match.group() != name:
             warns.add(data.INCORRECT_NAME_FORMAT)
 
+        if not name.endswith("."):
+            warns.add(data.NO_DOT_AT_THE_END)
+
         return warns
     
     @staticmethod

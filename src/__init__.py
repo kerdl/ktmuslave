@@ -5,7 +5,7 @@ from vkbottle import Bot as VkBot
 from vkbottle_types.responses.groups import GroupsGroupFull
 from aiogram import Bot as TgBot, Dispatcher, Router
 from aiogram.types import User
-from aiohttp import ClientSession, TCPConnector
+from aiohttp import ClientSession
 from loguru import logger
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,8 +29,6 @@ class Defs:
     tg_dispatch: Optional[Dispatcher] = None
 
     http: Optional[ClientSession] = None
-
-    data_dir: Optional[Path] = None
 
     def init_all(
         self, 
@@ -79,11 +77,6 @@ class Defs:
         self.loop.create_task(get_vk_bot_info())
         self.loop.create_task(get_tg_bot_info())
 
-        from src.data import schedule
-
-        self.loop.run_until_complete(schedule.INDEX.read())
-        self.loop.create_task(schedule.INDEX.infinite_update())
-
         if init_middlewares:
             from src.svc.telegram import middlewares
         
@@ -93,12 +86,8 @@ class Defs:
             r.assign()
 
     def init_fs(self) -> None:
-        from src.data import schedule
-
         self.data_dir = Path(".", "data")
         self.data_dir.mkdir(exist_ok=True)
-
-        schedule.INDEX.path.touch(exist_ok=True)
 
     @staticmethod
     def init_logger() -> None:
