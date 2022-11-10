@@ -365,14 +365,16 @@ class CommonMessage(BaseCommonEvent):
         if self.is_from_vk:
             vk_message = self.vk
 
-            result = await vk_message.answer(
+            result = await vk.chunked_send(
+                peer_id          = vk_message.peer_id,
                 message          = text,
                 keyboard         = keyboard.to_vk().get_json() if keyboard else None,
                 dont_parse_links = True,
             )
 
-            chat_id = result.peer_id
-            id = result.conversation_message_id
+            chat_id = result[-1].peer_id
+            id = result[-1].conversation_message_id
+            was_split = len(result) > 1
 
         elif self.is_from_tg:
             tg_message = self.tg
@@ -384,11 +386,13 @@ class CommonMessage(BaseCommonEvent):
 
             chat_id = result.chat.id
             id = result.message_id
+            was_split = False
         
         bot_message = CommonBotMessage(
             src         = self.src,
             chat_id     = chat_id,
             id          = id,
+            was_split   = was_split,
             text        = text,
             keyboard    = keyboard,
             add_tree    = add_tree,
@@ -432,6 +436,7 @@ class CommonBotMessage:
     """ ## For which chat this message is """
     id: Optional[int]
     """ ## ID of this exact message """
+    was_split: Optional[bool]
 
     @property
     def is_from_vk(self):
@@ -443,15 +448,14 @@ class CommonBotMessage:
 
     async def send(self) -> CommonBotMessage:
         if self.is_from_vk:
-            result = await defs.vk_bot.api.messages.send(
-                random_id        = random.randint(0, 99999),
-                peer_ids         = [self.chat_id],
+            results = await vk.chunked_send(
+                peer_id          = self.chat_id,
                 message          = self.text,
                 keyboard         = self.keyboard.to_vk().get_json(),
                 dont_parse_links = True,
             )
 
-            sent_message: MessagesSendUserIdsResponseItem = result[0]
+            sent_message: MessagesSendUserIdsResponseItem = results[-1]
 
             chat_id = sent_message.peer_id
             id = sent_message.conversation_message_id
@@ -654,18 +658,36 @@ class CommonEvent(BaseCommonEvent):
             base_lvl    = base_lvl
         )
 
+        was_split = False
+
         if self.is_from_vk:
 
             chat_id = self.vk["object"]["peer_id"]
             message_id = self.vk["object"]["conversation_message_id"]
 
-            result = await defs.vk_bot.api.messages.edit(
-                peer_id                 = chat_id,
-                conversation_message_id = message_id,
-                message                 = text,
-                keyboard                = keyboard.to_vk().get_json() if keyboard else None,
-                dont_parse_links        = True,
-            )
+            if self.ctx.last_bot_message.was_split:
+                result = await vk.chunked_send(
+                    peer_id          = chat_id,
+                    message          = text,
+                    keyboard         = keyboard.to_vk().get_json() if keyboard else None,
+                    dont_parse_links = True,
+                )
+
+                message_id = result[-1].conversation_message_id
+                was_split = len(result) > 1
+
+            else:
+                result = await vk.chunked_edit(
+                    peer_id                 = chat_id,
+                    conversation_message_id = message_id,
+                    message                 = text,
+                    keyboard                = keyboard.to_vk().get_json() if keyboard else None,
+                    dont_parse_links        = True,
+                )
+
+                if len(result[1]) > 0:
+                    message_id = result[1][-1].conversation_message_id
+                    was_split = True
         
         elif self.is_from_tg:
 
@@ -684,6 +706,7 @@ class CommonEvent(BaseCommonEvent):
             src         = self.src,
             chat_id     = chat_id,
             id          = message_id,
+            was_split   = was_split,
             text        = text,
             keyboard    = keyboard,
             add_tree    = add_tree,

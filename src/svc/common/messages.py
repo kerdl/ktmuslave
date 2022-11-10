@@ -1,6 +1,5 @@
 from __future__ import annotations
-from types import NoneType
-from typing import Any, Optional, Union
+from typing import Any
 from src.data.settings import Settings
 
 from src.svc import common
@@ -9,7 +8,7 @@ from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
 
-DEBUGGING = True
+DEBUGGING = False
 
 
 class Builder:
@@ -444,10 +443,17 @@ def format_finish():
 
 
 NO_UPDATES = (
-    "Обновлений не найдено"
+    "🤔 Обновлений не найдено"
 )
 def format_no_updates():
     return NO_UPDATES
+
+UPDATES_SENT = (
+    "✅ Обновления найдены, отправлены в новом сообщении"
+)
+
+def format_updates_sent():
+    return UPDATES_SENT
 
 
 TOO_FAST_RETRY_AFTER = (

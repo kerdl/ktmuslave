@@ -71,11 +71,18 @@ class Defs:
             self.tg_bot_info = me
             #self.tg_bot_mention = "@" + me.username
             self.tg_bot_mention = "/nigga"
+        
+        async def init_schedule_api():
+            from src.api.schedule import SCHEDULE_API
+
+            await SCHEDULE_API.updates()
 
         self.loop.run_until_complete(self.init_http())
 
         self.loop.create_task(get_vk_bot_info())
         self.loop.create_task(get_tg_bot_info())
+
+        self.loop.create_task(init_schedule_api())
 
         if init_middlewares:
             from src.svc.telegram import middlewares

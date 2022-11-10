@@ -346,7 +346,7 @@ async def browse(
             data = ctx.settings.zoom.new_entries.set,
             text_footer = text_footer,
             keyboard_footer = [
-                [kb.ADD_ALL_BUTTON, kb.CLEAR_BUTTON.only_if(has_new_entries)], 
+                [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
                 [kb.BACK_BUTTON]
             ],
         )

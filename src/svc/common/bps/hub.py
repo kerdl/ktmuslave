@@ -3,10 +3,12 @@ from loguru import logger
 import re
 
 from src import defs
+from src.api.schedule import SCHEDULE_API
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
+from src.data.schedule import format as sc_format
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import Init, Zoom, Hub
 from src.svc.common.router import r
@@ -19,11 +21,14 @@ async def update(everything: CommonEverything):
     ctx = everything.ctx
 
     if ctx.schedule.can_update:
-        ctx.schedule.update()
+        has_updates = await ctx.schedule.update()
 
-        await everything.event.show_notification(
-            messages.format_no_updates()
-        )
+        message = messages.format_no_updates()
+
+        if has_updates:
+            message = messages.format_updates_sent()
+
+        await everything.event.show_notification(message)
     else:
         await everything.event.show_notification(
             messages.format_too_fast_retry_after(int(ctx.schedule.until_allowed))
@@ -51,12 +56,30 @@ async def hub(everything: CommonEverything):
     is_folded = ctx.schedule.message.is_folded
     is_unfolded = not is_folded
 
-    schedule_text = "CHO ZA HUINYA???"
+    schedule_text = "ЫЫ ЧО ЗА ХУЙНЯ???"
 
     if ctx.schedule.message.is_weekly:
-        schedule_text = "weekly"
+        weekly_page = await SCHEDULE_API.weekly()
+        users_group = weekly_page.get_group(ctx.settings.group.confirmed)
+
+        if users_group is not None:
+            schedule_text = sc_format.group(
+                users_group,
+                ctx.settings.zoom.entries.set
+            )
+        else:
+            schedule_text = "твоей группы нет в недельном расписании ёпта"
     elif ctx.schedule.message.is_daily:
-        schedule_text = "daily"
+        daily_page = await SCHEDULE_API.daily()
+        users_group = daily_page.get_group(ctx.settings.group.confirmed)
+
+        if users_group is not None:
+            schedule_text = sc_format.group(
+                users_group,
+                ctx.settings.zoom.entries.set
+            )
+        else:
+            schedule_text = "твоей группы нет в дневном расписании ёпта"
 
     answer_text = (
         messages.Builder()
