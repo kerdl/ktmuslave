@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 from websockets import client, exceptions
 from websockets.legacy import client
+from aiohttp.client_exceptions import ClientConnectorError
+import asyncio
 
 from src import defs
 from src.api.base import Api
@@ -96,31 +98,39 @@ class ScheduleApi(Api):
         return response.is_ok
 
     async def updates(self):
-        if self.interactor is None or not await self.interactor_valid():
-            await self.interact()
-        
-        url = "ws://" + self.url + f"/updates?key={self.interactor.key}"
-
-        def protocol_factory(*args, **kwargs) -> client.WebSocketClientProtocol:
-            protocol = client.WebSocketClientProtocol()
-            protocol.max_size = 2**48
-            protocol.read_limit = 2**48
-
-            return protocol
-
-        logger.info(f"connecting to {url}")
-        async with client.connect(url, create_protocol=protocol_factory) as socket:
+        while True:
             try:
-                logger.info(f"awaiting updates...")
-                async for message in socket:
-                    notify = Notify.parse_raw(message)
+                if self.interactor is None or not await self.interactor_valid():
+                    await self.interact()
+                
+                url = "ws://" + self.url + f"/updates?key={self.interactor.key}"
 
-                    await self.daily()
-                    await self.weekly()
-            except exceptions.ConnectionClosedError as e:
-                logger.info(e)
-                logger.info("reconnecting...")
-                return await self.updates()
+                def protocol_factory(*args, **kwargs) -> client.WebSocketClientProtocol:
+                    protocol = client.WebSocketClientProtocol()
+                    protocol.max_size = 2**48
+                    protocol.read_limit = 2**48
+
+                    return protocol
+
+                logger.info(f"connecting to {url}")
+
+                async with client.connect(url, create_protocol=protocol_factory) as socket:
+                    try:
+                        logger.info(f"awaiting updates...")
+                        async for message in socket:
+                            notify = Notify.parse_raw(message)
+
+                            await self.daily()
+                            await self.weekly()
+                    except exceptions.ConnectionClosedError as e:
+                        logger.info(e)
+                        logger.info("reconnecting...")
+                        return await self.updates()
+
+            except ClientConnectorError:
+                logger.error(f"can't connect to updates server, retrying in 5s")
+                await asyncio.sleep(5)
+                continue
 
     async def update(self):
         from src.api import Response
