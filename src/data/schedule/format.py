@@ -30,6 +30,8 @@ LITERAL_FORMAT = {
     Format.REMOTE: "дантист"
 }
 
+WINDOW = "🪟 ОКНО ЕБАТЬ (хотя я бы не стал, тыж нехочеш как сын мияги?)"
+
 def keycap_num(num: int) -> str:
     num_str = str(num)
     output = ""
@@ -108,14 +110,28 @@ def subject(
     subject: Subject,
     entries: Optional[set[zoom.Data]]
 ) -> str:
-    num   = keycap_num(subject.num)
-    time  = dashed_time_range(subject.time)
-    name  = subject.name
-    tchrs = teachers(subject.teachers, entries)
+    if subject.is_unknown_window():
+        return f"🔸 {subject.raw}"
+    
+    num     = keycap_num(subject.num)
+    time    = dashed_time_range(subject.time)
+    name    = subject.name
+    tchrs   = teachers(subject.teachers, entries)
+    cabinet = subject.cabinet
 
     joined_tchrs = ", ".join(tchrs)
 
-    return f"{num} {time}: {name} {joined_tchrs}"
+    base = f"{num} {time}: {name}"
+
+    if len(tchrs) > 0:
+        base += " "
+        base += joined_tchrs
+    
+    if cabinet is not None:
+        base += " "
+        base += cabinet
+    
+    return base
 
 def days(
     days: list[Day],
@@ -127,19 +143,24 @@ def days(
         weekday = day.weekday
         dt = date(day.date)
 
-        fmt_subjs: list[tuple[FORMAT_LITERAL, str]] = []
+        fmt_subjs: list[tuple[int, FORMAT_LITERAL, str]] = []
 
         for subj in day.subjects:
-            fmt_subj = subject(subj, entries)
-            fmt_subjs.append((subj.format, fmt_subj))
+            fmt_subj = subject(subj, entries if subj.format == Format.REMOTE else None)
+            fmt_subjs.append((subj.num, subj.format, fmt_subj))
         
         rows: list[str] = []
 
         last_format = None
+        last_num = None
 
-        for (format, fmt) in fmt_subjs:
+        for (num, format, fmt) in fmt_subjs:
             emoji = FORMAT_EMOJIS.get(format)
             literal_format = LITERAL_FORMAT.get(format)
+
+            if last_num is not None and (last_num + 1) != num:
+                fmt_window = text.indent(WINDOW, add_dropdown = True)
+                rows.append(fmt_window)
 
             if last_format != format:
                 last_format = format
@@ -156,6 +177,8 @@ def days(
             elif last_format == format:
                 fmt = text.indent(fmt, add_dropdown = True)
                 rows.append(fmt)
+            
+            last_num = num
         
         fmt_days.append("\n".join(rows))
     

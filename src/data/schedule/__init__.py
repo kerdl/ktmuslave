@@ -99,6 +99,9 @@ class Subject(BaseModel):
     teachers: list[str]
     cabinet: Optional[str]
 
+    def is_unknown_window(self) -> bool:
+        return self.raw != "" and len(self.teachers) < 1
+
 class Day(BaseModel):
     raw: str
     weekday: WEEKDAY_LITERAL
