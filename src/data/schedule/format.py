@@ -1,10 +1,11 @@
 import datetime
 import difflib
+from typing import Optional
 
 from src.data.schedule import Page, Group, Day, Subject, Format, FORMAT_LITERAL
 from src.data.range import Range
 from src.data import zoom
-from src.svc.common import text
+from src import text
 
 KEYCAPS = {
     0: "0️⃣",
@@ -61,9 +62,12 @@ def date(dt: datetime.date) -> str:
 
 def teachers(
     tchrs: list[str],
-    entries: set[zoom.Data]
+    entries: Optional[set[zoom.Data]]
 ) -> list[str]:
-    str_entries = [entry.name.value for entry in entries]
+    if entries is not None:
+        str_entries = [entry.name.value for entry in entries]
+    else:
+        str_entries = []
 
     fmt_teachers: list[str] = []
 
@@ -102,7 +106,7 @@ def teachers(
 
 def subject(
     subject: Subject,
-    entries: set[zoom.Data]
+    entries: Optional[set[zoom.Data]]
 ) -> str:
     num   = keycap_num(subject.num)
     time  = dashed_time_range(subject.time)
@@ -112,19 +116,6 @@ def subject(
     joined_tchrs = ", ".join(tchrs)
 
     return f"{num} {time}: {name} {joined_tchrs}"
-
-def subjects(
-    subjects: list[Subject],
-    entries: set[zoom.Data]
-) -> list[str]:
-
-    fmt_subjects: list[str] = []
-
-    for subj in subjects:
-        fmt_subj = subject(subj, entries)
-        fmt_subjects.append(fmt_subj)
-    
-    return fmt_subjects
 
 def days(
     days: list[Day],

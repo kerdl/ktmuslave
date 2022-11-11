@@ -41,3 +41,37 @@ def shorten(text: str, limit: int = 10) -> str:
         text = text[:limit] + "..."
     
     return text
+
+def chunks_len(chunks: list[str]) -> int:
+    length = 0
+
+    for chunk in chunks:
+        length += len(chunk)
+    
+    return length
+
+def chunks(text: str, limit: int = 4096) -> list[str]:
+    newline_split = text.split("\n")
+    output: list[str] = []
+
+    lines: list[str] = []
+    for (index, line) in enumerate(newline_split):
+        is_last = (index + 1) == len(newline_split)
+
+        if chunks_len(lines) > limit:
+            last_line = lines[-1]
+            del lines[-1]
+
+            output.append("\n".join(lines))
+            lines = []
+            lines.append(last_line)
+            lines.append(line)
+        
+        elif is_last:
+            lines.append(line)
+            output.append("\n".join(lines))
+        
+        else:
+            lines.append(line)
+    
+    return output

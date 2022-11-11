@@ -7,7 +7,7 @@ from dotenv import get_key
 from io import StringIO
 import random
 
-from src import defs
+from src import defs, text
 
 
 async def has_admin_rights(peer_id: int) -> bool:
@@ -27,15 +27,11 @@ async def chunked_send(
     keyboard: Optional[str],
     dont_parse_links: bool = True,
 ) -> list[MessagesSendUserIdsResponseItem]:
-    stream = StringIO(message)
+    chunks = text.chunks(message)
     responses = []
 
-    is_last = False
-
-    while True:
-        chunk = stream.read(4096)
-
-        is_last = len(chunk) < 4096
+    for (index, chunk) in enumerate(chunks):
+        is_last = (index + 1) == len(chunks)
 
         api_responses: list[MessagesSendUserIdsResponseItem] = (
             await defs.vk_bot.api.messages.send(
@@ -51,9 +47,6 @@ async def chunked_send(
 
         responses.append(response)
 
-        if is_last:
-            break
-
     return responses
 
 async def chunked_edit(
@@ -63,18 +56,15 @@ async def chunked_edit(
     keyboard: Optional[str],
     dont_parse_links: bool = True,
 ) -> tuple[BaseBoolInt, list[MessagesSendUserIdsResponseItem]]:
-    stream = StringIO(message)
+    chunks = text.chunks(message)
 
-    is_last = False
     used_first_edit = False
 
     edit_response = None
     sending_responses = []
 
-    while True:
-        chunk = stream.read(4096)
-
-        is_last = len(chunk) < 4096
+    for (index, chunk) in enumerate(chunks):
+        is_last = (index + 1) == len(chunks)
 
         if not used_first_edit:
             response: BaseBoolInt = (
@@ -101,9 +91,6 @@ async def chunked_edit(
             )
 
             sending_responses.append(api_responses[0])
-        
-        if is_last:
-            break
     
     return (edit_response, sending_responses)
     

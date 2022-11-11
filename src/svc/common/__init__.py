@@ -13,7 +13,7 @@ from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
 
 from src import defs
 from src.svc import vk, telegram as tg
-from src.svc.common import text
+from src import text
 from src.svc.common.states import formatter as states_fmt, Values
 from src.svc.common.navigator import Navigator
 from src.svc.common import pagination, messages, error
