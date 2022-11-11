@@ -3,6 +3,7 @@ from typing import Optional, Literal, Union
 from dataclasses import dataclass
 from pydantic import BaseModel
 from websockets import client, exceptions
+from websockets.legacy import client
 
 from src import defs
 from src.api.base import Api
@@ -27,10 +28,11 @@ class Notify(BaseModel):
 class ScheduleApi(Api):
     interactor: Optional[Interactor]
 
-    async def daily(self) -> Page:
-        from src.api import Response
+    last_daily: Optional[Page]
+    last_weekly: Optional[Page]
 
-        url = "http://" + self.url + "/daily"
+    async def schedule(self, url: str) -> Page:
+        from src.api import Response
 
         resp = await defs.http.get(url)
         text = await resp.text()
@@ -38,18 +40,30 @@ class ScheduleApi(Api):
         response = Response.parse_raw(text)
 
         return response.data.page
+
+    async def daily(self) -> Page:
+        url = "http://" + self.url + "/daily"
+        self.last_weekly = await self.schedule(url)
+
+        return self.last_daily
     
     async def weekly(self) -> Page:
-        from src.api import Response
-
         url = "http://" + self.url + "/weekly"
+        self.last_weekly = await self.schedule(url)
 
-        resp = await defs.http.get(url)
-        text = await resp.text()
+        return self.last_weekly
 
-        response = Response.parse_raw(text)
+    async def cached_daily(self) -> Page:
+        if self.last_daily is None:
+            return await self.daily()
 
-        return response.data.page
+        return self.last_daily
+
+    async def cached_weekly(self) -> Page:
+        if self.last_weekly is None:
+            return await self.weekly()
+
+        return self.last_weekly
 
     async def interact(self) -> Interactor:
         from src.api import Response
@@ -87,17 +101,26 @@ class ScheduleApi(Api):
         
         url = "ws://" + self.url + f"/updates?key={self.interactor.key}"
 
+        def protocol_factory(*args, **kwargs) -> client.WebSocketClientProtocol:
+            protocol = client.WebSocketClientProtocol()
+            protocol.max_size = 2**48
+            protocol.read_limit = 2**48
+
+            return protocol
+
         logger.info(f"connecting to {url}")
-        async with client.connect(url) as socket:
-            while True:
-                try:
-                    logger.info(f"awaiting updates...")
-                    message = await socket.recv()
-                    logger.info(f"recv message {message}")
-                except exceptions.ConnectionClosedError as e:
-                    logger.info(e)
-                    logger.info("reconnecting...")
-                    return await self.updates()
+        async with client.connect(url, create_protocol=protocol_factory) as socket:
+            try:
+                logger.info(f"awaiting updates...")
+                async for message in socket:
+                    notify = Notify.parse_raw(message)
+
+                    await self.daily()
+                    await self.weekly()
+            except exceptions.ConnectionClosedError as e:
+                logger.info(e)
+                logger.info("reconnecting...")
+                return await self.updates()
 
     async def update(self):
         from src.api import Response
