@@ -22,7 +22,7 @@ KEYCAPS = {
 
 FORMAT_EMOJIS = {
     Format.FULLTIME: "🏫",
-    Format.REMOTE: "💻"
+    Format.REMOTE: "🛌"
 }
 
 LITERAL_FORMAT = {
@@ -31,6 +31,10 @@ LITERAL_FORMAT = {
 }
 
 WINDOW = "🪟 ОКНО ЕБАТЬ (хотя я бы не стал, тыж нехочеш как сын мияги?)"
+
+
+def zero_at_start(num: int) -> str:
+    return f"0{num}" if len(str(num)) < 2 else str(num)
 
 def keycap_num(num: int) -> str:
     num_str = str(num)
@@ -44,23 +48,17 @@ def keycap_num(num: int) -> str:
     return output
 
 def dashed_time_range(time: Range[datetime.time]):
-    #start = f"{time.start.hour}:{time.start.min}"
-    #end   = f"{time.end.hour}:{time.end.min}"
-    start = time.start
-    end   = time.end
+    start = f"{time.start.hour}:{zero_at_start(time.start.minute)}"
+    end   = f"{time.end.hour}:{zero_at_start(time.end.minute)}"
 
-    return f"{start}-{end}"
+    return f"{start} - {end}"
 
 def date(dt: datetime.date) -> str:
-    str_day = str(dt.day)
-    str_day_w_zero = f"0{str_day}" if len(str_day) < 1 else str_day
-
-    str_month = str(dt.month)
-    str_month_w_zero = f"0{str_month}" if len(str_month) < 1 else str_month
-
+    str_day = zero_at_start(dt.day)
+    str_month = zero_at_start(dt.month)
     str_year = str(dt.year)
 
-    return f"{str_day_w_zero}.{str_month_w_zero}.{str_year}"
+    return f"{str_day}.{str_month}.{str_year}"
 
 def teachers(
     tchrs: list[str],
