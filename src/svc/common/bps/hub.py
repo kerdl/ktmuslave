@@ -59,7 +59,7 @@ async def hub(everything: CommonEverything):
     schedule_text = "ЫЫ ЧО ЗА ХУЙНЯ???"
 
     if ctx.schedule.message.is_weekly:
-        weekly_page = await SCHEDULE_API.weekly()
+        weekly_page = await SCHEDULE_API.cached_weekly()
         users_group = weekly_page.get_group(ctx.settings.group.confirmed)
 
         if users_group is not None:
@@ -70,7 +70,7 @@ async def hub(everything: CommonEverything):
         else:
             schedule_text = "твоей группы нет в недельном расписании ёпта"
     elif ctx.schedule.message.is_daily:
-        daily_page = await SCHEDULE_API.daily()
+        daily_page = await SCHEDULE_API.cached_daily()
         users_group = daily_page.get_group(ctx.settings.group.confirmed)
 
         if users_group is not None:

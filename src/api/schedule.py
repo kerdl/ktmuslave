@@ -43,7 +43,7 @@ class ScheduleApi(Api):
 
     async def daily(self) -> Page:
         url = "http://" + self.url + "/daily"
-        self.last_weekly = await self.schedule(url)
+        self.last_daily = await self.schedule(url)
 
         return self.last_daily
     
@@ -137,4 +137,9 @@ class ScheduleApi(Api):
 
         return response
 
-SCHEDULE_API = ScheduleApi("localhost:8080/schedule", None)
+SCHEDULE_API = ScheduleApi(
+    "localhost:8080/schedule",
+    None,
+    None,
+    None
+)
