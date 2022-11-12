@@ -379,14 +379,15 @@ class CommonMessage(BaseCommonEvent):
         elif self.is_from_tg:
             tg_message = self.tg
 
-            result = await tg_message.answer(
+            result = await tg.chunked_send(
+                chat_id      = tg_message.chat.id,
                 text         = text,
                 reply_markup = keyboard.to_tg() if keyboard else None,
             )
 
-            chat_id = result.chat.id
-            id = result.message_id
-            was_split = False
+            chat_id = result[-1].chat.id
+            id = result[-1].message_id
+            was_split = len(result) > 1
         
         bot_message = CommonBotMessage(
             src         = self.src,
@@ -461,15 +462,17 @@ class CommonBotMessage:
             id = sent_message.conversation_message_id
 
         elif self.is_from_tg:
-            result = await defs.tg_bot.send_message(
+            result = await tg.chunked_send(
                 chat_id                  = self.chat_id,
                 text                     = self.text,
                 reply_markup             = self.keyboard.to_tg(),
                 disable_web_page_preview = True,
             )
 
-            chat_id = result.chat.id
-            id = result.message_id
+            last_message = result[-1]
+
+            chat_id = last_message.chat.id
+            id = last_message.message_id
         
         # copy this instance
         bot_message = deepcopy(self)
@@ -694,13 +697,26 @@ class CommonEvent(BaseCommonEvent):
             chat_id = self.tg.message.chat.id
             message_id = self.tg.message.message_id
 
-            result = await defs.tg_bot.edit_message_text(
-                chat_id                  = chat_id,
-                message_id               = message_id,
-                text                     = text,
-                reply_markup             = keyboard.to_tg() if keyboard else None,
-                disable_web_page_preview = True,
-            )
+            if self.ctx.last_bot_message.was_split:
+                result = await tg.chunked_send(
+                    chat_id = chat_id,
+                    text    = text,
+                    reply_markup= keyboard.to_tg() if keyboard else None
+                )
+
+                message_id = result[-1].message_id
+                was_split = len(result) > 1
+            else:
+                result = await tg.chunked_edit(
+                    chat_id      = chat_id,
+                    message_id   = message_id,
+                    text         = text,
+                    reply_markup = keyboard.to_tg() if keyboard else None,
+                )
+
+                if len(result[1]) > 0:
+                    message_id = result[1][-1].message_id
+                    was_split = True
 
         bot_message = CommonBotMessage(
             src         = self.src,

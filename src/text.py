@@ -52,10 +52,20 @@ def chunks_len(chunks: list[str]) -> int:
 
 def chunks(text: str, limit: int = 4096) -> list[str]:
     newline_split = text.split("\n")
+    shortened_lines = []
+
+    for line in newline_split:
+        while len(line) > limit:
+            short = line[:limit]
+            line = line.removeprefix(short)
+            shortened_lines.append(short)
+        else:
+            shortened_lines.append(line)
+
     output: list[str] = []
 
     lines: list[str] = []
-    for (index, line) in enumerate(newline_split):
+    for (index, line) in enumerate(shortened_lines):
         is_last = (index + 1) == len(newline_split)
 
         if chunks_len(lines) > limit:

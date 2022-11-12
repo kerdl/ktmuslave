@@ -41,6 +41,28 @@ class Defs:
 
     async def init_http(self):
         self.http = ClientSession(loop = self.loop)
+    
+    async def init_schedule_api(self):
+        from src.api.schedule import SCHEDULE_API
+
+        await SCHEDULE_API.daily()
+        await SCHEDULE_API.weekly()
+
+        self.loop.create_task(SCHEDULE_API.updates())
+
+    async def get_vk_bot_info(self):
+        groups_data = await self.vk_bot.api.groups.get_by_id()
+        group_data = groups_data[0]
+
+        self.vk_bot_info = group_data
+        self.vk_bot_mention = "@" + group_data.screen_name
+
+    async def get_tg_bot_info(self):
+        me = await self.tg_bot.get_me()
+        
+        self.tg_bot_info = me
+        #self.tg_bot_mention = "@" + me.username
+        self.tg_bot_mention = "/nigga"
 
     def init_vars(
         self, 
@@ -58,31 +80,11 @@ class Defs:
         self.tg_router = telegram.load_router()
         self.tg_dispatch = telegram.load_dispatch(self.tg_router, init_middlewares)
 
-        async def get_vk_bot_info():
-            groups_data = await self.vk_bot.api.groups.get_by_id()
-            group_data = groups_data[0]
-
-            self.vk_bot_info = group_data
-            self.vk_bot_mention = "@" + group_data.screen_name
-
-        async def get_tg_bot_info():
-            me = await self.tg_bot.get_me()
-            
-            self.tg_bot_info = me
-            #self.tg_bot_mention = "@" + me.username
-            self.tg_bot_mention = "/nigga"
-        
-        async def init_schedule_api():
-            from src.api.schedule import SCHEDULE_API
-
-            await SCHEDULE_API.updates()
-
         self.loop.run_until_complete(self.init_http())
+        self.loop.run_until_complete(self.init_schedule_api())
 
-        self.loop.create_task(get_vk_bot_info())
-        self.loop.create_task(get_tg_bot_info())
-
-        self.loop.create_task(init_schedule_api())
+        self.loop.run_until_complete(self.get_vk_bot_info())
+        self.loop.run_until_complete(self.get_tg_bot_info())
 
         if init_middlewares:
             from src.svc.telegram import middlewares

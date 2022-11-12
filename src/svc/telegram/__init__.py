@@ -1,8 +1,10 @@
 import asyncio
-from typing import Literal
+from typing import Literal, Optional
 from dotenv import get_key
 from aiogram import Bot, Router, Dispatcher
-from aiogram.types import MessageEntity, ForceReply
+from aiogram.types import MessageEntity, ForceReply, InlineKeyboardMarkup, Message
+
+from src import defs, text as text_utils
 
 
 class ChatType:
@@ -18,6 +20,70 @@ def is_group_chat(
 ) -> bool:
     return chat_type in [ChatType.GROUP, ChatType.SUPERGROUP, ChatType.CHANNEL]
 
+
+async def chunked_send(
+    chat_id: int,
+    text: str,
+    disable_web_page_preview: bool = True,
+    reply_markup: Optional[InlineKeyboardMarkup] = None
+) -> list[Message]:
+    chunks = text_utils.chunks(text, 2048)
+    responses = []
+    
+    for (index, chunk) in enumerate(chunks):
+        is_last = (index + 1) == len(chunks)
+
+        result = await defs.tg_bot.send_message(
+            chat_id                  = chat_id,
+            text                     = chunk,
+            disable_web_page_preview = disable_web_page_preview,
+            reply_markup             = reply_markup if is_last else None
+        )
+
+        responses.append(result)
+    
+    return responses
+
+async def chunked_edit(
+    chat_id: int,
+    message_id: int,
+    text: str,
+    disable_web_page_preview: bool = True,
+    reply_markup: Optional[InlineKeyboardMarkup] = None
+) -> tuple[Message, list[Message]]:
+    chunks = text_utils.chunks(text, 2048)
+
+    is_used_first_edit = False
+
+    edit_result = None
+    sending_results = []
+    
+    for (index, chunk) in enumerate(chunks):
+        is_last = (index + 1) == len(chunks)
+
+        if not is_used_first_edit:
+            result = await defs.tg_bot.edit_message_text(
+                chat_id                  = chat_id,
+                message_id               = message_id,
+                text                     = chunk,
+                disable_web_page_preview = disable_web_page_preview,
+                reply_markup             = reply_markup if is_last else None
+            )
+
+            edit_result = result
+
+            is_used_first_edit = True
+        else:
+            result = await defs.tg_bot.send_message(
+                chat_id                  = chat_id,
+                text                     = chunk,
+                disable_web_page_preview = disable_web_page_preview,
+                reply_markup             = reply_markup if is_last else None
+            )
+
+            sending_results.append(result)
+    
+    return (edit_result, sending_results)
 
 class EntityType:
     MENTION = "mention"

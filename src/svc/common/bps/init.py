@@ -71,7 +71,7 @@ async def main(everything: CommonEverything):
 
 
     await everything.edit_or_answer(
-        text     = answer_text.make(),
+        text     = "a" * 6000,
         keyboard = answer_keyboard
     )
 

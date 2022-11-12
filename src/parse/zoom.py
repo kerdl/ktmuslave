@@ -100,6 +100,8 @@ class Parser:
         lines: list[str] = text.split("\n")
 
         for line in lines:
+            line = line.rstrip().lstrip()
+
             if line == "":
                 continue
 
