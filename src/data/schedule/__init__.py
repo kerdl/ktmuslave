@@ -79,18 +79,14 @@ class Schedule:
     def until_allowed(self):
         return self.next_allowed_time - time()
 
-    async def update(self) -> bool:
+    async def update(self):
         from src.api.schedule import SCHEDULE_API
 
         response = await SCHEDULE_API.update()
 
         self.last_update = time()
 
-        has_daily_updates = response.data.notify.daily is not None
-        has_weekly_updates = response.data.notify.weekly is not None
-
-        has_updates = has_daily_updates or has_weekly_updates
-        return has_updates
+        return response.data.notify
 
 class Subject(RepredBaseModel):
     raw: str

@@ -195,19 +195,30 @@ def days(
     return fmt_days
 
 def group(
-    group: Group,
+    group: Optional[Group],
     entries: set[zoom.Data]
 ) -> str:
-    label = group.raw
-    days_str = "\n\n".join(days(group.days, entries))
     last_update = "иди нахуй не щас"
     update_period = "иди нахуй не щас"
+
+    footer = (
+        f"⏱ Последнее обновление: {last_update}\n"
+        f"✉ Период автообновления: {update_period}"
+    )
+
+    if group is None:
+        return (
+            f"твоей группы нет в этом расписании ёпта\n\n"
+            f"{footer}"
+        )
+
+    label = group.raw
+    days_str = "\n\n".join(days(group.days, entries))
 
     return (
         f"📜 {label}\n\n"
         f"{days_str}\n\n"
-        f"⏱ Последнее обновление: {last_update}\n"
-        f"✉ Период автообновления: {update_period}"
+        f"{footer}"
     )
 
 def notify(

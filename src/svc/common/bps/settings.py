@@ -2,6 +2,7 @@ from loguru import logger
 import re
 
 from src import defs
+from src.api.schedule import SCHEDULE_API
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
@@ -12,9 +13,6 @@ from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import Keyboard, Payload
 from src.svc.common import keyboard as kb
-
-
-GROUPS = ["хуй", "соси", "губой", "тряси"]
 
 
 async def auto_route(everything: CommonEverything):
@@ -385,16 +383,6 @@ async def group(everything: CommonEverything):
 
     if ctx.navigator.current != Settings.II_GROUP:
         ctx.navigator.jump_back_to_or_append(Settings.II_GROUP)
-
-
-    #if (everything.is_group_chat and everything.is_from_vk):
-    #    if await everything.vk_has_admin_rights():
-    #        footer_addition = messages.format_reply_to_me()
-    #    else:
-    #        footer_addition = messages.format_mention_me(defs.vk_bot_mention)
-
-    #elif (everything.is_group_chat and everything.is_from_tg):
-    #    footer_addition = messages.format_reply_to_me()
     
     answer_keyboard = Keyboard.default().assign_next(
         kb.NEXT_BUTTON.only_if(is_group_set and not is_from_hub)
@@ -414,7 +402,7 @@ async def group(everything: CommonEverything):
             # send a message saying "your input is invalid"
             answer_text = (
                 messages.Builder()
-                        .add(messages.format_groups(GROUPS))
+                        .add(messages.format_groups(await SCHEDULE_API.groups()))
                         .add(messages.format_invalid_group())
                         .add(footer_addition)
             )
@@ -440,7 +428,7 @@ async def group(everything: CommonEverything):
 
 
         # if this group not in list of all available groups
-        if group_caps not in GROUPS:
+        if group_caps not in await SCHEDULE_API.groups():
             # ask if we should still set this unknown group
             return await to_unknown_group(everything)
 
@@ -455,7 +443,7 @@ async def group(everything: CommonEverything):
 
         answer_text = (
             messages.Builder()
-                    .add(messages.format_groups(GROUPS))
+                    .add(messages.format_groups(await SCHEDULE_API.groups()))
                     .add(messages.format_group_input())
                     .add(footer_addition)
         )

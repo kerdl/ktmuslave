@@ -9,6 +9,7 @@ import asyncio
 
 from src import defs
 from src.api.base import Api
+from src.data import RepredBaseModel
 from src.data.schedule import Page, compare
 
 
@@ -26,12 +27,64 @@ class Notify(BaseModel):
     daily: Optional[compare.PageCompare]
     weekly: Optional[compare.PageCompare]
 
+    def has_any_updates(self):
+        self.daily is not None and self.weekly is not None
+    
+    def has_updates_for_group(self, name: str):
+        for page_compare in [self.daily, self.weekly]:
+            if page_compare is None:
+                continue
+
+            for change in [
+                page_compare.groups.appeared,
+                page_compare.groups.changed
+            ]:
+                for group in change:
+                    group: RepredBaseModel
+
+                    if group.repr_name == name:
+                        return True
+        
+        return False
+
 @dataclass
 class ScheduleApi(Api):
     interactor: Optional[Interactor]
 
     last_daily: Optional[Page]
     last_weekly: Optional[Page]
+
+    async def daily_groups(self) -> list[str]:
+        groups: list[str] = []
+
+        for group in (await self.cached_daily()).groups:
+            groups.append(group.name)
+        
+        return groups
+
+    async def weekly_groups(self) -> list[str]:
+        groups: list[str] = []
+
+        for group in (await self.cached_weekly()).groups:
+            groups.append(group.name)
+        
+        return groups
+
+    async def groups(self) -> list[str]:
+        groups_list: list[str] = []
+
+        daily = await self.daily_groups()
+        weekly = await self.weekly_groups()
+
+        # fuck off about ""sets"", i want shit sorted
+        for weekly_group in weekly:
+            groups_list.append(weekly_group)
+        
+        for daily_group in daily:
+            if daily_group not in groups_list:
+                groups_list.append(daily_group)
+
+        return groups_list
 
     async def schedule(self, url: str) -> Page:
         from src.api import Response

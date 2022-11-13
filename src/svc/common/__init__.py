@@ -80,6 +80,10 @@ class BaseCtx:
     user interacts with OLD messages
     """
 
+    @property
+    def id(self) -> int:
+        raise NotImplemented
+
     def register(self) -> None:
         self.is_registered = True
 
@@ -109,10 +113,18 @@ class VkCtx(BaseCtx):
     """ ## Context specific to VK """
     peer_id: int
 
+    @property
+    def id(self) -> int:
+        return self.peer_id
+
 @dataclass
 class TgCtx(BaseCtx):
     """ ## Context specific to Telegram """
     chat: TgChat
+
+    @property
+    def id(self) -> int:
+        return self.chat.id
 
 @dataclass
 class Ctx:
@@ -172,7 +184,11 @@ class Ctx:
 
         return self.tg[chat.id]
 
-    async def broadcast_mappings(self, mappings: list[BroadcastGroup]):
+    async def broadcast_mappings(
+        self,
+        mappings: list[BroadcastGroup],
+        invoker: Optional[BaseCtx] = None
+    ):
         from src.api.schedule import SCHEDULE_API
 
         groups = [group.name for group in mappings]
@@ -186,13 +202,19 @@ class Ctx:
             storage: dict[int, BaseCtx]
 
             for (chat_id, ctx) in storage.items():
-                user_group = ctx.settings.group.confirmed
-                should_broadcast = ctx.settings.broadcast
-
-                if user_group not in groups:
+                if not ctx.is_registered:
                     continue
 
+                user_group = ctx.settings.group.confirmed
+                should_broadcast = (
+                    ctx.settings.broadcast
+                    if invoker is None or ctx.id != invoker.id else True
+                )
+
                 if not should_broadcast:
+                    continue
+
+                if user_group not in groups:
                     continue
 
                 mappings_to_send = [
@@ -228,7 +250,7 @@ class Ctx:
 
                     ctx.last_bot_message = await message.send()
 
-    async def broadcast(self, notify: Notify):
+    async def broadcast(self, notify: Notify, invoker: Optional[BaseCtx] = None):
         from src.data.schedule.compare import GroupCompare, ChangeType
 
         TYPES = {
@@ -277,7 +299,7 @@ class Ctx:
 
                     mappings.append(BroadcastGroup(name, header, sc_type))
         
-        await self.broadcast_mappings(mappings)
+        await self.broadcast_mappings(mappings, invoker)
 
 
 ctx = Ctx({}, {})

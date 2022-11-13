@@ -5,7 +5,7 @@ import re
 from src import defs
 from src.api.schedule import SCHEDULE_API
 from src.parse import pattern
-from src.svc.common import CommonEverything, messages
+from src.svc.common import CommonEverything, messages, ctx as global_ctx
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
 from src.data.schedule import format as sc_format
@@ -21,14 +21,16 @@ async def update(everything: CommonEverything):
     ctx = everything.ctx
 
     if ctx.schedule.can_update:
-        has_updates = await ctx.schedule.update()
+        notify = await ctx.schedule.update()
 
         message = messages.format_no_updates()
 
-        if has_updates:
+        if notify.has_updates_for_group(ctx.settings.group.confirmed):
             message = messages.format_updates_sent()
 
         await everything.event.show_notification(message)
+
+        await global_ctx.broadcast(notify, invoker = ctx)
     else:
         await everything.event.show_notification(
             messages.format_too_fast_retry_after(int(ctx.schedule.until_allowed))
@@ -62,24 +64,14 @@ async def hub(everything: CommonEverything):
         weekly_page = await SCHEDULE_API.cached_weekly()
         users_group = weekly_page.get_group(ctx.settings.group.confirmed)
 
-        if users_group is not None:
-            schedule_text = sc_format.group(
-                users_group,
-                ctx.settings.zoom.entries.set
-            )
-        else:
-            schedule_text = "твоей группы нет в недельном расписании ёпта"
     elif ctx.schedule.message.is_daily:
         daily_page = await SCHEDULE_API.cached_daily()
         users_group = daily_page.get_group(ctx.settings.group.confirmed)
 
-        if users_group is not None:
-            schedule_text = sc_format.group(
-                users_group,
-                ctx.settings.zoom.entries.set
-            )
-        else:
-            schedule_text = "твоей группы нет в дневном расписании ёпта"
+    schedule_text = sc_format.group(
+        users_group,
+        ctx.settings.zoom.entries.set
+    )
 
     answer_text = (
         messages.Builder()
