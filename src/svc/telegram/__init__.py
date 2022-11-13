@@ -27,7 +27,7 @@ async def chunked_send(
     disable_web_page_preview: bool = True,
     reply_markup: Optional[InlineKeyboardMarkup] = None
 ) -> list[Message]:
-    chunks = text_utils.chunks(text, 2048)
+    chunks = text_utils.chunks(text)
     responses = []
     
     for (index, chunk) in enumerate(chunks):
@@ -51,7 +51,7 @@ async def chunked_edit(
     disable_web_page_preview: bool = True,
     reply_markup: Optional[InlineKeyboardMarkup] = None
 ) -> tuple[Message, list[Message]]:
-    chunks = text_utils.chunks(text, 2048)
+    chunks = text_utils.chunks(text)
 
     is_used_first_edit = False
 

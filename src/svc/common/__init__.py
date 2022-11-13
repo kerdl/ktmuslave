@@ -228,7 +228,7 @@ class Ctx:
                     elif mapping.sc_type == Type.WEEKLY:
                         page = await SCHEDULE_API.cached_weekly()
 
-                    fmt_schedule: str = sc_format.group(
+                    fmt_schedule: str = await sc_format.group(
                         page.get_group(mapping.name),
                         ctx.settings.zoom.entries.set
                     )
@@ -240,7 +240,12 @@ class Ctx:
                         text     = whole_text,
                         keyboard = kb.Keyboard([
                             [kb.UPDATE_BUTTON],
-                            [kb.SETTINGS_BUTTON]
+                            [kb.SETTINGS_BUTTON],
+                            [
+                                SCHEDULE_API.ft_daily_url_button(),
+                                SCHEDULE_API.ft_weekly_url_button()
+                            ],
+                            [SCHEDULE_API.r_weekly_url_button()],
                         ], add_back = False),
                         src      = src,
                         chat_id  = chat_id

@@ -68,7 +68,7 @@ async def hub(everything: CommonEverything):
         daily_page = await SCHEDULE_API.cached_daily()
         users_group = daily_page.get_group(ctx.settings.group.confirmed)
 
-    schedule_text = sc_format.group(
+    schedule_text = await sc_format.group(
         users_group,
         ctx.settings.zoom.entries.set
     )
@@ -83,7 +83,12 @@ async def hub(everything: CommonEverything):
         #[kb.FOLD_BUTTON.only_if(is_unfolded)],
         #[kb.UNFOLD_BUTTON.only_if(is_folded)],
         [kb.UPDATE_BUTTON],
-        [kb.SETTINGS_BUTTON]
+        [kb.SETTINGS_BUTTON],
+        [
+            SCHEDULE_API.ft_daily_url_button(),
+            SCHEDULE_API.ft_weekly_url_button()
+        ],
+        [SCHEDULE_API.r_weekly_url_button()],
     ], add_back = False)
 
     return await everything.edit_or_answer(

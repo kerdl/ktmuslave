@@ -45,6 +45,12 @@ class Defs:
     async def init_schedule_api(self):
         from src.api.schedule import SCHEDULE_API
 
+        await SCHEDULE_API.last_update()
+        await SCHEDULE_API.update_period()
+        await SCHEDULE_API.ft_daily_friendly_url()
+        await SCHEDULE_API.ft_weekly_friendly_url()
+        await SCHEDULE_API.r_weekly_friendly_url()
+
         await SCHEDULE_API.daily()
         await SCHEDULE_API.weekly()
 

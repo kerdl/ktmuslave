@@ -3,6 +3,8 @@ from typing import ClassVar, Iterable, TypeVar, Generic, Optional, Generator, An
 from dataclasses import dataclass, field
 from pydantic import BaseModel
 
+from . import format as fmt
+
 
 T = TypeVar("T")
 
@@ -36,6 +38,14 @@ class RepredBaseModel(BaseModel):
     @property
     def repr_name(self) -> str: ...
 
+
+class Duration(BaseModel):
+    secs: int
+    nanos: int
+
+    def __str__(self) -> str:
+        """as minutes"""
+        return str(int(self.secs / 60))
 
 
 class Emoji:
@@ -84,7 +94,7 @@ class Field(Generic[T], Repred):
             base_formatted = VALUE_FIELD_FMT.format(
                 emoji = emoji, 
                 name  = name, 
-                value = common.messages.value_repr(self.value),
+                value = fmt.value_repr(self.value),
             )
         else:
             base_formatted = FIELD_FMT.format(

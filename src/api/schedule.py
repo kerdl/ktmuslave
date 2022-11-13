@@ -1,16 +1,19 @@
 from loguru import logger
-from typing import Optional, Literal, Union
+from typing import Optional, Literal, Union, Callable, Awaitable
 from dataclasses import dataclass
 from pydantic import BaseModel
 from websockets import client, exceptions
 from websockets.legacy import client
 from aiohttp.client_exceptions import ClientConnectorError
+from aiohttp import ClientResponse
 import asyncio
+import datetime
 
 from src import defs
 from src.api.base import Api
-from src.data import RepredBaseModel
+from src.data import RepredBaseModel, Duration
 from src.data.schedule import Page, compare
+from src.svc.common import keyboard as kb
 
 
 AUTO_LITERAL = Literal["auto"]
@@ -49,10 +52,40 @@ class Notify(BaseModel):
 
 @dataclass
 class ScheduleApi(Api):
-    interactor: Optional[Interactor]
+    interactor: Optional[Interactor] = None
 
-    last_daily: Optional[Page]
-    last_weekly: Optional[Page]
+    _last_daily: Optional[Page] = None
+    _last_weekly: Optional[Page] = None
+
+    _ft_daily_friendly_url: Optional[str] = None
+    _ft_weekly_friendly_url: Optional[str] = None
+    _r_weekly_friendly_url: Optional[str] = None
+
+    _ft_daily_url_button: Optional[kb.Button] = None
+    _ft_weekly_url_button: Optional[kb.Button] = None
+    _r_weekly_url_button: Optional[kb.Button] = None
+
+    _update_period: Optional[Duration] = None
+
+    async def _req(self, url: str, method: Callable[[str], Awaitable[ClientResponse]]):
+        from src.api import Response
+
+        resp = await method(url)
+
+        if resp.status != 200:
+            raise BaseException(f"aaaa nigga status is {resp.status}")
+
+        resp_text = await resp.text()
+
+        response = Response.parse_raw(resp_text)
+
+        return response
+
+    async def _get(self, url: str):
+        return await self._req(url, defs.http.get)
+
+    async def _post(self, url: str):
+        return await self._req(url, defs.http.post)
 
     async def daily_groups(self) -> list[str]:
         groups: list[str] = []
@@ -87,46 +120,108 @@ class ScheduleApi(Api):
         return groups_list
 
     async def schedule(self, url: str) -> Page:
-        from src.api import Response
         while True:
             try:
-                resp = await defs.http.get(url)
+                response = await self._get(url)
                 break
             except ClientConnectorError:
                 logger.error(f"can't fetch {url}, retrying in 5s")
                 await asyncio.sleep(5)
                 continue
 
-        text = await resp.text()
-
-        response = Response.parse_raw(text)
-
         return response.data.page
 
     async def daily(self) -> Page:
         url = "http://" + self.url + "/daily"
-        self.last_daily = await self.schedule(url)
+        self._last_daily = await self.schedule(url)
 
-        return self.last_daily
+        return self._last_daily
     
     async def weekly(self) -> Page:
         url = "http://" + self.url + "/weekly"
-        self.last_weekly = await self.schedule(url)
+        self._last_weekly = await self.schedule(url)
 
-        return self.last_weekly
+        return self._last_weekly
 
     async def cached_daily(self) -> Page:
-        if self.last_daily is None:
+        if self._last_daily is None:
             return await self.daily()
 
-        return self.last_daily
+        return self._last_daily
 
     async def cached_weekly(self) -> Page:
-        if self.last_weekly is None:
+        if self._last_weekly is None:
             return await self.weekly()
 
-        return self.last_weekly
+        return self._last_weekly
 
+    async def get_url(self, url: str) -> str:
+        return (await self._get(url)).data.url
+
+    async def last_update(self) -> datetime.datetime:
+        url = "http://" + self.url + "/update/last"
+
+        return (await self._get(url)).data.last_update
+
+    async def update_period(self) -> Duration:
+        url = "http://" + self.url + "/update/period"
+
+        if self._update_period is None:
+            self._update_period = (await self._get(url)).data.period
+        
+        return self._update_period
+
+    async def ft_daily_friendly_url(self) -> str:
+        url = "http://" + self.url + "/raw/ft_daily/friendly_url"
+
+        if self._ft_daily_friendly_url is None:
+            self._ft_daily_friendly_url = await self.get_url(url)
+
+        return self._ft_daily_friendly_url
+
+    async def ft_weekly_friendly_url(self) -> str:
+        url = "http://" + self.url + "/raw/ft_weekly/friendly_url"
+
+        if self._ft_weekly_friendly_url is None:
+            self._ft_weekly_friendly_url = await self.get_url(url)
+
+        return self._ft_weekly_friendly_url
+
+    async def r_weekly_friendly_url(self) -> str:
+        url = "http://" + self.url + "/raw/r_weekly/friendly_url"
+
+        if self._r_weekly_friendly_url is None:
+            self._r_weekly_friendly_url = await self.get_url(url)
+
+        return self._r_weekly_friendly_url
+
+    def ft_daily_url_button(self) -> kb.Button:
+        if self._ft_daily_url_button is None:
+            self._ft_daily_url_button = kb.Button(
+                text = "Очн. день",
+                url  = self._ft_daily_friendly_url
+            )
+        
+        return self._ft_daily_url_button
+
+    def ft_weekly_url_button(self) -> kb.Button:
+        if self._ft_weekly_url_button is None:
+            self._ft_weekly_url_button = kb.Button(
+                text = "Очн. нед.",
+                url  = self._ft_weekly_friendly_url
+            )
+        
+        return self._ft_weekly_url_button
+
+    def r_weekly_url_button(self) -> kb.Button:
+        if self._r_weekly_url_button is None:
+            self._r_weekly_url_button = kb.Button(
+                text = "Дист. нед.",
+                url  = self._r_weekly_friendly_url
+            )
+        
+        return self._r_weekly_url_button    
+    
     async def interact(self) -> Interactor:
         from src.api import Response
 
@@ -134,28 +229,16 @@ class ScheduleApi(Api):
 
         logger.info("getting schedule updates key")
 
-        resp = await defs.http.get(url)
-        text = await resp.text()
-
-        response = Response.parse_raw(text)
-
-        self.interactor = response.data.interactor
+        self.interactor = (await self._get(url)).data.interactor
 
         logger.info(f"we got key {self.interactor.key}")
 
         return self.interactor
 
     async def interactor_valid(self) -> bool:
-        from src.api import Response
-
         url = "http://" + self.url + f"/interact/is-valid?key={self.interactor.key}"
 
-        resp = await defs.http.get(url)
-        text = await resp.text()
-
-        response = Response.parse_raw(text)
-
-        return response.is_ok
+        return (await self._get(url)).is_ok
 
     async def updates(self):
         from src.svc.common import ctx
@@ -197,23 +280,13 @@ class ScheduleApi(Api):
                 continue
 
     async def update(self):
-        from src.api import Response
-
         if self.interactor is None or not await self.interactor_valid():
             await self.interact()
 
         url = "http://" + self.url + f"/update?key={self.interactor.key}"
 
-        resp = await defs.http.post(url)
-        text = await resp.text()
-
-        response = Response.parse_raw(text)
+        response = await self._post(url)
 
         return response
 
-SCHEDULE_API = ScheduleApi(
-    "localhost:8080/schedule",
-    None,
-    None,
-    None
-)
+SCHEDULE_API = ScheduleApi("localhost:8080/schedule")

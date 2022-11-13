@@ -194,22 +194,24 @@ def days(
     
     return fmt_days
 
-def group(
+async def group(
     group: Optional[Group],
     entries: set[zoom.Data]
 ) -> str:
-    last_update = "иди нахуй не щас"
-    update_period = "иди нахуй не щас"
+    from src.api.schedule import SCHEDULE_API
 
-    footer = (
+    last_update   = await SCHEDULE_API.last_update()
+    update_period = await SCHEDULE_API.update_period()
+
+    update_params = (
         f"⏱ Последнее обновление: {last_update}\n"
-        f"✉ Период автообновления: {update_period}"
+        f"✉ Период автообновления: {update_period} мин"
     )
 
     if group is None:
         return (
             f"твоей группы нет в этом расписании ёпта\n\n"
-            f"{footer}"
+            f"{update_params}"
         )
 
     label = group.raw
@@ -218,7 +220,7 @@ def group(
     return (
         f"📜 {label}\n\n"
         f"{days_str}\n\n"
-        f"{footer}"
+        f"{update_params}"
     )
 
 def notify(

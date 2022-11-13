@@ -5,6 +5,7 @@ from typing import Literal
 from vkbottle import (
     Keyboard as VkKeyboard, 
     Callback as VkCallback,
+    OpenLink as VkLink,
     KeyboardButtonColor as VkColor
 )
 from aiogram.types import (
@@ -140,8 +141,9 @@ class Button:
     """ # Represents a common button """
     text: str
     """ ## Button text """
-    callback: str
+    callback: Optional[str] = None
     """ ## Payload that will be sent on press """
+    url: Optional[str] = None
     color: Optional[COLOR_LITERAL] = None
     """ ## Controls tilt angle on `Messerschmitt Me 262` """
 
@@ -290,7 +292,13 @@ class Keyboard:
                     continue
 
                 color = Color.to_vk(button.color)
-                vk_kb.add(VkCallback(button.text, {CMD: button.callback}), color=color)
+                
+                if button.callback is not None:
+                    vk_kb.add(VkCallback(button.text, {CMD: button.callback}), color=color)
+                elif button.url is not None:
+                    vk_kb.add(VkLink(button.url, button.text))
+                else:
+                    raise ValueError("NO CALLBACK? NO URL?")
             
             if not is_last:
                 vk_kb.row()
@@ -315,7 +323,13 @@ class Keyboard:
                 if button is None:
                     continue
 
-                tg_btn = TgInlineButton(text=button.text, callback_data=button.callback)
+                if button.callback is not None:
+                    tg_btn = TgInlineButton(text=button.text, callback_data=button.callback)
+                elif button.url is not None:
+                    tg_btn = TgInlineButton(text=button.text, url=button.url)
+                else:
+                    raise ValueError("NO CALLBACK? NO URL?")
+    
                 current_row.append(tg_btn)
             
             tg_schema.append(current_row)
@@ -325,34 +339,34 @@ class Keyboard:
         return tg_kb
 
 
-TRUE_BUTTON       = Button(Text.TRUE, Payload.TRUE, Color.GREEN)
-FALSE_BUTTON      = Button(Text.FALSE, Payload.FALSE, Color.RED)
-BACK_BUTTON       = Button(Text.BACK, Payload.BACK)
-NEXT_BUTTON       = Button(Text.NEXT, Payload.NEXT)
-SKIP_BUTTON       = Button(Text.SKIP, Payload.SKIP)
-ADD_BUTTON        = Button(Text.ADD, Payload.ADD, Color.GREEN)
-ADD_ALL_BUTTON    = Button(Text.ADD_ALL, Payload.ADD_ALL, Color.GREEN)
-CONFIRM_BUTTON    = Button(Text.CONFIRM, Payload.CONFIRM, Color.GREEN)
-NULL_BUTTON       = Button(Text.NULL, Payload.NULL, Color.RED)
-REMOVE_BUTTON     = Button(Text.REMOVE, Payload.REMOVE, Color.RED)
-REMOVE_ALL_BUTTON = Button(Text.REMOVE_ALL, Payload.REMOVE_ALL, Color.RED)
-CLEAR_BUTTON      = Button(Text.CLEAR, Payload.CLEAR, Color.RED)
+TRUE_BUTTON       = Button(text = Text.TRUE,       callback = Payload.TRUE,       color = Color.GREEN)
+FALSE_BUTTON      = Button(text = Text.FALSE,      callback = Payload.FALSE,      color = Color.RED)
+BACK_BUTTON       = Button(text = Text.BACK,       callback = Payload.BACK)
+NEXT_BUTTON       = Button(text = Text.NEXT,       callback = Payload.NEXT)
+SKIP_BUTTON       = Button(text = Text.SKIP,       callback = Payload.SKIP)
+ADD_BUTTON        = Button(text = Text.ADD,        callback = Payload.ADD,        color = Color.GREEN)
+ADD_ALL_BUTTON    = Button(text = Text.ADD_ALL,    callback = Payload.ADD_ALL,    color = Color.GREEN)
+CONFIRM_BUTTON    = Button(text = Text.CONFIRM,    callback = Payload.CONFIRM,    color = Color.GREEN)
+NULL_BUTTON       = Button(text = Text.NULL,       callback = Payload.NULL,       color = Color.RED)
+REMOVE_BUTTON     = Button(text = Text.REMOVE,     callback = Payload.REMOVE,     color = Color.RED)
+REMOVE_ALL_BUTTON = Button(text = Text.REMOVE_ALL, callback = Payload.REMOVE_ALL, color = Color.RED)
+CLEAR_BUTTON      = Button(text = Text.CLEAR,      callback = Payload.CLEAR,      color = Color.RED)
 
-BEGIN_BUTTON      = Button(Text.BEGIN, Payload.BEGIN)
-DO_PIN_BUTTON     = Button(Text.DO_PIN, Payload.DO_PIN, Color.GREEN)
-FROM_TEXT_BUTTON  = Button(Text.FROM_TEXT, Payload.FROM_TEXT, Color.GREEN)
-MANUALLY_BUTTON   = Button(Text.MANUALLY, Payload.MANUALLY, Color.BLUE)
-NEXT_ZOOM_BUTTON  = Button(Text.NEXT, Payload.NEXT_ZOOM)
-FINISH_BUTTON     = Button(Text.FINISH, Payload.FINISH)
+BEGIN_BUTTON      = Button(text = Text.BEGIN,      callback = Payload.BEGIN)
+DO_PIN_BUTTON     = Button(text = Text.DO_PIN,     callback = Payload.DO_PIN,     color = Color.GREEN)
+FROM_TEXT_BUTTON  = Button(text = Text.FROM_TEXT,  callback = Payload.FROM_TEXT,  color = Color.GREEN)
+MANUALLY_BUTTON   = Button(text = Text.MANUALLY,   callback = Payload.MANUALLY,   color = Color.BLUE)
+NEXT_ZOOM_BUTTON  = Button(text = Text.NEXT,       callback = Payload.NEXT_ZOOM)
+FINISH_BUTTON     = Button(text = Text.FINISH,     callback = Payload.FINISH)
 
-WEEKLY_BUTTON     = Button(Text.WEEKLY, Payload.WEEKLY, Color.BLUE)
-DAILY_BUTTON      = Button(Text.DAILY, Payload.DAILY, Color.BLUE)
-FOLD_BUTTON       = Button(Text.FOLD, Payload.FOLD, Color.BLUE)
-UNFOLD_BUTTON     = Button(Text.UNFOLD, Payload.UNFOLD, Color.BLUE)
-UPDATE_BUTTON     = Button(Text.UPDATE, Payload.UPDATE, Color.BLUE)
-SETTINGS_BUTTON   = Button(Text.SETTINGS, Payload.SETTINGS)
+WEEKLY_BUTTON     = Button(text = Text.WEEKLY,     callback = Payload.WEEKLY,     color = Color.BLUE)
+DAILY_BUTTON      = Button(text = Text.DAILY,      callback = Payload.DAILY,      color = Color.BLUE)
+FOLD_BUTTON       = Button(text = Text.FOLD,       callback = Payload.FOLD,       color = Color.BLUE)
+UNFOLD_BUTTON     = Button(text = Text.UNFOLD,     callback = Payload.UNFOLD,     color = Color.BLUE)
+UPDATE_BUTTON     = Button(text = Text.UPDATE,     callback = Payload.UPDATE,     color = Color.BLUE)
+SETTINGS_BUTTON   = Button(text = Text.SETTINGS,   callback = Payload.SETTINGS)
 
-GROUP_BUTTON      = Button(Text.GROUP, Payload.GROUP, Color.BLUE)
-BROADCAST_BUTTON  = Button(Text.BROADCAST, Payload.BROADCAST, Color.BLUE)
-PIN_BUTTON        = Button(Text.PIN, Payload.PIN, Color.BLUE)
-ZOOM_BUTTON       = Button(Text.ZOOM, Payload.ZOOM, Color.BLUE)
+GROUP_BUTTON      = Button(text = Text.GROUP,      callback = Payload.GROUP,      color = Color.BLUE)
+BROADCAST_BUTTON  = Button(text = Text.BROADCAST,  callback = Payload.BROADCAST,  color = Color.BLUE)
+PIN_BUTTON        = Button(text = Text.PIN,        callback = Payload.PIN,        color = Color.BLUE)
+ZOOM_BUTTON       = Button(text = Text.ZOOM,       callback = Payload.ZOOM,       color = Color.BLUE)
