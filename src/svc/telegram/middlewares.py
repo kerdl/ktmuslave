@@ -4,7 +4,7 @@ from typing import Callable, Any, Awaitable, Optional
 
 from src import defs
 from src.svc import telegram as tg
-from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages, keyboard as kb
+from src.svc.common import CommonMessage, CommonEvent, CommonEverything, messages, keyboard as kb
 from src.svc.common.states.tree import Init, Settings, Hub
 
 
@@ -110,10 +110,14 @@ class CtxCheck:
         logger.info("CtxCheck")
 
         chat = get_chat(event)
-        user_ctx = ctx.tg.get(chat.id)
+
+        if chat is None:
+            return
+
+        user_ctx = defs.ctx.tg.get(chat.id)
 
         if user_ctx is None:
-            user_ctx = ctx.add_tg(chat)
+            user_ctx = defs.ctx.add_tg(chat)
 
         return await handler(event, data)
 
@@ -128,7 +132,7 @@ class Throttling:
 
         chat = get_chat(event)
 
-        chat_ctx = ctx.tg.get(chat.id)
+        chat_ctx = defs.ctx.tg.get(chat.id)
         await chat_ctx.throttle()
 
         return await handler(event, data)

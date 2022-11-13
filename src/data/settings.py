@@ -31,7 +31,7 @@ class Settings(Values):
     def get_from_state(self, state: State) -> Any:
         VALUES = {
             SettingsTree.II_GROUP:       self.group.confirmed,
-            SettingsTree.II_BROADCAST:     self.broadcast,
+            SettingsTree.II_BROADCAST:   self.broadcast,
             SettingsTree.III_SHOULD_PIN: self.should_pin,
             SettingsTree.II_ZOOM:        len(self.zoom.entries) if self.zoom.is_finished else None
         }

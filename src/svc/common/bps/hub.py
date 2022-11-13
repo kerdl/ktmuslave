@@ -5,7 +5,7 @@ import re
 from src import defs
 from src.api.schedule import SCHEDULE_API
 from src.parse import pattern
-from src.svc.common import CommonEverything, messages, ctx as global_ctx
+from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
 from src.data.schedule import format as sc_format
@@ -30,7 +30,7 @@ async def update(everything: CommonEverything):
 
         await everything.event.show_notification(message)
 
-        await global_ctx.broadcast(notify, invoker = ctx)
+        await defs.ctx.broadcast(notify, invoker = ctx)
     else:
         await everything.event.show_notification(
             messages.format_too_fast_retry_after(int(ctx.schedule.until_allowed))
@@ -50,6 +50,7 @@ async def switch_to_daily(everything: CommonEverything):
 
     return await hub(everything)
 
+@r.on_message(StateFilter(Hub.I_MAIN))
 async def hub(everything: CommonEverything):
     ctx = everything.ctx
 

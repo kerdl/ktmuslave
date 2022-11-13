@@ -66,15 +66,12 @@ class ScheduleApi(Api):
     _r_weekly_url_button: Optional[kb.Button] = None
 
     _update_period: Optional[Duration] = None
+    _last_update: Optional[datetime.datetime] = None
 
     async def _req(self, url: str, method: Callable[[str], Awaitable[ClientResponse]]):
         from src.api import Response
 
         resp = await method(url)
-
-        if resp.status != 200:
-            raise BaseException(f"aaaa nigga status is {resp.status}")
-
         resp_text = await resp.text()
 
         response = Response.parse_raw(resp_text)
@@ -158,10 +155,13 @@ class ScheduleApi(Api):
     async def get_url(self, url: str) -> str:
         return (await self._get(url)).data.url
 
-    async def last_update(self) -> datetime.datetime:
+    async def last_update(self, force: bool = False) -> datetime.datetime:
         url = "http://" + self.url + "/update/last"
 
-        return (await self._get(url)).data.last_update
+        if force or self._last_update is None:
+            self._last_update = (await self._get(url)).data.last_update
+
+        return self._last_update
 
     async def update_period(self) -> Duration:
         url = "http://" + self.url + "/update/period"
@@ -241,8 +241,6 @@ class ScheduleApi(Api):
         return (await self._get(url)).is_ok
 
     async def updates(self):
-        from src.svc.common import ctx
-
         while True:
             try:
                 if self.interactor is None or not await self.interactor_valid():
@@ -263,12 +261,14 @@ class ScheduleApi(Api):
                     try:
                         logger.info(f"awaiting updates...")
                         async for message in socket:
+                            await self.last_update(force=True)
+
                             notify = Notify.parse_raw(message)
 
                             await self.daily()
                             await self.weekly()
 
-                            await ctx.broadcast(notify)
+                            await defs.ctx.broadcast(notify)
                     except exceptions.ConnectionClosedError as e:
                         logger.info(e)
                         logger.info("reconnecting...")

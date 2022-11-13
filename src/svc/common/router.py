@@ -118,7 +118,12 @@ class Router:
 
                 for filter_ in handler.filters:
                     # call the filter
-                    result = await filter_(everything)
+                    try:
+                        result = await filter_(everything)
+                    except RecursionError as e:
+                        logger.error(f"at filter {filter_}")
+                        logger.error(f"at handler {handler}")
+                        raise e
                     filter_results.append(result)
                 
                 # if all filters were passed

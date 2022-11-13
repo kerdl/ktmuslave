@@ -6,10 +6,13 @@ import random
 from typing import Any, Literal, Optional, Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from vkbottle import ShowSnackbarEvent
+from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
+from aiogram.exceptions import TelegramBadRequest
+import pickle
+import aiofiles
 
 from src import defs
 from src.svc import vk, telegram as tg
@@ -255,6 +258,9 @@ class Ctx:
 
                     ctx.last_bot_message = await message.send()
 
+                    if ctx.settings.should_pin:
+                        await ctx.last_bot_message.pin()
+
     async def broadcast(self, notify: Notify, invoker: Optional[BaseCtx] = None):
         from src.data.schedule.compare import GroupCompare, ChangeType
 
@@ -305,9 +311,42 @@ class Ctx:
                     mappings.append(BroadcastGroup(name, header, sc_type))
         
         await self.broadcast_mappings(mappings, invoker)
+    
+    async def save(self):
+        """
+        i dont care about nigger databases rn, shut up
+        """
+        async with aiofiles.open(defs.data_dir.joinpath("ctx.bin"), mode="wb") as f:
+            dump = pickle.dumps(self)
+            await f.write(dump)
+    
+    def poll_save(self):
+        asyncio.get_event_loop().create_task(self.save())
 
+    async def save_forever(self):
+        while True:
+            await asyncio.sleep(10 * 60)
+            await self.save()
 
-ctx = Ctx({}, {})
+    @classmethod
+    def load(cls) -> Ctx:
+        path = defs.data_dir.joinpath("ctx.bin")
+
+        with open(path, mode="rb") as f:
+            self: Ctx = pickle.load(f)
+            return self
+
+    @classmethod
+    def load_or_init(cls: type[Ctx]) -> Ctx:
+        path = defs.data_dir.joinpath("ctx.bin")
+
+        if not path.exists():
+            self = cls(vk={}, tg={})
+            self.poll_save()
+
+            return self
+        else:
+            return cls.load()
 
 class Source:
     """
@@ -341,11 +380,11 @@ class BaseCommonEvent:
     
     @property
     def vk_ctx(self) -> VkCtx:
-        return ctx.vk.get(self.chat_id)
+        return defs.ctx.vk.get(self.chat_id)
     
     @property
     def tg_ctx(self) -> TgCtx:
-        return ctx.tg.get(self.chat_id)
+        return defs.ctx.tg.get(self.chat_id)
 
     @property
     def ctx(self) -> BaseCtx:
@@ -636,6 +675,26 @@ class CommonBotMessage:
 
         return bot_message
     
+    async def pin(self):
+        if self.is_from_vk:
+            try:
+                await defs.vk_bot.api.messages.pin(
+                    peer_id                 = self.chat_id,
+                    conversation_message_id = self.id
+                )
+            # You are not admin of this chat
+            except VKAPIError[925]:
+                pass
+
+        elif self.is_from_tg:
+            try:
+                await defs.tg_bot.pin_chat_message(
+                    chat_id    = self.chat_id,
+                    message_id = self.id
+                )
+            except TelegramBadRequest:
+                pass
+    
     def __str__(self) -> str:
         # all fields of this class as string
         attrs: list[str] = []
@@ -890,7 +949,7 @@ class CommonEvent(BaseCommonEvent):
         tree_values: Optional[Values] = None
     ):
         """
-        ## Edit message by id inside event
+        ## Send message by id inside event
         """
 
         base_lvl = 1
@@ -1137,4 +1196,6 @@ def run_forever():
         loop.run_forever()
     except KeyboardInterrupt:
         logger.info("keyboard interrupt")
+
+        loop.run_until_complete(defs.ctx.save())
     

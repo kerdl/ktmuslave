@@ -3,7 +3,7 @@ from vkbottle.bot import Message
 
 from src import defs
 from src.svc import vk
-from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages
+from src.svc.common import CommonMessage, CommonEvent, CommonEverything, messages
 from src.svc.common import keyboard as kb
 from src.svc.common.states.tree import Init, Settings, Hub
 from .types import RawEvent
@@ -62,13 +62,13 @@ class CtxCheckRaw(BaseMiddleware[RawEvent]):
         peer_id = event_object["peer_id"]
         from_id = event_object["user_id"]
 
-        user_ctx = ctx.vk.get(peer_id)
+        user_ctx = defs.ctx.vk.get(peer_id)
 
         if user_ctx is None:
-            user_ctx = ctx.add_vk(peer_id)
+            user_ctx = defs.ctx.add_vk(peer_id)
 
-        if not vk.is_group_chat(peer_id, from_id):
-            user_ctx.navigator.ignored.add(Settings.III_SHOULD_PIN)
+            if not vk.is_group_chat(peer_id, from_id):
+                user_ctx.navigator.ignored.add(Settings.III_SHOULD_PIN)
 
 class CtxCheckMessage(BaseMiddleware[Message]):
     """
@@ -79,10 +79,10 @@ class CtxCheckMessage(BaseMiddleware[Message]):
         peer_id = self.event.peer_id
         from_id = self.event.from_id
 
-        user_ctx = ctx.vk.get(peer_id)
+        user_ctx = defs.ctx.vk.get(peer_id)
 
         if user_ctx is None:
-            user_ctx = ctx.add_vk(peer_id)
+            user_ctx = defs.ctx.add_vk(peer_id)
 
 class CommonMessageMaker(BaseMiddleware[Message]):
     """
@@ -122,10 +122,14 @@ class OldMessagesBlock(BaseMiddleware[RawEvent]):
     ### It's a `raw_event` middleware
     """
     async def pre(self):
-        user_ctx = ctx.vk.get(self.event["object"]["peer_id"])
+        user_ctx = defs.ctx.vk.get(self.event["object"]["peer_id"])
 
         this_message_id = self.event["object"]["conversation_message_id"]
-        last_message_id = user_ctx.last_bot_message.id
+    
+        if user_ctx.last_bot_message is not None:
+            last_message_id = user_ctx.last_bot_message.id
+        else:
+            self.stop("no last bot message")
 
         async def send_snackbar(text: str):
             await defs.vk_bot.api.messages.send_message_event_answer(

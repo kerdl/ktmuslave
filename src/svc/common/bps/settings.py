@@ -142,6 +142,8 @@ async def to_add_zoom(everything: CommonEverything):
     PayloadFilter(Payload.DO_PIN)
 )
 async def check_do_pin(everything: CommonEverything):
+    ctx = everything.ctx
+
     if not await everything.can_pin():
         answer_text = messages.format_cant_pin(everything.src)
 
@@ -150,6 +152,7 @@ async def check_do_pin(everything: CommonEverything):
             await event.show_notification(answer_text)
 
     else:
+        ctx.settings.should_pin = True
         return await auto_route(everything)
 
 @r.on_callback(

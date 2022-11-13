@@ -72,7 +72,7 @@ def tree(navigator: Navigator, values: Optional[Values] = None, base_lvl: int = 
             if values:
                 value = values.get_from_state(state)
 
-                if isinstance(value, bool):
+                if value is not None:
                     value = fmt.value_repr(value)
 
             if state == current_state:

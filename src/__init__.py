@@ -1,6 +1,6 @@
 import sys
 import asyncio
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from vkbottle import Bot as VkBot
 from vkbottle_types.responses.groups import GroupsGroupFull
 from aiogram import Bot as TgBot, Dispatcher, Router
@@ -9,6 +9,9 @@ from aiohttp import ClientSession
 from loguru import logger
 from dataclasses import dataclass
 from pathlib import Path
+
+if TYPE_CHECKING:
+    from src.svc.common import Ctx
 
 
 @dataclass
@@ -29,6 +32,7 @@ class Defs:
     tg_dispatch: Optional[Dispatcher] = None
 
     http: Optional[ClientSession] = None
+    ctx: Optional["Ctx"] = None
 
     def init_all(
         self, 
@@ -45,11 +49,15 @@ class Defs:
     async def init_schedule_api(self):
         from src.api.schedule import SCHEDULE_API
 
-        await SCHEDULE_API.last_update()
+        await SCHEDULE_API.last_update(force=True)
         await SCHEDULE_API.update_period()
         await SCHEDULE_API.ft_daily_friendly_url()
         await SCHEDULE_API.ft_weekly_friendly_url()
         await SCHEDULE_API.r_weekly_friendly_url()
+
+        SCHEDULE_API.ft_daily_url_button()
+        SCHEDULE_API.ft_weekly_url_button()
+        SCHEDULE_API.r_weekly_url_button()
 
         await SCHEDULE_API.daily()
         await SCHEDULE_API.weekly()
@@ -99,6 +107,11 @@ class Defs:
             from src.svc.common.bps import settings, init, zoom, hub
             from src.svc.common.router import r
             r.assign()
+        
+        from src.svc.common import Ctx
+
+        self.ctx = Ctx.load_or_init()
+        self.loop.create_task(self.ctx.save_forever())
 
     def init_fs(self) -> None:
         self.data_dir = Path(".", "data")

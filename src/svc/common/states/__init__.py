@@ -38,6 +38,8 @@ SPACE_LITERAL = Literal["init", "hub", "zoom"]
 class Values:
     def get_from_state(self, state: State): ...
 
+def default_action(everything: common.CommonEverything) -> None: ...
+
 
 @dataclass
 class State:
@@ -91,31 +93,31 @@ class State:
     - `II_GARBAGE` -> no childs
     """
 
-    on_enter: Callable[[common.CommonEverything], None] = lambda every: None
+    on_enter: Callable[[common.CommonEverything], None] = default_action
     """
     # Executes
     - when `navigator` enters this state
     for the first time (it wasn't in trace)
     """
-    on_traced_enter: Callable[[common.CommonEverything], None] = lambda every: None
+    on_traced_enter: Callable[[common.CommonEverything], None] = default_action
     """
     # Executes
     - when `navigator` enters this state
     by going back (it was in trace)
     """
-    on_exit: Callable[[common.CommonEverything], None] = lambda every: None
+    on_exit: Callable[[common.CommonEverything], None] = default_action
     """
     # Executes
     - when `navigator` exits this state
     by going back (it does not remain in trace)
     """
-    on_traced_exit: Callable[[common.CommonEverything], None] = lambda every: None
+    on_traced_exit: Callable[[common.CommonEverything], None] = default_action
     """
     # Executes
     - when `navigator` exits this state
     by going further (it remains in trace)
     """
-    on_delete: Callable[[common.CommonEverything], None] = lambda every: None
+    on_delete: Callable[[common.CommonEverything], None] = default_action
     """
     # Executes
     - when `navigator` deletes this state
