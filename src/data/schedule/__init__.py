@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, validator
 from time import time
 
+from src.data import RepredBaseModel
 from src.data.weekday import WEEKDAY_LITERAL
 from src.data.schedule import raw
 from src.data.range import Range
@@ -91,7 +92,7 @@ class Schedule:
         has_updates = has_daily_updates or has_weekly_updates
         return has_updates
 
-class Subject(BaseModel):
+class Subject(RepredBaseModel):
     raw: str
     num: int
     time: Range[datetime.time]
@@ -103,16 +104,28 @@ class Subject(BaseModel):
     def is_unknown_window(self) -> bool:
         return self.raw != "" and len(self.teachers) < 1
 
-class Day(BaseModel):
+    @property
+    def repr_name(self) -> str:
+        return self.name
+
+class Day(RepredBaseModel):
     raw: str
     weekday: WEEKDAY_LITERAL
     date: datetime.date
     subjects: list[Subject]
 
-class Group(BaseModel):
+    @property
+    def repr_name(self) -> str:
+        return self.weekday
+
+class Group(RepredBaseModel):
     raw: str
     name: str
     days: list[Day]
+
+    @property
+    def repr_name(self) -> str:
+        return self.name
 
 class Page(BaseModel):
     raw: str

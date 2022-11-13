@@ -4,8 +4,10 @@ from vkbottle.bot import Message
 from src import defs
 from src.svc import vk
 from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages
-from src.svc.common.states.tree import Init, Settings
+from src.svc.common import keyboard as kb
+from src.svc.common.states.tree import Init, Settings, Hub
 from .types import RawEvent
+from . import keyboard as vk_kb
 
 
 class BotMentionFilter(BaseMiddleware[Message]):
@@ -125,14 +127,28 @@ class OldMessagesBlock(BaseMiddleware[RawEvent]):
         this_message_id = self.event["object"]["conversation_message_id"]
         last_message_id = user_ctx.last_bot_message.id
 
-        if this_message_id != last_message_id:
-
+        async def send_snackbar(text: str):
             await defs.vk_bot.api.messages.send_message_event_answer(
                 event_id   = self.event["object"]["event_id"],
                 user_id    = self.event["object"]["user_id"],
                 peer_id    = self.event["object"]["peer_id"],
-                event_data = ShowSnackbarEvent(text=messages.format_cant_press_old_buttons())
+                event_data = ShowSnackbarEvent(text=text)
             )
+
+        if this_message_id != last_message_id:
+            payload = self.event["object"]["payload"]
+
+            if vk_kb.payload_eq(payload, kb.Payload.UPDATE):
+                return
+
+            elif vk_kb.payload_eq(payload, kb.Payload.SETTINGS):
+                user_ctx.navigator.jump_back_to_or_append(Hub.I_MAIN)
+                user_ctx.last_bot_message.can_edit = False
+                await send_snackbar(messages.format_sent_as_new_message())
+
+                return
+
+            await send_snackbar(messages.format_cant_press_old_buttons())
 
             # send last bot message again
             user_ctx.last_bot_message = await user_ctx.last_bot_message.send()

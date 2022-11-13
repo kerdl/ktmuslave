@@ -4,8 +4,8 @@ from typing import Callable, Any, Awaitable, Optional
 
 from src import defs
 from src.svc import telegram as tg
-from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages
-from src.svc.common.states.tree import Init, Settings
+from src.svc.common import ctx, CommonMessage, CommonEvent, CommonEverything, messages, keyboard as kb
+from src.svc.common.states.tree import Init, Settings, Hub
 
 
 def get_chat(event: Update) -> Optional[Chat]:
@@ -192,6 +192,19 @@ class OldMessagesBlock:
         last_message_id = common_event.ctx.last_bot_message.id
 
         if this_message_id != last_message_id:
+
+            if common_event.payload == kb.Payload.UPDATE:
+                return await handler(event, data)
+
+            elif common_event.payload == kb.Payload.SETTINGS:
+                user_ctx.navigator.jump_back_to_or_append(Hub.I_MAIN)
+                user_ctx.last_bot_message.can_edit = False
+
+                await common_event.show_notification(
+                    messages.format_sent_as_new_message()
+                )
+
+                return await handler(event, data)
 
             await common_event.show_notification(
                 messages.format_cant_press_old_buttons()

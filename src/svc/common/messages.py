@@ -100,6 +100,11 @@ CANT_PRESS_OLD_BUTTONS = (
 def format_cant_press_old_buttons():
     return CANT_PRESS_OLD_BUTTONS
 
+SENT_AS_NEW_MESSAGE = (
+    "Отправлено новым сообщением"
+)
+def format_sent_as_new_message():
+    return SENT_AS_NEW_MESSAGE
 
 EMPTY_PAGE = (
     "🤔 | Пока сюда нихуя не завезли"
