@@ -100,7 +100,6 @@ class BaseCtx:
 
         if next_allowed_time > current_time:
             # then throttle
-            logger.warning("TROLLING")
             sleep_secs_until_allowed: float = next_allowed_time - current_time
 
             await asyncio.sleep(sleep_secs_until_allowed)

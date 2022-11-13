@@ -151,8 +151,6 @@ class Throttling:
         event: Update,
         data: dict[str, Any]
     ):
-        return await handler(event, data)
-
         chat = get_chat(event)
 
         chat_ctx = defs.ctx.tg.get(chat.id)

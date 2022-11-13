@@ -119,6 +119,16 @@ class CtxCheckMessage(BaseMiddleware[Message]):
         if user_ctx is None:
             user_ctx = defs.ctx.add_vk(peer_id)
 
+class ThrottleRaw(BaseMiddleware[RawEvent]):
+    async def pre(self):
+        chat_ctx = defs.ctx.vk.get(self.event["object"]["peer_id"])
+        await chat_ctx.throttle()
+
+class ThrottleMessage(BaseMiddleware[Message]):
+    async def pre(self):
+        chat_ctx = defs.ctx.vk.get(self.event.peer_id)
+        await chat_ctx.throttle()
+
 class CommonMessageMaker(BaseMiddleware[Message]):
     """
     ## Makes `CommonMessage` from vk message and sends it to a handler

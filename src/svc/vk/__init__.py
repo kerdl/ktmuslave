@@ -131,6 +131,8 @@ def load(loop = None) -> Bot:
         BotMentionFilter,
         CtxCheckRaw,
         CtxCheckMessage,
+        ThrottleRaw,
+        ThrottleMessage,
         CommonMessageMaker,
         CommonEventMaker,
         OldMessagesBlock
@@ -140,12 +142,14 @@ def load(loop = None) -> Bot:
         LogMessage,
         BotMentionFilter,
         CtxCheckMessage,
+        ThrottleMessage,
         CommonMessageMaker,
     ]
 
     raw_event_view_middlewares = [
         LogRaw,
         CtxCheckRaw,
+        ThrottleRaw,
         CommonEventMaker,
         OldMessagesBlock
     ]
