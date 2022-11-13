@@ -1,4 +1,4 @@
-# KTMU slave (WIP)
+# KTMU slave
 
 Bot for schedule from https://ktmu-sutd.ru/
 
@@ -10,7 +10,4 @@ and converts it to a more convenient form,
 that this bot understands
 
 # Depends on
-[ktmuscrap (WIP)](https://github.com/kerdl/ktmuscrap) - the parser itself
-
-
-## currently WIP
+[ktmuscrap](https://github.com/kerdl/ktmuscrap) - the parser itself
