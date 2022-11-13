@@ -47,12 +47,12 @@ def tree(navigator: Navigator, values: Optional[Values] = None, base_lvl: int = 
     ignored = navigator.ignored
 
     current_state = navigator.current
-    tree = current_state.tree
+    tree = navigator.current_tree
     last_lvl = base_lvl
     last_branch: list[State] = []
     was_in_last_branch = False
 
-    for i, tree_state in enumerate(tree):
+    for i, tree_state in enumerate(tree.__states__):
         if tree_state in ignored:
             continue
 

@@ -59,6 +59,10 @@ class Navigator:
             return None
 
         return self.trace[-1]
+    
+    @property
+    def current_tree(self) -> tree.Tree:
+        return getattr(tree, self.current.tree.upper())
 
     @property
     def first(self) -> Optional[State]:

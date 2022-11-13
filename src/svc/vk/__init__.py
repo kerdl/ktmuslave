@@ -23,8 +23,8 @@ async def has_admin_rights(peer_id: int) -> bool:
 
 async def chunked_send(
     peer_id: int,
-    message: Optional[str],
-    keyboard: Optional[str],
+    message: Optional[str] = None,
+    keyboard: Optional[str] = None,
     dont_parse_links: bool = True,
 ) -> list[MessagesSendUserIdsResponseItem]:
     chunks = text.chunks(message)

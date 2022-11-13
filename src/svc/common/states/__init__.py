@@ -54,7 +54,7 @@ class State:
     ## In other words
     - can you go here by pressing `next` button?
     """
-    tree: Optional[Tree] = None
+    tree: Optional[str] = None
     """
     # Where this state is located
     """
@@ -152,7 +152,7 @@ class Tree:
                 return parent_trace[-1]
 
         for anchor, state in filtered_states:
-            state.tree = self
+            state.tree = type(self).__name__
             state.space = self.__space__
             state.anchor = anchor
             state.level = self.__level__(anchor)

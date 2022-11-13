@@ -7,11 +7,34 @@ from aiogram import Bot as TgBot, Dispatcher, Router
 from aiogram.types import User
 from aiohttp import ClientSession
 from loguru import logger
+from loguru._handler import Message
 from dataclasses import dataclass
 from pathlib import Path
+from dotenv import get_key
 
 if TYPE_CHECKING:
     from src.svc.common import Ctx
+
+
+def sink(message: Message):
+    record = message.record
+
+    if record["exception"]:
+        from src.svc import vk
+
+        exc = record["exception"]
+        
+        async def send_error():
+            admin_id = get_key(".env", "VK_ADMIN")
+
+            await vk.chunked_send(
+                peer_id = admin_id,
+                message = str(exc),
+            )
+
+        defs.loop.create_task(send_error())
+
+    print(message, end="")
 
 
 @dataclass
@@ -39,9 +62,13 @@ class Defs:
         init_handlers: bool = True,
         init_middlewares: bool = True,
     ) -> None:
+        self.init_loop()
         self.init_logger()
         self.init_fs()
         self.init_vars(init_handlers, init_middlewares)
+
+    def init_loop(self):
+        self.loop = asyncio.get_event_loop()
 
     async def init_http(self):
         self.http = ClientSession(loop = self.loop)
@@ -88,7 +115,6 @@ class Defs:
         """
         from src.svc import vk, telegram
 
-        self.loop = asyncio.get_event_loop()
         self.vk_bot = vk.load(self.loop)
         self.tg_bot = telegram.load_bot(self.loop)
         self.tg_router = telegram.load_router()
@@ -117,8 +143,7 @@ class Defs:
         self.data_dir = Path(".", "data")
         self.data_dir.mkdir(exist_ok=True)
 
-    @staticmethod
-    def init_logger() -> None:
+    def init_logger(self) -> None:
         """
         ## Init `loguru` with custom sink and format
         """
@@ -129,9 +154,9 @@ class Defs:
         "| <level>{level: ^8}</> "
         "| <level>{message}</> "
         "(<c>{name}:{function}</>)")
-        
+
         logger.add(
-            sys.stdout,
+            sink,
             format=fmt, 
             backtrace=True, 
             diagnose=True, 
