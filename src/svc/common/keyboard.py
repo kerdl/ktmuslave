@@ -15,7 +15,7 @@ from aiogram.types import (
 from dataclasses import dataclass
 
 from src.svc import common
-from src.data import Emojized, Repred, Translated, Field, Emoji
+from src.data import Emojized, Repred, Translated, Field, Emoji, format as fmt
 from src.svc.vk.keyboard import CMD
 
 
@@ -153,7 +153,7 @@ class Button:
             return None
     
     def with_value(self, value: Any) -> Button:
-        value_repr = common.messages.value_repr(value)
+        value_repr = fmt.value_repr(value)
 
         copied_self = deepcopy(self)
         copied_self.text += f": {value_repr}"

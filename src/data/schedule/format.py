@@ -1,10 +1,12 @@
 import datetime
 import difflib
-from typing import Optional
+from typing import Optional, Any, Union
+from pydantic import BaseModel
 
+from src.data.schedule.compare import GroupCompare, Changes, PrimitiveChange
 from src.data.schedule import Page, Group, Day, Subject, Format, FORMAT_LITERAL
 from src.data.range import Range
-from src.data import zoom
+from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt
 from src import text
 
 KEYCAPS = {
@@ -31,10 +33,26 @@ LITERAL_FORMAT = {
 }
 
 WINDOW = "🪟 ОКНО ЕБАТЬ (хотя я бы не стал, тыж нехочеш как сын мияги?)"
+UNKNOWN_WINDOW = "🔸 {}"
 
 
-def zero_at_start(num: int) -> str:
-    return f"0{num}" if len(str(num)) < 2 else str(num)
+# HAHAHAHA PENIS HAHAHAHHAHAHAHAHAHAHHAHAHAHAHA
+APPEAR     = "+ {}"
+DISAPPEAR  = "− {}"
+CHANGE     = "• {}"
+PRIMITIVE = "{} → {}"
+# ⠀⠀⠀⠀⠀⢰⡿⠋⠁⠀⠀⠈⠉⠙⠻⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⢀⣿⠇⠀⢀⣴⣶⡾⠿⠿⠿⢿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⣀⣀⣸⡿⠀⠀⢸⣿⣇⠀⠀⠀⠀⠀⠀⠙⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⣾⡟⠛⣿⡇⠀⠀⢸⣿⣿⣷⣤⣤⣤⣤⣶⣶⣿⠇⠀⠀⠀⠀⠀⠀⠀⣀⠀⠀
+# ⢀⣿⠀⢀⣿⡇⠀⠀⠀⠻⢿⣿⣿⣿⣿⣿⠿⣿⡏⠀⠀⠀⠀⢴⣶⣶⣿⣿⣿⣆
+# ⢸⣿⠀⢸⣿⡇⠀⠀⠀⠀⠀⠈⠉⠁⠀⠀⠀⣿⡇⣀⣠⣴⣾⣮⣝⠿⠿⠿⣻⡟
+# ⢸⣿⠀⠘⣿⡇⠀⠀⠀⠀⠀⠀⠀⣠⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁⠉⠀
+# ⠸⣿⠀⠀⣿⡇⠀⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⠀⠀⠀⠀
+# ⠀⠻⣷⣶⣿⣇⠀⠀⠀⢠⣼⣿⣿⣿⣿⣿⣿⣿⣛⣛⣻⠉⠁⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⢸⣿⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⢸⣿⣀⣀⣀⣼⡿⢿⣿⣿⣿⣿⣿⡿⣿⣿⡿
+
 
 def keycap_num(num: int) -> str:
     num_str = str(num)
@@ -47,15 +65,9 @@ def keycap_num(num: int) -> str:
     
     return output
 
-def dashed_time_range(time: Range[datetime.time]):
-    start = f"{time.start.hour}:{zero_at_start(time.start.minute)}"
-    end   = f"{time.end.hour}:{zero_at_start(time.end.minute)}"
-
-    return f"{start} - {end}"
-
 def date(dt: datetime.date) -> str:
-    str_day = zero_at_start(dt.day)
-    str_month = zero_at_start(dt.month)
+    str_day = fmt.zero_at_start(dt.day)
+    str_month = fmt.zero_at_start(dt.month)
     str_year = str(dt.year)
 
     return f"{str_day}.{str_month}.{str_year}"
@@ -109,10 +121,10 @@ def subject(
     entries: Optional[set[zoom.Data]]
 ) -> str:
     if subject.is_unknown_window():
-        return f"🔸 {subject.raw}"
+        return UNKNOWN_WINDOW.format(subject.raw)
     
     num     = keycap_num(subject.num)
-    time    = dashed_time_range(subject.time)
+    time    = str(subject.time)
     name    = subject.name
     tchrs   = teachers(subject.teachers, entries)
     cabinet = subject.cabinet
@@ -194,7 +206,50 @@ def group(
     return (
         f"📜 {label}\n\n"
         f"{days_str}\n\n"
-        f"⏱ {last_update}\n"
-        f"✉ {update_period}"
+        f"⏱ Последнее обновление: {last_update}\n"
+        f"✉ Период автообновления: {update_period}"
     )
 
+def notify(
+    compare: Union[TranslatedBaseModel, RepredBaseModel]
+) -> str:
+    rows: list[str] = []
+
+    for field in compare:
+        key = field[0]
+        value = field[1]
+
+        if isinstance(value, Changes):
+            for appeared in value.appeared:
+                if isinstance(appeared, RepredBaseModel):
+                    rows.append(APPEAR.format(appeared.repr_name))
+
+            for disappeared in value.disappeared:
+                if isinstance(disappeared, RepredBaseModel):
+                    rows.append(DISAPPEAR.format(disappeared.repr_name))
+
+            for changed in value.changed:
+                if (
+                    isinstance(changed, TranslatedBaseModel)
+                    and isinstance(changed, RepredBaseModel)
+                ):
+                    compared = notify(changed)
+                    indented_compared = text.indent(compared, width = 2, add_dropdown = True)
+                    name = changed.repr_name
+
+                    if compared == "":
+                        formatted = CHANGE.format(name)
+                    else:
+                        formatted = f"{CHANGE.format(name)}\n{indented_compared}"
+
+                    rows.append(formatted)
+
+        elif isinstance(value, PrimitiveChange):
+            old = fmt.value_repr(value.old)
+            new = fmt.value_repr(value.new)
+
+            rows.append(
+                f"{compare.translate(key)}: {PRIMITIVE.format(old, new)}"
+            )
+    
+    return "\n".join(rows)

@@ -506,10 +506,16 @@ async def main(everything: CommonEverything):
         [kb.ZOOM_BUTTON.with_value(len(ctx.settings.zoom.entries))]
     ])
 
-    return await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard
-    )
+    if ctx.last_bot_message.can_edit:
+        return await everything.edit_or_answer(
+            text     = answer_text.make(),
+            keyboard = answer_keyboard
+        )
+    else:
+        return await everything.answer(
+            text     = answer_text.make(),
+            keyboard = answer_keyboard
+        )
 
 @r.on_callback(
     StateFilter(Hub.I_MAIN),

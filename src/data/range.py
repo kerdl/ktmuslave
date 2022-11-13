@@ -1,9 +1,24 @@
+import datetime
 from typing import Generic, TypeVar
-from pydantic import BaseModel
+from pydantic.generics import GenericModel
+
+from src.data import format as fmt
 
 
 T = TypeVar("T")
 
-class Range(BaseModel, Generic[T]):
+class Range(GenericModel, Generic[T]):
     start: T
     end: T
+
+    def __str__(self) -> str:
+        if (
+            isinstance(self.start, datetime.time)
+            and isinstance(self.end, datetime.time)
+        ):
+            start = f"{self.start.hour}:{fmt.zero_at_start(self.start.minute)}"
+            end   = f"{self.end.hour}:{fmt.zero_at_start(self.end.minute)}"
+
+            return f"{start} - {end}"
+
+        return f"{self.start} - {self.end}"

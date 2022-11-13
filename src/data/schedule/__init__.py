@@ -4,6 +4,7 @@ from typing import Literal, Optional, TypeVar
 from dataclasses import dataclass
 from pydantic import BaseModel, validator
 from time import time
+
 from src.data.weekday import WEEKDAY_LITERAL
 from src.data.schedule import raw
 from src.data.range import Range
@@ -98,17 +99,6 @@ class Subject(BaseModel):
     format: FORMAT_LITERAL
     teachers: list[str]
     cabinet: Optional[str]
-
-    @validator("time")
-    def parse_time(cls, value: Range[str]) -> Range[datetime.time]:
-        def parse(string: str) -> datetime.time:
-            (hour, minute, second) = string.split(":")
-            return datetime.time(int(hour), int(minute), int(second))
-        
-        return Range(
-            start = parse(value.start),
-            end   = parse(value.end)
-        )
 
     def is_unknown_window(self) -> bool:
         return self.raw != "" and len(self.teachers) < 1

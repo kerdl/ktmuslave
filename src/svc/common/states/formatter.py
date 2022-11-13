@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from src.svc.common import messages
+from src.data import format as fmt
 from src.svc.common.navigator import Navigator
 from src.svc.common.states import State, Values
 
@@ -73,7 +73,7 @@ def tree(navigator: Navigator, values: Optional[Values] = None, base_lvl: int = 
                 value = values.get_from_state(state)
 
                 if isinstance(value, bool):
-                    value = messages.value_repr(value)
+                    value = fmt.value_repr(value)
 
             if state == current_state:
                 return current(state, value)

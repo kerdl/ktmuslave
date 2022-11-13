@@ -3,7 +3,7 @@ from loguru import logger
 import time
 import asyncio
 import random
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from vkbottle import ShowSnackbarEvent
@@ -15,18 +15,29 @@ from src import defs
 from src.svc import vk, telegram as tg
 from src import text
 from src.svc.common.states import formatter as states_fmt, Values
+from src.svc.common.states.tree import Hub
 from src.svc.common.navigator import Navigator
 from src.svc.common import pagination, messages, error
 from src.svc.vk.types import RawEvent
-from src.svc.common.keyboard import Keyboard
+from src.svc.common import keyboard as kb
 from src.data import zoom
-from src.data.schedule import Schedule
+from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL
 from src.data.settings import Settings, Group
+from src.api.schedule import Notify
 from .states.tree import Init, Hub, Space
 
 
 @dataclass
+class BroadcastGroup:
+    name: str
+    header: str
+    sc_type: TYPE_LITERAL
+
+
+@dataclass
 class BaseCtx:
+    is_registered: bool
+
     navigator: Navigator
     """ # `Back`, `next` buttons tracer """
     settings: Settings
@@ -69,6 +80,8 @@ class BaseCtx:
     user interacts with OLD messages
     """
 
+    def register(self) -> None:
+        self.is_registered = True
 
     async def throttle(self) -> None:
         """ ## Stop executing for a short period to avoid rate limit """
@@ -122,6 +135,7 @@ class Ctx:
         pages = pagination.Container.default()
 
         self.vk[peer_id] = VkCtx(
+            is_registered    = False,
             navigator        = navigator, 
             settings         = settings, 
             schedule         = schedule,
@@ -143,6 +157,7 @@ class Ctx:
         pages = pagination.Container.default()
 
         self.tg[chat.id] = TgCtx(
+            is_registered    = False,
             navigator        = navigator, 
             settings         = settings, 
             schedule         = schedule,
@@ -156,6 +171,114 @@ class Ctx:
         logger.info("created ctx for tg {}", chat.id)
 
         return self.tg[chat.id]
+
+    async def broadcast_mappings(self, mappings: list[BroadcastGroup]):
+        from src.api.schedule import SCHEDULE_API
+
+        groups = [group.name for group in mappings]
+
+        CTX_TYPES = {
+            Source.VK: self.vk,
+            Source.TG: self.tg
+        }
+
+        for (src, storage) in CTX_TYPES.items():
+            storage: dict[int, BaseCtx]
+
+            for (chat_id, ctx) in storage.items():
+                user_group = ctx.settings.group.confirmed
+                should_broadcast = ctx.settings.broadcast
+
+                if user_group not in groups:
+                    continue
+
+                if not should_broadcast:
+                    continue
+
+                mappings_to_send = [
+                    mapping for mapping in mappings if mapping.name == user_group
+                ]
+                
+                for mapping in mappings_to_send:
+                    if mapping.sc_type == Type.DAILY:
+                        page = await SCHEDULE_API.cached_daily()
+
+                    elif mapping.sc_type == Type.WEEKLY:
+                        page = await SCHEDULE_API.cached_weekly()
+
+                    fmt_schedule: str = sc_format.group(
+                        page.get_group(mapping.name),
+                        ctx.settings.zoom.entries.set
+                    )
+
+                    whole_text = f"{mapping.header}\n\n{fmt_schedule}"
+
+                    message = CommonBotMessage(
+                        can_edit = False,
+                        text     = whole_text,
+                        keyboard = kb.Keyboard([
+                            [kb.UPDATE_BUTTON],
+                            [kb.SETTINGS_BUTTON]
+                        ], add_back = False),
+                        src      = src,
+                        chat_id  = chat_id
+                    )
+
+                    ctx.navigator.jump_back_to_or_append(Hub.I_MAIN)
+
+                    ctx.last_bot_message = await message.send()
+
+    async def broadcast(self, notify: Notify):
+        from src.data.schedule.compare import GroupCompare, ChangeType
+
+        TYPES = {
+            Type.WEEKLY: notify.weekly,
+            Type.DAILY:  notify.daily
+        }
+
+        mappings: list[BroadcastGroup] = []
+
+        for (sc_type, page_compare) in TYPES.items():
+            if sc_type == Type.WEEKLY:
+                repr_type = "недельном"
+            elif sc_type == Type.DAILY:
+                repr_type = "дневном"
+
+            CHANGE_TYPES = {
+                ChangeType.APPEARED: page_compare.groups.appeared if page_compare else None,
+                ChangeType.CHANGED:  page_compare.groups.changed if page_compare else None
+            }
+
+            for (change, groups) in CHANGE_TYPES.items():
+                if groups is None:
+                    continue
+
+                if change == ChangeType.APPEARED:
+                    groups: list[Group]
+                    repr_change = "появилась"
+
+                elif change == ChangeType.CHANGED:
+                    groups: list[GroupCompare]
+                    repr_change = "изменилась"
+                    
+                header = f"Группа {repr_change} в {repr_type}"
+
+                for group in groups:
+                    name = group.repr_name
+                    
+                    if change == ChangeType.APPEARED:
+                        fmt_changes = None
+                    elif change == ChangeType.CHANGED:
+                        fmt_changes = sc_format.notify(group)
+
+                    if fmt_changes is not None:
+                        header += "\n\n"
+                        header += fmt_changes
+
+                    mappings.append(BroadcastGroup(name, header, sc_type))
+        
+        await self.broadcast_mappings(mappings)
+
 
 ctx = Ctx({}, {})
 
@@ -346,7 +469,7 @@ class CommonMessage(BaseCommonEvent):
     async def answer(
         self,
         text: str,
-        keyboard: Optional[Keyboard] = None,
+        keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
         tree_values: Optional[Values] = None
     ):
@@ -411,7 +534,7 @@ class CommonBotTemplate:
     - used to construct pages from massive data
     """
     text: str
-    keyboard: Keyboard
+    keyboard: kb.Keyboard
 
 @dataclass
 class CommonBotMessage:
@@ -423,21 +546,24 @@ class CommonBotMessage:
     a button in an old message and, if so, 
     resend THIS instance
     """
-    text: str
-    keyboard: Keyboard
 
-    add_tree: bool
+    text: str
+    keyboard: kb.Keyboard
+
+    can_edit: bool = True
+
+    add_tree: bool = False
     """ ## If we should add tree of states on top of text """
-    tree_values: Optional[Values]
+    tree_values: Optional[Values] = None
     """ ## Optional values to write at the right of each state """
 
-    src: Optional[MESSENGER_SOURCE]
+    src: Optional[MESSENGER_SOURCE] = None
     """ ## For which messenger this message is """
-    chat_id: Optional[int]
+    chat_id: Optional[int] = None
     """ ## For which chat this message is """
-    id: Optional[int]
+    id: Optional[int] = None
     """ ## ID of this exact message """
-    was_split: Optional[bool]
+    was_split: Optional[bool] = None
 
     @property
     def is_from_vk(self):
@@ -641,7 +767,7 @@ class CommonEvent(BaseCommonEvent):
     async def edit_message(
         self,
         text: str, 
-        keyboard: Optional[Keyboard] = None,
+        keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
         tree_values: Optional[Values] = None
     ):
@@ -664,7 +790,6 @@ class CommonEvent(BaseCommonEvent):
         was_split = False
 
         if self.is_from_vk:
-
             chat_id = self.vk["object"]["peer_id"]
             message_id = self.vk["object"]["conversation_message_id"]
 
@@ -693,7 +818,6 @@ class CommonEvent(BaseCommonEvent):
                     was_split = True
         
         elif self.is_from_tg:
-
             chat_id = self.tg.message.chat.id
             message_id = self.tg.message.message_id
 
@@ -717,6 +841,71 @@ class CommonEvent(BaseCommonEvent):
                 if len(result[1]) > 0:
                     message_id = result[1][-1].message_id
                     was_split = True
+
+        bot_message = CommonBotMessage(
+            src         = self.src,
+            chat_id     = chat_id,
+            id          = message_id,
+            was_split   = was_split,
+            text        = text,
+            keyboard    = keyboard,
+            add_tree    = add_tree,
+            tree_values = tree_values
+        )
+
+        self.ctx.last_bot_message = bot_message
+
+    async def send_message(
+        self,
+        text: str, 
+        keyboard: Optional[kb.Keyboard] = None,
+        add_tree: bool = False,
+        tree_values: Optional[Values] = None
+    ):
+        """
+        ## Edit message by id inside event
+        """
+
+        base_lvl = 1
+
+        if Space.INIT in self.ctx.navigator.spaces:
+            base_lvl = 2
+
+        text = self.preprocess_text(
+            text        = text, 
+            add_tree    = add_tree, 
+            tree_values = tree_values,
+            base_lvl    = base_lvl
+        )
+
+        was_split = False
+
+        if self.is_from_vk:
+            chat_id = self.vk["object"]["peer_id"]
+            message_id = self.vk["object"]["conversation_message_id"]
+
+            result = await vk.chunked_send(
+                peer_id          = chat_id,
+                message          = text,
+                keyboard         = keyboard.to_vk().get_json() if keyboard else None,
+                dont_parse_links = True,
+            )
+
+            message_id = result[-1].conversation_message_id
+            was_split = len(result) > 1
+        
+        elif self.is_from_tg:
+            chat_id = self.tg.message.chat.id
+            message_id = self.tg.message.message_id
+
+            result = await tg.chunked_send(
+                chat_id = chat_id,
+                text    = text,
+                reply_markup= keyboard.to_tg() if keyboard else None
+            )
+
+            message_id = result[-1].message_id
+            was_split = len(result) > 1
 
         bot_message = CommonBotMessage(
             src         = self.src,
@@ -846,7 +1035,7 @@ class CommonEverything(BaseCommonEvent):
     async def edit_or_answer(
         self,
         text: str, 
-        keyboard: Optional[Keyboard] = None,
+        keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
         tree_values: Optional[Values] = None
     ):
@@ -859,6 +1048,33 @@ class CommonEverything(BaseCommonEvent):
             event = self.event
 
             return await event.edit_message(
+                text        = text, 
+                keyboard    = keyboard,
+                add_tree    = add_tree,
+                tree_values = tree_values
+            )
+
+        if self.is_from_message:
+            message = self.message
+
+            return await message.answer(
+                text        = text, 
+                keyboard    = keyboard,
+                add_tree    = add_tree,
+                tree_values = tree_values
+            )
+    
+    async def answer(
+        self,
+        text: str, 
+        keyboard: Optional[kb.Keyboard] = None,
+        add_tree: bool = False,
+        tree_values: Optional[Values] = None
+    ):
+        if self.is_from_event:
+            event = self.event
+
+            return await event.send_message(
                 text        = text, 
                 keyboard    = keyboard,
                 add_tree    = add_tree,

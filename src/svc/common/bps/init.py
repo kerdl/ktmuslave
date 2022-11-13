@@ -33,6 +33,10 @@ from src.svc.common.keyboard import (
     PayloadFilter(Payload.FINISH)
 )
 async def to_hub(everything: CommonEverything):
+    ctx = everything.ctx
+
+    ctx.register()
+
     return await hub_bp.to_hub(everything)
 
 
@@ -71,7 +75,7 @@ async def main(everything: CommonEverything):
 
 
     await everything.edit_or_answer(
-        text     = "a" * 6000,
+        text     = answer_text.make(),
         keyboard = answer_keyboard
     )
 

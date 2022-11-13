@@ -1,0 +1,22 @@
+from typing import Any
+
+
+PYTHON_VALUE_REPR = {
+    True:  "да",
+    False: "нет",
+    None:  "н/а"
+}
+
+def value_repr(value: Any) -> str:
+    if type(value) == int:
+        return value
+    
+    try:
+        hash(value)
+    except TypeError:
+        return value
+
+    return PYTHON_VALUE_REPR.get(value) or value
+
+def zero_at_start(num: int) -> str:
+    return f"0{num}" if len(str(num)) < 2 else str(num)

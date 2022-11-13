@@ -3,7 +3,7 @@ from typing import Any
 from src.data.settings import Settings
 
 from src.svc import common
-from src.data import zoom
+from src.data import zoom, format as fmt
 from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
@@ -34,19 +34,6 @@ class Builder:
 
     def make(self) -> str:
         return self.separator.join(self.components)
-
-
-PYTHON_VALUE_REPR = {
-    True:  "да",
-    False: "нет",
-    None:  "н/а"
-}
-
-def value_repr(value: Any) -> str:
-    if type(value) == int:
-        return value
-
-    return PYTHON_VALUE_REPR.get(value) or value
 
 
 #### Common footers and headers ####
@@ -185,7 +172,7 @@ CURRENT_VALUE = (
 )
 def format_current_value(value: Any):
     return CURRENT_VALUE.format(
-        value = value_repr(value)
+        value = fmt.value_repr(value)
     )
 
 
@@ -303,9 +290,9 @@ SEND_ZOOM_DATA = (
     "и отправь мне в текстовом виде"
 )
 def format_send_zoom_data(src: common.MESSENGER_SOURCE, is_group_chat: bool):
-    if (src == common.Source.VK) or (src == common.Source.TG and not is_group_chat):
+    if src == common.Source.VK:
         return FORWARD_ZOOM_DATA
-    else:
+    elif src == common.Source.TG:
         return SEND_ZOOM_DATA
 
 

@@ -35,8 +35,15 @@ class ScheduleApi(Api):
 
     async def schedule(self, url: str) -> Page:
         from src.api import Response
+        while True:
+            try:
+                resp = await defs.http.get(url)
+                break
+            except ClientConnectorError:
+                logger.error(f"can't fetch {url}, retrying in 5s")
+                await asyncio.sleep(5)
+                continue
 
-        resp = await defs.http.get(url)
         text = await resp.text()
 
         response = Response.parse_raw(text)
@@ -98,6 +105,8 @@ class ScheduleApi(Api):
         return response.is_ok
 
     async def updates(self):
+        from src.svc.common import ctx
+
         while True:
             try:
                 if self.interactor is None or not await self.interactor_valid():
@@ -122,6 +131,8 @@ class ScheduleApi(Api):
 
                             await self.daily()
                             await self.weekly()
+
+                            await ctx.broadcast(notify)
                     except exceptions.ConnectionClosedError as e:
                         logger.info(e)
                         logger.info("reconnecting...")

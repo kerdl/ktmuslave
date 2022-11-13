@@ -1,6 +1,7 @@
 from __future__ import annotations
-from typing import ClassVar, Iterable, TypeVar, Generic
+from typing import ClassVar, Iterable, TypeVar, Generic, Optional, Generator, Any
 from dataclasses import dataclass, field
+from pydantic import BaseModel
 
 
 T = TypeVar("T")
@@ -13,15 +14,28 @@ VALUE_FIELD_FMT = (
     "{emoji} | {name}: {value}"
 )
 
-
 class Translated:
     __translation__: ClassVar[dict[str, str]]
+
+class TranslatedBaseModel(BaseModel):
+    __translation__: ClassVar[dict[str, str]]
+
+    def translate(self, key: str) -> Optional[str]: 
+        return self.__translation__.get(key)
+
+    def __iter__(self) -> Generator[tuple[str, Any], None, None]:
+        return super().__iter__()
 
 class Emojized:
     __emojis__: ClassVar[dict[str, str]]
 
 class Repred:
     def __repr_name__(self) -> str: ...
+
+class RepredBaseModel(BaseModel):
+    @property
+    def repr_name(self) -> str: ...
+
 
 
 class Emoji:
