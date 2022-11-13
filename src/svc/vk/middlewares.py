@@ -1,3 +1,4 @@
+from loguru import logger
 from vkbottle import BaseMiddleware, ShowSnackbarEvent
 from vkbottle.bot import Message
 
@@ -9,6 +10,40 @@ from src.svc.common.states.tree import Init, Settings, Hub
 from .types import RawEvent
 from . import keyboard as vk_kb
 
+
+class LogRaw(BaseMiddleware[RawEvent]):
+    async def pre(self):
+        try:
+            user = await defs.vk_bot.api.users.get(
+                [self.event["object"]["user_id"]]
+            )
+
+            first_name = user[0].first_name
+            last_name = user[0].last_name
+            peer_id = self.event["object"]["peer_id"]
+
+            logger.opt(colors=True).info(
+                f"<W><k><d>{first_name} {last_name} at {peer_id}</></></> "
+                f"vk event: {self.event}"
+            )
+        except Exception as e:
+            logger.warning(f"error while logging raw: {e}")
+    
+class LogMessage(BaseMiddleware[Message]):
+    async def pre(self):
+        try:
+            user = await self.event.get_user()
+
+            first_name = user.first_name
+            last_name = user.last_name
+            peer_id = self.event.peer_id
+
+            logger.opt(colors=True).info(
+                f"<W><k><d>{first_name} {last_name} at {peer_id}</></></> "
+                f"vk event: {self.event}"
+            )
+        except Exception as e:
+            logger.warning(f"error while logging message: {e}")
 
 class BotMentionFilter(BaseMiddleware[Message]):
     """

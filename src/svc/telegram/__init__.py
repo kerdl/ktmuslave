@@ -156,12 +156,12 @@ def load_dispatch(router: Router, init_middlewares: bool = True) -> Dispatcher:
         )
 
         update_outer_middlewares = [
+            Log(),
             CtxCheck(),
             Throttling(),
         ]
 
         message_outer_middlewares = [
-            Log(),
             BotMentionFilter(),
             CommonMessageMaker()
         ]

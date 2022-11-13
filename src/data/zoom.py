@@ -537,17 +537,13 @@ def focus_auto(everything: common.CommonEverything):
     return focus_to_entries(everything)
 
 def focus_to_entries(everything: common.CommonEverything):
-    logger.info("focus_to_entries")
     everything.ctx.settings.zoom.focus(Storage.ENTRIES)
 
 def focus_to_new_entries(everything: common.CommonEverything):
-    logger.info("focus_to_new_entries")
     everything.ctx.settings.zoom.focus(Storage.NEW_ENTRIES)
 
 def unfocus(everything: common.CommonEverything):
-    logger.info("unfocus")
     everything.ctx.settings.zoom.unfocus()
 
 def unselect(everything: common.CommonEverything):
-    logger.info("unselect")
     everything.ctx.settings.zoom.focused.unselect()

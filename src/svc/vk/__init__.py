@@ -126,6 +126,8 @@ def load(loop = None) -> Bot:
     bot = Bot(token=get_key(".env", "VK_TOKEN"), loop=loop)
 
     from .middlewares import (
+        LogRaw,
+        LogMessage,
         BotMentionFilter,
         CtxCheckRaw,
         CtxCheckMessage,
@@ -135,12 +137,14 @@ def load(loop = None) -> Bot:
     )
 
     message_view_middlewares = [
+        LogMessage,
         BotMentionFilter,
         CtxCheckMessage,
         CommonMessageMaker,
     ]
 
     raw_event_view_middlewares = [
+        LogRaw,
         CtxCheckRaw,
         CommonEventMaker,
         OldMessagesBlock

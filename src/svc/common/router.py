@@ -146,7 +146,6 @@ class Router:
                     elif annotation == CommonEvent:
                         kwargs[argument] = everything.event
 
-                logger.info(f"calling {handler.func}")
                 await handler.func(**kwargs)
                 
                 if handler.is_blocking:

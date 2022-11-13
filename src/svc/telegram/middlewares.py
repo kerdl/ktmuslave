@@ -17,11 +17,11 @@ def get_chat(event: Update) -> Optional[Chat]:
 class Log:
     async def __call__(
         self,
-        handler: Callable[[Message, dict[str, Any]], Awaitable[Any]],
-        event: Message,
+        handler: Callable[[Update, dict[str, Any]], Awaitable[Any]],
+        event: Update,
         data: dict[str, Any]
     ) -> Any:
-        logger.info(f"tg message: {event}")
+        logger.info(f"tg event: {event}")
         return await handler(event, data)
 
 class BotMentionFilter:
@@ -107,7 +107,6 @@ class CtxCheck:
         """
         ## Checks if user is in context and initializes it, if not
         """
-        logger.info("CtxCheck")
 
         chat = get_chat(event)
 
@@ -147,7 +146,6 @@ class CommonMessageMaker:
         """
         ## Makes `CommonMessage` from tg message and sends it to a handler
         """
-        logger.info("CommonMessageMaker")
 
         common_message = CommonMessage.from_tg(event)
         common_everything = CommonEverything.from_message(common_message)
@@ -172,7 +170,6 @@ class CommonEventMaker:
         event: CallbackQuery,
         data: dict[str, Any]
     ) -> Any:
-        logger.info("CommonEventMaker")
 
         common_event = CommonEvent.from_tg(event)
         common_everything = CommonEverything.from_event(common_event)

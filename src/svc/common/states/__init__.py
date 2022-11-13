@@ -125,7 +125,13 @@ class State:
     """
 
     def __hash__(self) -> int:
-        return hash(self.anchor)
+        return hash(f"{self.tree}:{self.anchor}")
+    
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, State):
+            return hash(self) == hash(other)
+        
+        return hash(self) == other
 
 @dataclass
 class Tree:
