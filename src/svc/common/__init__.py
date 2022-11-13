@@ -18,7 +18,7 @@ from src import defs
 from src.svc import vk, telegram as tg
 from src import text
 from src.svc.common.states import formatter as states_fmt, Values
-from src.svc.common.states.tree import Hub
+from src.svc.common.states.tree import HUB
 from src.svc.common.navigator import Navigator
 from src.svc.common import pagination, messages, error
 from src.svc.vk.types import RawEvent
@@ -27,7 +27,7 @@ from src.data import zoom
 from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL
 from src.data.settings import Settings, Group
 from src.api.schedule import Notify
-from .states.tree import Init, Hub, Space
+from .states.tree import INIT, Hub, Space
 
 
 @dataclass
@@ -254,7 +254,7 @@ class Ctx:
                         chat_id  = chat_id
                     )
 
-                    ctx.navigator.jump_back_to_or_append(Hub.I_MAIN)
+                    ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
 
                     ctx.last_bot_message = await message.send()
 

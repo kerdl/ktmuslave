@@ -5,7 +5,7 @@ from src import defs
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages, pagination, Ctx, bps
 from src.svc.common.states import formatter as states_fmt
-from src.svc.common.states.tree import Zoom
+from src.svc.common.states.tree import ZOOM
 from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common import keyboard as kb
@@ -38,7 +38,7 @@ async def set_attribute(
     footer_addition = messages.default_footer_addition(everything)
     answer_keyboard = kb.Keyboard([
         [kb.NULL_BUTTON.only_if(
-            ctx.navigator.current != Zoom.IIII_NAME
+            ctx.navigator.current != ZOOM.IIII_NAME
             and getter() is not None
         )]
     ])
@@ -77,7 +77,7 @@ async def set_attribute(
             )
 
         ctx.navigator.jump_back_to(
-            Zoom.II_BROWSE, 
+            ZOOM.II_BROWSE, 
             execute_actions = False
         )
 
@@ -103,16 +103,16 @@ async def set_attribute(
             keyboard = answer_keyboard
         )
 
-@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(kb.Payload.CLEAR))
+@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.CLEAR))
 async def clear_new_entries(everything: CommonEverything):
     ctx = everything.ctx
 
     ctx.settings.zoom.new_entries.clear()
 
-    ctx.navigator.jump_back_to(Zoom.I_MASS)
+    ctx.navigator.jump_back_to(ZOOM.I_MASS)
     return await mass(everything)
 
-@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(kb.Payload.REMOVE_ALL))
+@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.REMOVE_ALL))
 async def remove_entries(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -121,7 +121,7 @@ async def remove_entries(everything: CommonEverything):
     return await browse(everything)
 
 @r.on_callback(
-    StateFilter(Zoom.I_MASS_CHECK), 
+    StateFilter(ZOOM.I_MASS_CHECK), 
     PayloadFilter(kb.Payload.CONFIRM)
 )
 async def confirm_mass_add(everything: CommonEverything):
@@ -160,13 +160,13 @@ async def mass_check(everything: CommonEverything):
         keyboard = answer_keyboard,
     )
 
-@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(kb.Payload.ADD_ALL))
+@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.ADD_ALL))
 async def to_mass_check(everything: CommonEverything):
-    everything.navigator.append(Zoom.I_MASS_CHECK)
+    everything.navigator.append(ZOOM.I_MASS_CHECK)
     return await mass_check(everything)
 
 
-@r.on_everything(StateFilter(Zoom.IIII_PWD))
+@r.on_everything(StateFilter(ZOOM.IIII_PWD))
 async def pwd(everything: CommonEverything):
 
     def getter():
@@ -186,13 +186,13 @@ async def pwd(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(kb.Payload.PWD))
+@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.PWD))
 async def to_pwd(everything: CommonEverything):
-    everything.navigator.append(Zoom.IIII_PWD)
+    everything.navigator.append(ZOOM.IIII_PWD)
     return await pwd(everything)
 
 
-@r.on_everything(StateFilter(Zoom.IIII_ID))
+@r.on_everything(StateFilter(ZOOM.IIII_ID))
 async def id_(everything: CommonEverything):
 
     def getter():
@@ -212,13 +212,13 @@ async def id_(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(kb.Payload.ID))
+@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.ID))
 async def to_id(everything: CommonEverything):
-    everything.navigator.append(Zoom.IIII_ID)
+    everything.navigator.append(ZOOM.IIII_ID)
     return await id_(everything)
 
 
-@r.on_everything(StateFilter(Zoom.IIII_URL))
+@r.on_everything(StateFilter(ZOOM.IIII_URL))
 async def url(everything: CommonEverything):
 
     def getter():
@@ -238,13 +238,13 @@ async def url(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(kb.Payload.URL))
+@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.URL))
 async def to_url(everything: CommonEverything):
-    everything.navigator.append(Zoom.IIII_URL)
+    everything.navigator.append(ZOOM.IIII_URL)
     return await url(everything)
 
 
-@r.on_message(StateFilter(Zoom.IIII_NAME))
+@r.on_message(StateFilter(ZOOM.IIII_NAME))
 async def name(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -282,9 +282,9 @@ async def name(everything: CommonEverything):
         setter       = setter,
     )
 
-@r.on_callback(StateFilter(Zoom.III_ENTRY), PayloadFilter(kb.Payload.NAME))
+@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.NAME))
 async def to_name(everything: CommonEverything):
-    everything.navigator.append(Zoom.IIII_NAME)
+    everything.navigator.append(ZOOM.IIII_NAME)
     return await name(everything)
 
 
@@ -309,16 +309,16 @@ async def entry(everything: CommonEverything):
     )
 
 async def to_entry(everything: CommonEverything):
-    everything.navigator.jump_back_to_or_append(Zoom.III_ENTRY)
+    everything.navigator.jump_back_to_or_append(ZOOM.III_ENTRY)
     return await entry(everything)
 
 
-@r.on_callback(StateFilter(Zoom.II_BROWSE), PayloadFilter(kb.Payload.ADD))
+@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.ADD))
 async def add_entry(everything: CommonEverything):
     return await to_name(everything)
 
 
-@r.on_callback(StateFilter(Zoom.II_BROWSE))
+@r.on_callback(StateFilter(ZOOM.II_BROWSE))
 async def browse(
     everything: CommonEverything, 
     text_footer: Optional[str] = None
@@ -370,7 +370,7 @@ async def to_browse(
     everything: CommonEverything, 
     text_footer: Optional[str] = None
 ):
-    everything.navigator.jump_back_to_or_append(Zoom.II_BROWSE)
+    everything.navigator.jump_back_to_or_append(ZOOM.II_BROWSE)
 
     #if everything.navigator.current != Zoom.II_BROWSE:
     #    everything.navigator.append(Zoom.II_BROWSE)
@@ -380,14 +380,14 @@ async def to_browse(
 
 @r.on_everything(
     UnionFilter((
-        StateFilter(Zoom.I_MASS),
-        StateFilter(Zoom.II_BROWSE)
+        StateFilter(ZOOM.I_MASS),
+        StateFilter(ZOOM.II_BROWSE)
     ))
 )
 async def mass(everything: CommonEverything):
     ctx = everything.ctx
 
-    if Zoom.I_MASS not in ctx.navigator.trace:
+    if ZOOM.I_MASS not in ctx.navigator.trace:
         return None
 
     if everything.is_from_event:
@@ -442,7 +442,7 @@ async def mass(everything: CommonEverything):
 
         # if no data found in text
         # and user didn't added anything yet
-        if len(parsed) < 1 and ctx.navigator.current != Zoom.II_BROWSE:
+        if len(parsed) < 1 and ctx.navigator.current != ZOOM.II_BROWSE:
             answer_text = (
                 messages.Builder()
                         .add(messages.format_zoom_data_format())
@@ -457,7 +457,7 @@ async def mass(everything: CommonEverything):
             )
         # elif no data found in text
         # but user already added something
-        elif len(parsed) < 1 and ctx.navigator.current == Zoom.II_BROWSE:
+        elif len(parsed) < 1 and ctx.navigator.current == ZOOM.II_BROWSE:
             text_footer = (
                 messages.Builder()
                         .add(messages.format_doesnt_contain_zoom())
@@ -471,17 +471,17 @@ async def mass(everything: CommonEverything):
         return await to_browse(everything, text_footer.make())
 
 async def to_mass(everything: CommonEverything):
-    everything.navigator.append(Zoom.I_MASS)
+    everything.navigator.append(ZOOM.I_MASS)
     return await mass(everything)
 
 
 STATE_MAP = {
-    Zoom.I_MASS: mass,
-    Zoom.II_BROWSE: browse,
-    Zoom.III_ENTRY: entry,
-    Zoom.IIII_NAME: name,
-    Zoom.IIII_URL: url,
-    Zoom.IIII_ID: id_,
-    Zoom.IIII_PWD: pwd,
-    Zoom.I_MASS_CHECK: mass_check,
+    ZOOM.I_MASS: mass,
+    ZOOM.II_BROWSE: browse,
+    ZOOM.III_ENTRY: entry,
+    ZOOM.IIII_NAME: name,
+    ZOOM.IIII_URL: url,
+    ZOOM.IIII_ID: id_,
+    ZOOM.IIII_PWD: pwd,
+    ZOOM.I_MASS_CHECK: mass_check,
 }

@@ -44,7 +44,7 @@ class Navigator:
     @classmethod
     def default(cls: type[Navigator]):
         return cls(
-            trace      = [tree.Init.I_MAIN],
+            trace      = [tree.INIT.I_MAIN],
             back_trace = [],
             ignored    = set(),
             everything = None
@@ -244,11 +244,11 @@ class Navigator:
         self.ignored = set()
     
     def auto_ignored(self):
-        if tree.Init.I_MAIN in self.spaces:
-            self.ignored.add(tree.Settings.I_MAIN)
+        if tree.INIT.I_MAIN in self.spaces:
+            self.ignored.add(tree.SETTINGS.I_MAIN)
         
-        if tree.Settings.I_MAIN in self.spaces:
+        if tree.SETTINGS.I_MAIN in self.spaces:
             ...
         
         if not self.everything.is_group_chat:
-            self.ignored.add(tree.Settings.III_SHOULD_PIN)
+            self.ignored.add(tree.SETTINGS.III_SHOULD_PIN)

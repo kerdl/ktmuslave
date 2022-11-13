@@ -6,7 +6,7 @@ from src import defs
 from src.svc import vk
 from src.svc.common import CommonMessage, CommonEvent, CommonEverything, messages
 from src.svc.common import keyboard as kb
-from src.svc.common.states.tree import Init, Settings, Hub
+from src.svc.common.states.tree import INIT, SETTINGS, HUB
 from .types import RawEvent
 from . import keyboard as vk_kb
 
@@ -103,7 +103,7 @@ class CtxCheckRaw(BaseMiddleware[RawEvent]):
             user_ctx = defs.ctx.add_vk(peer_id)
 
             if not vk.is_group_chat(peer_id, from_id):
-                user_ctx.navigator.ignored.add(Settings.III_SHOULD_PIN)
+                user_ctx.navigator.ignored.add(SETTINGS.III_SHOULD_PIN)
 
 class CtxCheckMessage(BaseMiddleware[Message]):
     """
@@ -181,7 +181,7 @@ class OldMessagesBlock(BaseMiddleware[RawEvent]):
                 return
 
             elif vk_kb.payload_eq(payload, kb.Payload.SETTINGS):
-                user_ctx.navigator.jump_back_to_or_append(Hub.I_MAIN)
+                user_ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
                 user_ctx.last_bot_message.can_edit = False
                 await send_snackbar(messages.format_sent_as_new_message())
 

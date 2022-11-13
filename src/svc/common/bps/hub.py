@@ -10,13 +10,13 @@ from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
 from src.data.schedule import format as sc_format
 from src.svc.common.states import formatter as states_fmt
-from src.svc.common.states.tree import Init, Zoom, Hub
+from src.svc.common.states.tree import INIT, ZOOM, HUB
 from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common import keyboard as kb
 
 
-@r.on_callback(StateFilter(Hub.I_MAIN), PayloadFilter(kb.Payload.UPDATE))
+@r.on_callback(StateFilter(HUB.I_MAIN), PayloadFilter(kb.Payload.UPDATE))
 async def update(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -36,21 +36,21 @@ async def update(everything: CommonEverything):
             messages.format_too_fast_retry_after(int(ctx.schedule.until_allowed))
         )
 
-@r.on_callback(StateFilter(Hub.I_MAIN), PayloadFilter(kb.Payload.WEEKLY))
+@r.on_callback(StateFilter(HUB.I_MAIN), PayloadFilter(kb.Payload.WEEKLY))
 async def switch_to_weekly(everything: CommonEverything):
     ctx = everything.ctx
     ctx.schedule.message.switch_to_weekly()
 
     return await hub(everything)
 
-@r.on_callback(StateFilter(Hub.I_MAIN), PayloadFilter(kb.Payload.DAILY))
+@r.on_callback(StateFilter(HUB.I_MAIN), PayloadFilter(kb.Payload.DAILY))
 async def switch_to_daily(everything: CommonEverything):
     ctx = everything.ctx
     ctx.schedule.message.switch_to_daily()
 
     return await hub(everything)
 
-@r.on_message(StateFilter(Hub.I_MAIN))
+@r.on_message(StateFilter(HUB.I_MAIN))
 async def hub(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -99,7 +99,7 @@ async def hub(everything: CommonEverything):
 
 async def to_hub(everything: CommonEverything):
     everything.navigator.clear()
-    everything.navigator.append(Hub.I_MAIN)
+    everything.navigator.append(HUB.I_MAIN)
 
     everything.navigator.auto_ignored()
 
@@ -107,5 +107,5 @@ async def to_hub(everything: CommonEverything):
 
 
 STATE_MAP = {
-    Hub.I_MAIN: hub,
+    HUB.I_MAIN: hub,
 }

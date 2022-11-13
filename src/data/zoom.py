@@ -531,7 +531,7 @@ def focus_auto(everything: common.CommonEverything):
     from src.svc.common.states import tree
 
     # if "adding mass zoom" state in trace
-    if tree.Zoom.I_MASS in everything.ctx.navigator.trace:
+    if tree.ZOOM.I_MASS in everything.ctx.navigator.trace:
         return focus_to_new_entries(everything)
     
     return focus_to_entries(everything)

@@ -7,7 +7,7 @@ from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp, hub as hub_bp
 from src.data import zoom as zoom_data
 from src.svc.common.states import formatter as states_fmt
-from src.svc.common.states.tree import Init, Zoom, Settings
+from src.svc.common.states.tree import INIT, ZOOM, SETTINGS
 from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import (
@@ -29,7 +29,7 @@ from src.svc.common.keyboard import (
 
 
 @r.on_callback(
-    StateFilter(Init.I_FINISH), 
+    StateFilter(INIT.I_FINISH), 
     PayloadFilter(Payload.FINISH)
 )
 async def to_hub(everything: CommonEverything):
@@ -41,7 +41,7 @@ async def to_hub(everything: CommonEverything):
     return await hub_bp.to_hub(everything)
 
 
-@r.on_everything(StateFilter(Init.I_FINISH))
+@r.on_everything(StateFilter(INIT.I_FINISH))
 async def finish(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -58,12 +58,12 @@ async def finish(everything: CommonEverything):
 
 
 async def to_finish(everything: CommonEverything):
-    everything.navigator.append(Init.I_FINISH)
+    everything.navigator.append(INIT.I_FINISH)
 
     return await finish(everything)
 
 
-@r.on_message(StateFilter(Init.I_MAIN))
+@r.on_message(StateFilter(INIT.I_MAIN))
 async def main(everything: CommonEverything):
     answer_text = (
         messages.Builder()
@@ -82,6 +82,6 @@ async def main(everything: CommonEverything):
 
 
 STATE_MAP = {
-    Init.I_MAIN: main,
-    Init.I_FINISH: finish
+    INIT.I_MAIN: main,
+    INIT.I_FINISH: finish
 }

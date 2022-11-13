@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from src.data import zoom
 from src.svc import common
 from src.svc.common.states import State, Values
-from src.svc.common.states.tree import Init, Settings as SettingsTree
+from src.svc.common.states.tree import INIT, SETTINGS as SettingsTree
 
 
 @dataclass
