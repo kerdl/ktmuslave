@@ -268,9 +268,6 @@ class ScheduleApi(Api):
                             await self.daily()
                             await self.weekly()
 
-                            if defs.ctx is None:
-                                continue
-
                             await defs.ctx.broadcast(notify)
                     except exceptions.ConnectionClosedError as e:
                         logger.info(e)
