@@ -1,5 +1,7 @@
 # `S`ou`rc`e code root
 
+- `api` - interface to work with HTTP API schedule
+server running on localhost ([ktmuscrap](https://github.com/kerdl/ktmuscrap))
 - `data` - dataclasses of settings, zoom, etc.
 - `parse` - parsing and conversion
 - `svc` - services, code for specific messengers with shared functionality,
