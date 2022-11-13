@@ -85,7 +85,7 @@ class Zoom(Tree):
     I_MASS_CHECK = State(**ZOOM_MASS_CHECK)
 
 
-Init     = Init()
+INIT     = Init()
 HUB      = Hub()
 ZOOM     = Zoom()
 SETTINGS = Settings()

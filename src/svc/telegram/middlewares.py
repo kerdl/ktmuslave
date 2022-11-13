@@ -21,7 +21,31 @@ class Log:
         event: Update,
         data: dict[str, Any]
     ) -> Any:
-        logger.info(f"tg event: {event}")
+        try:
+            def fmt(username: str, first_name: str, last_name: str):
+                logger.opt(colors=True).info(
+                    f"<W><k><d>{first_name} {last_name} ({username})</></></> tg event: {event}"
+                )
+
+            if event.callback_query is not None:
+                username = event.callback_query.from_user.username
+                first_name = event.callback_query.from_user.first_name
+                last_name = event.callback_query.from_user.last_name
+
+                fmt(username, first_name, last_name)
+
+            elif event.message is not None:
+                username = event.message.from_user.username
+                first_name = event.message.from_user.first_name
+                last_name = event.message.from_user.last_name
+
+                fmt(username, first_name, last_name)
+            else:
+                logger.opt(colors=True).info(f"tg event: {event}")
+
+        except Exception as e:
+            logger.warning(f"error logging tg: {e}")
+
         return await handler(event, data)
 
 class BotMentionFilter:

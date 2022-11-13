@@ -1198,4 +1198,5 @@ def run_forever():
         logger.info("keyboard interrupt")
 
         loop.run_until_complete(defs.ctx.save())
+        defs.log_file.close()
     
