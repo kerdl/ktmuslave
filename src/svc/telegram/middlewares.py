@@ -70,6 +70,16 @@ class BotMentionFilter:
 
         is_group_chat = tg.is_group_chat(event.chat.type)
 
+        def is_invite() -> bool:
+            if event.content_type != "new_chat_members":
+                return False
+            
+            for new in event.new_chat_members:
+                if new.id == defs.tg_bot_info.id:
+                    return True
+            
+            return False
+
         def did_user_used_bot_command() -> bool:
             if event.text is None:
                 return False
@@ -78,17 +88,6 @@ class BotMentionFilter:
                 return False
             elif "/" in event.text:
                 return True
-            
-            return False
-    
-            if event.entities is None:
-                return False
-            
-            commands = tg.extract_commands(event.entities, event.text)
-
-            for command in commands:
-                if defs.tg_bot_mention in command:
-                    return True
             
             return False
 
@@ -110,13 +109,11 @@ class BotMentionFilter:
 
             return event.reply_to_message.from_user.id == defs.tg_bot_info.id
 
-        if (
-            is_group_chat and not (
-                did_user_used_bot_command() or
-                did_user_mentioned_bot() or
-                did_user_replied_to_bot_message()
-            )
-        ):
+        if not is_invite() and (is_group_chat and not (
+            did_user_used_bot_command() or
+            did_user_mentioned_bot() or
+            did_user_replied_to_bot_message()
+        )):
             return
 
         return await handler(event, data)

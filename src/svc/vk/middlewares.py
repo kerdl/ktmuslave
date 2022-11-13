@@ -1,6 +1,7 @@
 from loguru import logger
 from vkbottle import BaseMiddleware, ShowSnackbarEvent
 from vkbottle.bot import Message
+from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 
 from src import defs
 from src.svc import vk
@@ -63,6 +64,12 @@ class BotMentionFilter(BaseMiddleware[Message]):
         bot_id = defs.vk_bot_info.id
         negative_bot_id = -bot_id
         
+        def is_invite() -> bool:
+            return (
+                self.event.action.member_id == -defs.vk_bot_info.id
+                and self.event.action.type.value == MessagesMessageActionStatus.CHAT_INVITE_USER.value
+            )
+
         def did_user_mentioned_bot() -> bool:
             """ 
             ## @<bot id> <message> 
@@ -80,10 +87,10 @@ class BotMentionFilter(BaseMiddleware[Message]):
             return reply_message.from_id == negative_bot_id
 
         if (
-            is_group_chat and not (
+            not is_invite() and (is_group_chat and not (
                 did_user_mentioned_bot() or
                 did_user_replied_to_bot_message()
-            )
+            ))
         ):
             self.stop("message blocked, this message is not for the bot")
 
