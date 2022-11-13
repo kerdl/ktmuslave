@@ -65,6 +65,9 @@ class BotMentionFilter(BaseMiddleware[Message]):
         negative_bot_id = -bot_id
         
         def is_invite() -> bool:
+            if self.event.action is None:
+                return False
+
             return (
                 self.event.action.member_id == -defs.vk_bot_info.id
                 and self.event.action.type.value == MessagesMessageActionStatus.CHAT_INVITE_USER.value
@@ -76,22 +79,10 @@ class BotMentionFilter(BaseMiddleware[Message]):
             ### `@<bot id>` is a mention
             """
             return self.event.is_mentioned
-        
-        def did_user_replied_to_bot_message() -> bool:
-            """ ## When you press on bot's message and then `Reply` button """
-            reply_message = self.event.reply_message
 
-            if reply_message is None:
-                return False
-
-            return reply_message.from_id == negative_bot_id
-
-        if (
-            not is_invite() and (is_group_chat and not (
-                did_user_mentioned_bot() or
-                did_user_replied_to_bot_message()
-            ))
-        ):
+        if not is_invite() and (is_group_chat and not (
+            did_user_mentioned_bot()
+        )):
             self.stop("message blocked, this message is not for the bot")
 
 class CtxCheckRaw(BaseMiddleware[RawEvent]):
