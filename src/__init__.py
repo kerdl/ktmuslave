@@ -138,7 +138,6 @@ class Defs:
         self.tg_dispatch = telegram.load_dispatch(self.tg_router, init_middlewares)
 
         self.loop.run_until_complete(self.init_http())
-        self.loop.run_until_complete(self.init_schedule_api())
 
         self.loop.run_until_complete(self.get_vk_bot_info())
         self.loop.run_until_complete(self.get_tg_bot_info())
@@ -155,6 +154,8 @@ class Defs:
 
         self.ctx = Ctx.load_or_init()
         self.loop.create_task(self.ctx.save_forever())
+
+        self.loop.run_until_complete(self.init_schedule_api())
 
     def init_fs(self) -> None:
         self.data_dir = Path(".", "data")
