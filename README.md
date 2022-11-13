@@ -2,11 +2,11 @@
 
 # KTMU slave
 
+[В VK](https://vk.com/ktmuslave)
+
+[В Telegram](https://t.me/ktmuslave_bot)
+
 Бот для расписания с https://ktmu-sutd.ru/
-
-[Бот в VK](https://vk.com/ktmuslave)
-
-[Бот в Telegram](https://t.me/ktmuslave_bot)
 
 - все кнопочки, сообщения, этапы, навигация,
 форматирование расписания - это всё здесь,
