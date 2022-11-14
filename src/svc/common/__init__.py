@@ -10,9 +10,10 @@ from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 import pickle
 import aiofiles
+import datetime
 
 from src import defs
 from src.svc import vk, telegram as tg
@@ -1191,13 +1192,26 @@ def run_forever():
     tg = defs.tg_dispatch
     tg_bot = defs.tg_bot
 
-    loop.create_task(tg.start_polling(tg_bot))
+    async def tg_start_polling():
+        when_started = datetime.datetime.now()
+
+        try:
+            await tg.start_polling(tg_bot)
+        except TelegramRetryAfter as e:
+            when_caught = datetime.datetime.now()
+    
+            logger.info("CAUGHT TELEGRAM RETRY AFTER")
+            logger.info(f"polling had worked for {when_caught - when_started}")
+            raise e
+
+
+    loop.create_task(tg_start_polling())
     loop.create_task(vk.run_polling())
 
     try:
         loop.run_forever()
-    except KeyboardInterrupt:
-        logger.info("keyboard interrupt")
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("shutdown, saving ctx and closing log file")
 
         loop.run_until_complete(defs.ctx.save())
         defs.log_file.close()
