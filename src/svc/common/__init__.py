@@ -253,6 +253,8 @@ class Ctx:
                         chat_id  = chat_id
                     )
 
+                    logger.info(f"broadcasting {mapping.sc_type} to {ctx.id}")
+
                     ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
 
                     ctx.last_bot_message = await message.send()
