@@ -1201,7 +1201,8 @@ def run_forever():
             when_caught = datetime.datetime.now()
     
             logger.info("CAUGHT TELEGRAM RETRY AFTER")
-            logger.info(f"polling had worked for {when_caught - when_started}")
+            logger.info(f"polling started {when_started}")
+            logger.info(f"polling ended {when_caught}")
             raise e
 
 
