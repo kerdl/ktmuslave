@@ -168,7 +168,12 @@ def days(
             emoji = FORMAT_EMOJIS.get(format)
             literal_format = LITERAL_FORMAT.get(format)
 
-            if last_num is not None and (last_num + 1) != num:
+            is_duplicate_num = last_num == num if last_num else None
+            normally_predicted_num = last_num + 1 if last_num else None
+
+            if last_num is not None and (
+                not is_duplicate_num and (normally_predicted_num != num)
+            ):
                 fmt_window = text.indent(WINDOW, add_dropdown = True)
                 rows.append(fmt_window)
 
