@@ -159,7 +159,12 @@ class ScheduleApi(Api):
         url = "http://" + self.url + "/update/last"
 
         if force or self._last_update is None:
-            self._last_update = (await self._get(url)).data.last_update
+            while True:
+                try:
+                    self._last_update = (await self._get(url)).data.last_update
+                    break
+                except ClientConnectorError:
+                    logger.error(f"can't get last update date, retrying in 5s")
 
         return self._last_update
 

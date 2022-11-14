@@ -294,10 +294,10 @@ class Ctx:
                 elif change == ChangeType.CHANGED:
                     groups: list[GroupCompare]
                     repr_change = "изменилась"
-                    
-                header = f"Группа {repr_change} в {repr_type}"
 
                 for group in groups:
+                    header = f"Группа {repr_change} в {repr_type}"
+
                     name = group.repr_name
                     
                     if change == ChangeType.APPEARED:
