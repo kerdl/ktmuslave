@@ -23,12 +23,16 @@ async def update(everything: CommonEverything):
     if ctx.schedule.can_update:
         notify = await ctx.schedule.update()
 
-        message = messages.format_no_updates()
-
         if notify.has_updates_for_group(ctx.settings.group.confirmed):
             message = messages.format_updates_sent()
-
-        await everything.event.show_notification(message)
+            await everything.event.show_notification(message)
+        else:
+            message = messages.format_no_updates()
+            await everything.event.show_notification(message)
+            return await hub(
+                everything,
+                allow_edit = everything.event.message_id == ctx.last_bot_message.id
+            )
 
         await defs.ctx.broadcast(notify, invoker = ctx)
     else:
@@ -50,8 +54,12 @@ async def switch_to_daily(everything: CommonEverything):
 
     return await hub(everything)
 
-@r.on_message(StateFilter(HUB.I_MAIN))
-async def hub(everything: CommonEverything):
+@r.on_everything(StateFilter(HUB.I_MAIN))
+async def hub(
+    everything: CommonEverything,
+    allow_edit: bool = True,
+    allow_send: bool = True
+):
     ctx = everything.ctx
 
     is_daily = ctx.schedule.message.is_daily
@@ -84,6 +92,7 @@ async def hub(everything: CommonEverything):
         #[kb.FOLD_BUTTON.only_if(is_unfolded)],
         #[kb.UNFOLD_BUTTON.only_if(is_folded)],
         [kb.UPDATE_BUTTON],
+        [kb.RESEND_BUTTON],
         [kb.SETTINGS_BUTTON],
         [
             SCHEDULE_API.ft_daily_url_button(),
@@ -92,10 +101,32 @@ async def hub(everything: CommonEverything):
         [SCHEDULE_API.r_weekly_url_button()],
     ], add_back = False)
 
-    return await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard
-    )
+    if (
+        everything.is_from_event 
+        and everything.event.payload == kb.Payload.RESEND
+        and allow_send
+    ):
+        await everything.event.show_notification(
+            text = messages.format_sent_as_new_message()
+        )
+
+        return await everything.event.send_message(
+            text     = answer_text.make(),
+            keyboard = answer_keyboard
+        )
+
+    if everything.is_from_event and allow_edit:
+        return await everything.event.edit_message(
+            text     = answer_text.make(),
+            keyboard = answer_keyboard
+        )
+    
+    if everything.is_from_message and allow_send:
+        return await everything.message.answer(
+            text     = answer_text.make(),
+            keyboard = answer_keyboard
+        )
+
 
 async def to_hub(everything: CommonEverything):
     everything.navigator.clear()

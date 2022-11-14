@@ -241,6 +241,7 @@ class Ctx:
                         can_edit = False,
                         text     = whole_text,
                         keyboard = kb.Keyboard([
+                            [kb.RESEND_BUTTON],
                             [kb.UPDATE_BUTTON],
                             [kb.SETTINGS_BUTTON],
                             [

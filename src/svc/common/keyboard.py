@@ -59,6 +59,7 @@ class Payload:
     PWD        = "pwd"
 
     # Hub buttons
+    RESEND     = "resend"
     WEEKLY     = "weekly"
     DAILY      = "daily"
     FOLD       = "fold"
@@ -97,6 +98,7 @@ class Text:
     CLEAR      = "✕ Очистить"
 
     # Hub buttons
+    RESEND     = "✉️ Новое сообщение"
     WEEKLY     = "⇋ Недельное"
     DAILY      = "⇋ Дневное"
     FOLD       = "⮟ Свернуть"
@@ -359,6 +361,7 @@ MANUALLY_BUTTON   = Button(text = Text.MANUALLY,   callback = Payload.MANUALLY, 
 NEXT_ZOOM_BUTTON  = Button(text = Text.NEXT,       callback = Payload.NEXT_ZOOM)
 FINISH_BUTTON     = Button(text = Text.FINISH,     callback = Payload.FINISH)
 
+RESEND_BUTTON     = Button(text = Text.RESEND,     callback = Payload.RESEND,     color = Color.BLUE)
 WEEKLY_BUTTON     = Button(text = Text.WEEKLY,     callback = Payload.WEEKLY,     color = Color.BLUE)
 DAILY_BUTTON      = Button(text = Text.DAILY,      callback = Payload.DAILY,      color = Color.BLUE)
 FOLD_BUTTON       = Button(text = Text.FOLD,       callback = Payload.FOLD,       color = Color.BLUE)
