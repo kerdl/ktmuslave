@@ -25,19 +25,22 @@ async def chunked_send(
     chat_id: int,
     text: str,
     disable_web_page_preview: bool = True,
-    reply_markup: Optional[InlineKeyboardMarkup] = None
+    reply_markup: Optional[InlineKeyboardMarkup] = None,
+    reply_to_message_id: Optional[int] = None
 ) -> list[Message]:
     chunks = text_utils.chunks(text)
     responses = []
     
     for (index, chunk) in enumerate(chunks):
+        is_first = index == 0
         is_last = (index + 1) == len(chunks)
 
         result = await defs.tg_bot.send_message(
             chat_id                  = chat_id,
             text                     = chunk,
             disable_web_page_preview = disable_web_page_preview,
-            reply_markup             = reply_markup if is_last else None
+            reply_markup             = reply_markup if is_last else None,
+            reply_to_message_id      = reply_to_message_id if is_first else None
         )
 
         responses.append(result)

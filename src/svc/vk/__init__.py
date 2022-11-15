@@ -25,12 +25,14 @@ async def chunked_send(
     peer_id: int,
     message: Optional[str] = None,
     keyboard: Optional[str] = None,
+    reply_to: Optional[int] = None,
     dont_parse_links: bool = True,
 ) -> list[MessagesSendUserIdsResponseItem]:
     chunks = text.chunks(message)
     responses = []
 
     for (index, chunk) in enumerate(chunks):
+        is_first = index == 0
         is_last = (index + 1) == len(chunks)
 
         api_responses: list[MessagesSendUserIdsResponseItem] = (
@@ -39,6 +41,7 @@ async def chunked_send(
                 peer_ids         = [peer_id],
                 message          = chunk,
                 keyboard         = keyboard if is_last else None,
+                reply_to         = reply_to if is_first else None,
                 dont_parse_links = dont_parse_links,
             )
         )
