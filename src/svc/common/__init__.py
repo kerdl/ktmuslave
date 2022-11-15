@@ -227,11 +227,19 @@ class Ctx:
                 ]
                 
                 for mapping in mappings_to_send:
+                    reply_to = None
+
                     if mapping.sc_type == Type.DAILY:
                         page = await SCHEDULE_API.cached_daily()
 
+                        if ctx.last_weekly_message is not None:
+                            reply_to = ctx.last_weekly_message.id
+
                     elif mapping.sc_type == Type.WEEKLY:
                         page = await SCHEDULE_API.cached_weekly()
+
+                        if ctx.last_daily_message is not None:
+                            reply_to = ctx.last_daily_message.id
 
                     fmt_schedule: str = await sc_format.group(
                         page.get_group(mapping.name),
@@ -254,7 +262,8 @@ class Ctx:
                             [SCHEDULE_API.r_weekly_url_button()],
                         ], add_back = False),
                         src      = src,
-                        chat_id  = chat_id
+                        chat_id  = chat_id,
+                        reply_to = reply_to,
                     )
 
                     logger.info(f"broadcasting {mapping.sc_type} to {ctx.id}")
@@ -639,6 +648,7 @@ class CommonBotMessage:
     """ ## For which chat this message is """
     id: Optional[int] = None
     """ ## ID of this exact message """
+    reply_to: Optional[int] = None
     was_split: Optional[bool] = None
 
     @property
@@ -655,6 +665,7 @@ class CommonBotMessage:
                 peer_id          = self.chat_id,
                 message          = self.text,
                 keyboard         = self.keyboard.to_vk().get_json(),
+                reply_to         = self.reply_to,
                 dont_parse_links = True,
             )
 
@@ -668,6 +679,7 @@ class CommonBotMessage:
                 chat_id                  = self.chat_id,
                 text                     = self.text,
                 reply_markup             = self.keyboard.to_tg(),
+                reply_to_message_id      = self.reply_to,
                 disable_web_page_preview = True,
             )
 
