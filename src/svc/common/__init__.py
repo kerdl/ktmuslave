@@ -83,6 +83,8 @@ class BaseCtx:
     - to resend it when for some reason
     user interacts with OLD messages
     """
+    last_daily_message: Optional[CommonBotMessage]
+    last_weekly_message: Optional[CommonBotMessage]
 
     @property
     def id(self) -> int:
@@ -260,6 +262,11 @@ class Ctx:
                     ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
 
                     ctx.last_bot_message = await message.send()
+
+                    if mapping.sc_type == Type.DAILY:
+                        ctx.last_daily_message = ctx.last_bot_message
+                    elif mapping.sc_type == Type.WEEKLY:
+                        ctx.last_weekly_message = ctx.last_bot_message
 
                     if ctx.settings.should_pin:
                         await ctx.last_bot_message.pin()
