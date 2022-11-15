@@ -33,8 +33,8 @@ async def update(everything: CommonEverything):
             allow_edit = (
                 everything.event.message_id == ctx.last_bot_message.id
                 and everything.event.message_id not in [
-                    ctx.last_weekly_message.id,
-                    ctx.last_daily_message.id
+                    ctx.last_weekly_message.id if ctx.last_weekly_message is not None else None,
+                    ctx.last_daily_message.id if ctx.last_daily_message is not None else None
                 ]
             )
 
