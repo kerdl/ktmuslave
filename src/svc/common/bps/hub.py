@@ -29,9 +29,18 @@ async def update(everything: CommonEverything):
         else:
             message = messages.format_no_updates()
             await everything.event.show_notification(message)
+
+            allow_edit = (
+                everything.event.message_id == ctx.last_bot_message.id
+                and everything.event.message_id not in [
+                    ctx.last_weekly_message,
+                    ctx.last_daily_message
+                ]
+            )
+
             return await hub(
                 everything,
-                allow_edit = everything.event.message_id == ctx.last_bot_message.id
+                allow_edit = allow_edit
             )
 
         await defs.ctx.broadcast(notify, invoker = ctx)
