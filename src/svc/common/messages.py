@@ -3,7 +3,7 @@ from typing import Any
 from src.data.settings import Settings
 
 from src.svc import common
-from src.data import zoom, format as fmt
+from src.data import zoom, format as fmt, schedule
 from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
@@ -456,4 +456,31 @@ def format_too_fast_retry_after(secs: int):
 
     return TOO_FAST_RETRY_AFTER.format(
         secs = fmt_secs
+    )
+
+
+REPLIED_TO_SCHEDULE_MESSAGE = (
+    "👆 Последнее {sc_type} в ответном сообщении"
+)
+def format_replied_to_schedule_message(sc_type: schedule.TYPE_LITERAL):
+    if sc_type == schedule.Type.DAILY:
+        repr_sc_type = "дневное"
+    elif sc_type == schedule.Type.WEEKLY:
+        repr_sc_type = "недельное"
+
+    return REPLIED_TO_SCHEDULE_MESSAGE.format(
+        sc_type = repr_sc_type
+    )
+
+NOT_REPLIED_TO_SCHEDULE_MESSAGE = (
+    "🥺 Не удалось ответить на последнее {sc_type} расписание, находи его через поиск"
+)
+def format_not_replied_to_schedule_message(sc_type: schedule.TYPE_LITERAL):
+    if sc_type == schedule.Type.DAILY:
+        repr_sc_type = "дневное"
+    elif sc_type == schedule.Type.WEEKLY:
+        repr_sc_type = "недельное"
+
+    return NOT_REPLIED_TO_SCHEDULE_MESSAGE.format(
+        sc_type = repr_sc_type
     )

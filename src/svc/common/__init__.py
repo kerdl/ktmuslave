@@ -5,7 +5,7 @@ import asyncio
 import random
 from typing import Any, Literal, Optional, Callable
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
@@ -40,16 +40,16 @@ class BroadcastGroup:
 
 @dataclass
 class BaseCtx:
-    is_registered: bool
+    is_registered: bool = False
 
-    navigator: Navigator
+    navigator: Navigator = field(default_factory=Navigator.default)
     """ # `Back`, `next` buttons tracer """
-    settings: Settings
+    settings: Settings = field(default_factory=Settings.default)
     """ # Storage for settings and zoom data """
-    schedule: Schedule
+    schedule: Schedule = field(default_factory=Schedule.default)
     """ # Schedule data """
     
-    last_call: float
+    last_call: float = 0.0
     """
     # Last UNIX time when user interacted with bot
 
@@ -58,7 +58,7 @@ class BaseCtx:
     click buttons too fast
     """
 
-    pages: pagination.Container
+    pages: pagination.Container = field(default_factory=pagination.Container.default)
     """
     # Page storage for big data
 
@@ -67,7 +67,7 @@ class BaseCtx:
     for massive data that can't
     fit in one message (like zoom entries)
     """
-    last_everything: Optional[CommonEverything]
+    last_everything: Optional[CommonEverything] = None
     """
     # Last received event
 
@@ -75,7 +75,7 @@ class BaseCtx:
     - for `navigator`, that passes `everything`
     to `on_enter`, `on_exit` methods of states
     """
-    last_bot_message: Optional[CommonBotMessage]
+    last_bot_message: Optional[CommonBotMessage] = None
     """
     # Last message sent by the bot
 
@@ -83,8 +83,8 @@ class BaseCtx:
     - to resend it when for some reason
     user interacts with OLD messages
     """
-    last_daily_message: Optional[CommonBotMessage]
-    last_weekly_message: Optional[CommonBotMessage]
+    last_daily_message: Optional[CommonBotMessage] = None
+    last_weekly_message: Optional[CommonBotMessage] = None
 
     @property
     def id(self) -> int:
@@ -116,7 +116,7 @@ class BaseCtx:
 @dataclass
 class VkCtx(BaseCtx):
     """ ## Context specific to VK """
-    peer_id: int
+    peer_id: Optional[int] = None
 
     @property
     def id(self) -> int:
@@ -125,7 +125,7 @@ class VkCtx(BaseCtx):
 @dataclass
 class TgCtx(BaseCtx):
     """ ## Context specific to Telegram """
-    chat: TgChat
+    chat: Optional[TgChat] = None
 
     @property
     def id(self) -> int:
@@ -146,21 +146,9 @@ class Ctx:
     """
 
     def add_vk(self, peer_id: int) -> VkCtx:
-        navigator = Navigator.default()
-        settings = Settings.default()
-        schedule = Schedule.default()
-        pages = pagination.Container.default()
-
         self.vk[peer_id] = VkCtx(
-            is_registered    = False,
-            navigator        = navigator, 
-            settings         = settings, 
-            schedule         = schedule,
-            last_call        = time.time(),
-            pages            = pages,
-            last_everything  = None,
-            last_bot_message = None,
-            peer_id          = peer_id
+            last_call           = time.time(),
+            peer_id             = peer_id
         )
 
         logger.info("created ctx for vk {}", peer_id)
@@ -168,21 +156,9 @@ class Ctx:
         return self.vk[peer_id]
 
     def add_tg(self, chat: TgChat) -> TgCtx:
-        navigator = Navigator.default()
-        settings = Settings.default()
-        schedule = Schedule.default()
-        pages = pagination.Container.default()
-
         self.tg[chat.id] = TgCtx(
-            is_registered    = False,
-            navigator        = navigator, 
-            settings         = settings, 
-            schedule         = schedule,
-            last_call        = time.time(),
-            pages            = pages,
-            last_everything  = None,
-            last_bot_message = None,
-            chat             = chat
+            last_call           = time.time(),
+            chat                = chat
         )
 
         logger.info("created ctx for tg {}", chat.id)
@@ -227,15 +203,18 @@ class Ctx:
                 ]
                 
                 for mapping in mappings_to_send:
+                    opposite_type: TYPE_LITERAL
                     reply_to = None
 
                     if mapping.sc_type == Type.DAILY:
+                        opposite_type = Type.WEEKLY
                         page = await SCHEDULE_API.cached_daily()
 
                         if ctx.last_weekly_message is not None:
                             reply_to = ctx.last_weekly_message.id
 
                     elif mapping.sc_type == Type.WEEKLY:
+                        opposite_type = Type.DAILY
                         page = await SCHEDULE_API.cached_weekly()
 
                         if ctx.last_daily_message is not None:
@@ -246,11 +225,23 @@ class Ctx:
                         ctx.settings.zoom.entries.set
                     )
 
-                    whole_text = f"{mapping.header}\n\n{fmt_schedule}"
+                    reply_hint = messages.format_replied_to_schedule_message(
+                        opposite_type
+                    )
+                    no_reply_hint = messages.format_not_replied_to_schedule_message(
+                        opposite_type
+                    )
+
+                    whole_text_with_reply = (
+                        f"{reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
+                    )
+                    whole_text_without_reply = (
+                        f"{no_reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
+                    )
 
                     message = CommonBotMessage(
                         can_edit = False,
-                        text     = whole_text,
+                        text     = whole_text_with_reply,
                         keyboard = kb.Keyboard([
                             [kb.RESEND_BUTTON],
                             [kb.UPDATE_BUTTON],
@@ -270,7 +261,19 @@ class Ctx:
 
                     ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
 
-                    ctx.last_bot_message = await message.send()
+                    try:
+                        ctx.last_bot_message = await message.send()
+                    except VKAPIError[913]:
+                        logger.warning(
+                            f"(broadcasting {mapping.sc_type}) "
+                            f"{ctx.id} has too many fwd messages, "
+                            f"proceeding without forwarding"
+                        )
+
+                        message.reply_to = None
+
+                        ctx.last_bot_message = await message.send()
+
 
                     if mapping.sc_type == Type.DAILY:
                         ctx.last_daily_message = ctx.last_bot_message
