@@ -1,7 +1,7 @@
 from typing import Any
 
 
-PYTHON_VALUE_REPR = {
+PRIMITIVE_VALUE_REPR = {
     True:  "да",
     False: "нет",
     None:  "н/а"
@@ -16,7 +16,7 @@ def value_repr(value: Any) -> str:
     except TypeError:
         return value
 
-    return PYTHON_VALUE_REPR.get(value) or value
+    return PRIMITIVE_VALUE_REPR.get(value) or value
 
 def zero_at_start(num: int) -> str:
     return f"0{num}" if len(str(num)) < 2 else str(num)

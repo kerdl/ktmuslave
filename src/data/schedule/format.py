@@ -205,11 +205,14 @@ async def group(
 ) -> str:
     from src.api.schedule import SCHEDULE_API
 
-    last_update   = await SCHEDULE_API.last_update()
-    update_period = await SCHEDULE_API.update_period()
+    last_update          = await SCHEDULE_API.last_update()
+    utc3_last_update     = last_update + datetime.timedelta(hours=3)
+    fmt_utc3_last_update = utc3_last_update.strftime("%H:%M:%S, %d.%m.%Y")
+
+    update_period    = await SCHEDULE_API.update_period()
 
     update_params = (
-        f"⏱ Последнее обновление: {last_update}\n"
+        f"⏱ Последнее обновление: {fmt_utc3_last_update}\n"
         f"✉ Период автообновления: {update_period} мин"
     )
 
