@@ -33,8 +33,8 @@ async def update(everything: CommonEverything):
             allow_edit = (
                 everything.event.message_id == ctx.last_bot_message.id
                 and everything.event.message_id not in [
-                    ctx.last_weekly_message,
-                    ctx.last_daily_message
+                    ctx.last_weekly_message.id,
+                    ctx.last_daily_message.id
                 ]
             )
 
@@ -46,7 +46,9 @@ async def update(everything: CommonEverything):
         await defs.ctx.broadcast(notify, invoker = ctx)
     else:
         await everything.event.show_notification(
-            messages.format_too_fast_retry_after(int(ctx.schedule.until_allowed))
+            messages.format_too_fast_retry_after(
+                int(ctx.schedule.until_allowed)
+            )
         )
 
 @r.on_callback(StateFilter(HUB.I_MAIN), PayloadFilter(kb.Payload.WEEKLY))

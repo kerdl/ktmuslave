@@ -24,7 +24,7 @@ from src.svc.common.navigator import Navigator
 from src.svc.common import pagination, messages, error
 from src.svc.vk.types import RawEvent
 from src.svc.common import keyboard as kb
-from src.data import zoom
+from src.data import zoom, RepredBaseModel
 from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL
 from src.data.settings import Settings, Group
 from src.api.schedule import Notify
@@ -204,6 +204,7 @@ class Ctx:
                 
                 for mapping in mappings_to_send:
                     opposite_type: TYPE_LITERAL
+                    no_message_to_reply_to = False
                     reply_to = None
 
                     if mapping.sc_type == Type.DAILY:
@@ -212,6 +213,8 @@ class Ctx:
 
                         if ctx.last_weekly_message is not None:
                             reply_to = ctx.last_weekly_message.id
+                        else:
+                            no_message_to_reply_to = True
 
                     elif mapping.sc_type == Type.WEEKLY:
                         opposite_type = Type.DAILY
@@ -219,6 +222,8 @@ class Ctx:
 
                         if ctx.last_daily_message is not None:
                             reply_to = ctx.last_daily_message.id
+                        else:
+                            no_message_to_reply_to = True
 
                     fmt_schedule: str = await sc_format.group(
                         page.get_group(mapping.name),
@@ -228,24 +233,27 @@ class Ctx:
                     reply_hint = messages.format_replied_to_schedule_message(
                         opposite_type
                     )
-                    no_reply_hint = messages.format_not_replied_to_schedule_message(
+                    failed_reply_hint = messages.format_failed_reply_to_schedule_message(
                         opposite_type
                     )
 
+                    whole_text_no_reply_hint = (
+                        f"{mapping.header}\n\n{fmt_schedule}"
+                    )
                     whole_text_with_reply = (
                         f"{reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
                     )
-                    whole_text_without_reply = (
-                        f"{no_reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
+                    whole_text_failed_reply = (
+                        f"{failed_reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
                     )
 
                     message = CommonBotMessage(
                         can_edit = False,
                         text     = whole_text_with_reply,
                         keyboard = kb.Keyboard([
-                            [kb.RESEND_BUTTON],
                             [kb.UPDATE_BUTTON],
                             [kb.SETTINGS_BUTTON],
+                            [kb.RESEND_BUTTON],
                             [
                                 SCHEDULE_API.ft_daily_url_button(),
                                 SCHEDULE_API.ft_weekly_url_button()
@@ -256,6 +264,9 @@ class Ctx:
                         chat_id  = chat_id,
                         reply_to = reply_to,
                     )
+
+                    if no_message_to_reply_to:
+                        message.text = whole_text_no_reply_hint
 
                     logger.info(f"broadcasting {mapping.sc_type} to {ctx.id}")
 
@@ -270,6 +281,7 @@ class Ctx:
                             f"proceeding without forwarding"
                         )
 
+                        message.text = whole_text_failed_reply
                         message.reply_to = None
 
                         ctx.last_bot_message = await message.send()
@@ -284,7 +296,7 @@ class Ctx:
                         await ctx.last_bot_message.pin()
 
     async def broadcast(self, notify: Notify, invoker: Optional[BaseCtx] = None):
-        from src.data.schedule.compare import GroupCompare, ChangeType
+        from src.data.schedule.compare import ChangeType
 
         TYPES = {
             Type.WEEKLY: notify.weekly,
@@ -294,30 +306,22 @@ class Ctx:
         mappings: list[BroadcastGroup] = []
 
         for (sc_type, page_compare) in TYPES.items():
-            if sc_type == Type.WEEKLY:
-                repr_type = "недельном"
-            elif sc_type == Type.DAILY:
-                repr_type = "дневном"
-
             CHANGE_TYPES = {
                 ChangeType.APPEARED: page_compare.groups.appeared if page_compare else None,
                 ChangeType.CHANGED:  page_compare.groups.changed if page_compare else None
             }
 
             for (change, groups) in CHANGE_TYPES.items():
+                groups: list[RepredBaseModel]
+
                 if groups is None:
                     continue
 
-                if change == ChangeType.APPEARED:
-                    groups: list[Group]
-                    repr_change = "появилась"
-
-                elif change == ChangeType.CHANGED:
-                    groups: list[GroupCompare]
-                    repr_change = "изменилась"
-
                 for group in groups:
-                    header = f"Группа {repr_change} в {repr_type}"
+                    header = messages.format_group_changed_in_sc_type(
+                        change  = change,
+                        sc_type = sc_type
+                    )
 
                     name = group.repr_name
                     

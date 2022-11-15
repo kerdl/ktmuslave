@@ -4,6 +4,7 @@ from src.data.settings import Settings
 
 from src.svc import common
 from src.data import zoom, format as fmt, schedule
+from src.data.schedule import compare
 from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
@@ -459,6 +460,28 @@ def format_too_fast_retry_after(secs: int):
     )
 
 
+GROUP_CHANGED_IN_SC_TYPE = (
+    "Группа {change} в {sc_type}"
+)
+def format_group_changed_in_sc_type(
+    change: compare.ChangeType,
+    sc_type: schedule.Type
+):
+    if change == compare.ChangeType.APPEARED:
+        repr_change = "появилась"
+    elif change == compare.ChangeType.CHANGED:
+        repr_change = "изменилась"
+
+    if sc_type == schedule.Type.DAILY:
+        repr_sc_type = "дневном"
+    elif sc_type == schedule.Type.WEEKLY:
+        repr_sc_type = "недельном"
+    
+    return GROUP_CHANGED_IN_SC_TYPE.format(
+        change  = repr_change,
+        sc_type = repr_sc_type
+    )
+
 REPLIED_TO_SCHEDULE_MESSAGE = (
     "👆 Последнее {sc_type} в ответном сообщении"
 )
@@ -472,15 +495,16 @@ def format_replied_to_schedule_message(sc_type: schedule.TYPE_LITERAL):
         sc_type = repr_sc_type
     )
 
-NOT_REPLIED_TO_SCHEDULE_MESSAGE = (
-    "🥺 Не удалось ответить на последнее {sc_type} расписание, находи его через поиск"
+FAILED_REPLY_TO_SCHEDULE_MESSAGE = (
+    "🥺 Не удалось ответить на последнее {sc_type} расписание, "
+    f"находи его через поиск или запроси через кнопку {Text.RESEND}"
 )
-def format_not_replied_to_schedule_message(sc_type: schedule.TYPE_LITERAL):
+def format_failed_reply_to_schedule_message(sc_type: schedule.TYPE_LITERAL):
     if sc_type == schedule.Type.DAILY:
         repr_sc_type = "дневное"
     elif sc_type == schedule.Type.WEEKLY:
         repr_sc_type = "недельное"
 
-    return NOT_REPLIED_TO_SCHEDULE_MESSAGE.format(
+    return FAILED_REPLY_TO_SCHEDULE_MESSAGE.format(
         sc_type = repr_sc_type
     )
