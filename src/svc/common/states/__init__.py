@@ -8,31 +8,35 @@ from src.svc.common import error
 
 
 class Space:
+    """ ## In what space the user currently in """
+    INIT        = "init"
     """
-    ## In what space the user currently in
-
-    By space I mean these types of environments:
-    - `init` - where user gets first time with welcome message
-    - `settings` - common area, where user can specify:
+    Where user gets first time with welcome message
+    """
+    SETTINGS    = "settings"
+    """
+    Common area, where user can specify:
         - his group
         - if he wants to get broadcast
         - if the bot should pin the broadcast
         - if he wants to add zoom data
-    - `hub` - the main user area, where he can 
+    """
+    HUB         = "hub"
+    """
+    The main user area, where he can 
         - view schedule, 
         - view links,
         - can change settings
-    - `zoom` - where user can:
+    """
+    ZOOM        = "zoom"
+    """
+    Where user can:
         - add multiple zoom entries from one message
         - edit every signle one of them manually
         - delete them
     """
-    INIT        = "init"
-    SETTINGS    = "settings"
-    HUB         = "hub"
-    ZOOM        = "zoom"
 
-SPACE_LITERAL = Literal["init", "hub", "zoom"]
+SPACE_LITERAL = Literal["init", "settings", "hub", "zoom"]
 
 
 class Values:
