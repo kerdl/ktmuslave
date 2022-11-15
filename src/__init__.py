@@ -3,6 +3,9 @@ import os
 import asyncio
 import datetime
 import re
+import aiofiles
+from aiofiles.threadpool.text import AsyncTextIOWrapper
+from aiofiles import ospath
 from typing import Optional, TYPE_CHECKING
 from vkbottle import Bot as VkBot
 from vkbottle_types.responses.groups import GroupsGroupFull
@@ -14,7 +17,6 @@ from loguru._handler import Message
 from dataclasses import dataclass
 from pathlib import Path
 from dotenv import get_key
-from io import TextIOWrapper
 
 
 if TYPE_CHECKING:
@@ -41,12 +43,28 @@ def sink(message: Message):
 
         defs.loop.create_task(send_error())
 
+    async def write_out():
+        await defs.log_file.write(no_escapes)
+        await defs.log_file.flush()
+
+        if (await ospath.getsize(defs.log_path)) > 1_048_576: # 1mb
+            now = datetime.datetime.now()
+            now_str = str(now)
+            now_str = now_str.replace(":", "_").replace("/", "_")
+
+            await defs.log_file.close()
+
+            defs.log_path.rename(defs.log_dir.joinpath(f"log_{now_str}.txt"))
+
+            defs.log_file = await aiofiles.open(
+                defs.log_path, mode="a", encoding="utf8", newline="\n"
+            )
+
     print(message, end="")
 
     no_escapes = COLOR_ESCAPE_REGEX.sub("", message)
 
-    defs.log_file.write(no_escapes)
-    defs.log_file.flush()
+    defs.loop.create_task(write_out())
 
 
 @dataclass
@@ -72,7 +90,7 @@ class Defs:
     data_dir: Optional[Path] = None
     log_dir: Optional[Path] = None
     log_path: Optional[Path] = None
-    log_file: Optional[TextIOWrapper] = None
+    log_file: Optional[AsyncTextIOWrapper] = None
 
     def init_all(
         self, 
@@ -166,15 +184,9 @@ class Defs:
 
         self.log_path = self.log_dir.joinpath("log.txt")
 
-        if self.log_path.exists() and os.path.getsize(self.log_path) > 1_048_576: # 1mb
-            now = datetime.datetime.now()
-            now_str = str(now)
-
-            now_str = now_str.replace(":", "_").replace("/", "_")
-
-            self.log_path.rename(f"log_{now_str}.txt")
-
-        self.log_file = open(self.log_path, mode="a", encoding="utf8", newline="\n")
+        self.log_file = self.loop.run_until_complete(
+            aiofiles.open(self.log_path, mode="a", encoding="utf8", newline="\n")
+        )
 
     def init_logger(self) -> None:
         """
