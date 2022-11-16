@@ -252,8 +252,8 @@ class Ctx:
                         text     = whole_text_with_reply,
                         keyboard = kb.Keyboard([
                             [kb.UPDATE_BUTTON],
-                            [kb.SETTINGS_BUTTON],
                             [kb.RESEND_BUTTON],
+                            [kb.SETTINGS_BUTTON],
                             [
                                 SCHEDULE_API.ft_daily_url_button(),
                                 SCHEDULE_API.ft_weekly_url_button()
