@@ -1,3 +1,4 @@
+from __future__ import annotations
 from loguru import logger
 from typing import Optional, Literal, Union, Callable, Awaitable
 from dataclasses import dataclass
@@ -6,8 +7,10 @@ from websockets import client, exceptions
 from websockets.legacy import client
 from aiohttp.client_exceptions import ClientConnectorError
 from aiohttp import ClientResponse
+from pathlib import Path
 import asyncio
 import datetime
+import aiofiles
 
 from src import defs
 from src.api.base import Api
@@ -26,6 +29,7 @@ class Ivoker(BaseModel):
     manually: Interactor
 
 class Notify(BaseModel):
+    random: str
     invoker: Union[AUTO_LITERAL, Ivoker]
     daily: Optional[compare.PageCompare]
     weekly: Optional[compare.PageCompare]
@@ -49,6 +53,41 @@ class Notify(BaseModel):
                         return True
         
         return False
+
+class LastNotify(BaseModel):
+    path: Optional[Path]
+    randoms: list[str]
+
+    async def save(self):
+        async with aiofiles.open(defs.data_dir.joinpath("last_notify.json"), mode="w") as f:
+            ser = self.json(ensure_ascii=False, indent=2, exclude={"path"})
+            await f.write(ser)
+    
+    def poll_save(self):
+        defs.loop.create_task(self.save())
+    
+    @classmethod
+    def load(cls, path: Path):
+        self = cls.parse_file(path)
+        self.path = path
+
+        return self
+
+    @classmethod
+    def load_or_init(cls: type[LastNotify], path: Path) -> LastNotify:
+        if path.exists():
+            return cls.load(path)
+        else:
+            self = cls(path = path, randoms = [])
+            self.poll_save()
+
+            return self
+    
+    def add_random(self, random: str):
+        self.randoms.append(random)
+        self.randoms = self.randoms[-10:]
+
+        self.poll_save()
 
 @dataclass
 class ScheduleApi(Api):
@@ -270,6 +309,14 @@ class ScheduleApi(Api):
 
                             notify = Notify.parse_raw(message)
 
+                            if notify.random in LAST_NOTIFY.randoms:
+                                logger.warning(
+                                    f"caught duplicate notify {notify.random}, ignoring"
+                                )
+                                continue
+                            
+                            LAST_NOTIFY.add_random(notify.random)
+
                             await self.daily()
                             await self.weekly()
 
@@ -295,3 +342,4 @@ class ScheduleApi(Api):
         return response
 
 SCHEDULE_API = ScheduleApi("localhost:8080/schedule")
+LAST_NOTIFY  = LastNotify.load_or_init(defs.data_dir.joinpath("last_notify.json"))
