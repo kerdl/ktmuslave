@@ -204,6 +204,7 @@ class ScheduleApi(Api):
                     break
                 except ClientConnectorError:
                     logger.error(f"can't get last update date, retrying in 5s")
+                    await asyncio.sleep(5)
 
         return self._last_update
 
