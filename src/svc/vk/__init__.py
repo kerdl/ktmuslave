@@ -2,6 +2,7 @@ from typing import Optional
 from vkbottle import Bot, VKAPIError
 from vkbottle.tools.dev.mini_types.bot.foreign_message import ForeignMessageMin
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
+from vkbottle_types.objects import MessagesForward
 from vkbottle_types.codegen.responses.messages import BaseBoolInt
 from dotenv import get_key
 from io import StringIO
@@ -31,6 +32,15 @@ async def chunked_send(
     chunks = text.chunks(message)
     responses = []
 
+    fwd = None
+
+    if reply_to is not None:
+        fwd = MessagesForward(
+            is_reply                 = True,
+            conversation_message_ids = [reply_to],
+            peer_id                  = peer_id
+        )
+
     for (index, chunk) in enumerate(chunks):
         is_first = index == 0
         is_last = (index + 1) == len(chunks)
@@ -41,7 +51,7 @@ async def chunked_send(
                 peer_ids         = [peer_id],
                 message          = chunk,
                 keyboard         = keyboard if is_last else None,
-                reply_to         = reply_to if is_first else None,
+                forward          = fwd if is_first else None,
                 dont_parse_links = dont_parse_links,
             )
         )

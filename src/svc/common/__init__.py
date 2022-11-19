@@ -285,7 +285,10 @@ class Ctx:
                         message.reply_to = None
 
                         ctx.last_bot_message = await message.send()
-
+                    except Exception as e:
+                        logger.error(
+                            f"cannot broadcast {mapping.sc_type} to {ctx.id}: {e}"
+                        )
 
                     if mapping.sc_type == Type.DAILY:
                         ctx.last_daily_message = ctx.last_bot_message
