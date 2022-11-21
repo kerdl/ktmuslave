@@ -236,18 +236,35 @@ def notify(
 ) -> str:
     rows: list[str] = []
 
+    is_translated = isinstance(compare, TranslatedBaseModel)
+
     for field in compare:
         key = field[0]
         value = field[1]
 
         if isinstance(value, Changes):
+            local_translation = None if not is_translated else compare.translate(key)
+            local_rows: list[str] = []
+
             for appeared in value.appeared:
+                repr_name = disappeared
+
                 if isinstance(appeared, RepredBaseModel):
-                    rows.append(APPEAR.format(appeared.repr_name))
+                    repr_name = appeared.repr_name
+
+                local_rows.append(APPEAR.format(repr_name))
 
             for disappeared in value.disappeared:
+                repr_name = disappeared
+
                 if isinstance(disappeared, RepredBaseModel):
-                    rows.append(DISAPPEAR.format(disappeared.repr_name))
+                    repr_name = disappeared.repr_name
+
+                local_rows.append(DISAPPEAR.format(repr_name))
+
+            if local_rows:
+                local_rows_joined = ", ".join(local_rows)
+                rows.append(f"{local_translation}: {local_rows_joined}")
 
             for changed in value.changed:
                 if (
