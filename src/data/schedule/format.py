@@ -255,7 +255,7 @@ def cmp(
             local_rows: list[str] = []
 
             for appeared in value.appeared:
-                repr_name = disappeared
+                repr_name = appeared
 
                 if isinstance(appeared, RepredBaseModel):
                     repr_name = appeared.repr_name
