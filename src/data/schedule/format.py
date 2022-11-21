@@ -2,6 +2,7 @@ import datetime
 import difflib
 from typing import Optional, Any, Union
 from pydantic import BaseModel
+from dataclasses import dataclass
 
 from src.data.schedule.compare import GroupCompare, Changes, PrimitiveChange
 from src.data.schedule import Page, Group, Day, Subject, Format, FORMAT_LITERAL
@@ -231,10 +232,17 @@ async def group(
         f"{update_params}"
     )
 
-def notify(
-    compare: Union[TranslatedBaseModel, RepredBaseModel]
-) -> str:
+@dataclass
+class CompareFormatted:
+    text: str
+    has_detailed: bool
+
+def cmp(
+    compare: Union[TranslatedBaseModel, RepredBaseModel],
+    is_detailed: bool = True
+) -> CompareFormatted:
     rows: list[str] = []
+    has_detailed = False
 
     is_translated = isinstance(compare, TranslatedBaseModel)
 
@@ -271,11 +279,17 @@ def notify(
                     isinstance(changed, TranslatedBaseModel)
                     and isinstance(changed, RepredBaseModel)
                 ):
-                    compared = notify(changed)
-                    indented_compared = text.indent(compared, width = 2, add_dropdown = True)
+                    has_detailed = True
+
+                    if is_detailed:
+                        compared = cmp(changed)
+                    else:
+                        compared = CompareFormatted(text="", has_detailed=False)
+
+                    indented_compared = text.indent(compared.text, width = 2, add_dropdown = True)
                     name = changed.repr_name
 
-                    if compared == "":
+                    if compared.text == "":
                         formatted = CHANGE.format(name)
                     else:
                         formatted = f"{CHANGE.format(name)}\n{indented_compared}"
@@ -290,4 +304,4 @@ def notify(
                 f"{compare.translate(key)}: {PRIMITIVE.format(old, new)}"
             )
     
-    return "\n".join(rows)
+    return CompareFormatted(text="\n".join(rows), has_detailed=has_detailed)

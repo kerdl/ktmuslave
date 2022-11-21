@@ -482,6 +482,7 @@ def format_group_changed_in_sc_type(
         sc_type = repr_sc_type
     )
 
+
 REPLIED_TO_SCHEDULE_MESSAGE = (
     "👆 Последнее {sc_type} в ответном сообщении"
 )
@@ -494,6 +495,7 @@ def format_replied_to_schedule_message(sc_type: schedule.TYPE_LITERAL):
     return REPLIED_TO_SCHEDULE_MESSAGE.format(
         sc_type = repr_sc_type
     )
+
 
 FAILED_REPLY_TO_SCHEDULE_MESSAGE = (
     "🥺 Не удалось ответить на последнее {sc_type} расписание, "
@@ -508,3 +510,9 @@ def format_failed_reply_to_schedule_message(sc_type: schedule.TYPE_LITERAL):
     return FAILED_REPLY_TO_SCHEDULE_MESSAGE.format(
         sc_type = repr_sc_type
     )
+
+DETAILED_COMPARE_NOT_SHOWN = (
+    "(изменилась дата, детальные изменения под • не показаны)"
+)
+def format_detailed_compare_not_shown():
+    return DETAILED_COMPARE_NOT_SHOWN

@@ -309,6 +309,8 @@ class Ctx:
         mappings: list[BroadcastGroup] = []
 
         for (sc_type, page_compare) in TYPES.items():
+            do_detailed_compare = page_compare.date.is_same() if page_compare is not None else False
+
             CHANGE_TYPES = {
                 ChangeType.APPEARED: page_compare.groups.appeared if page_compare else None,
                 ChangeType.CHANGED:  page_compare.groups.changed if page_compare else None
@@ -331,11 +333,19 @@ class Ctx:
                     if change == ChangeType.APPEARED:
                         fmt_changes = None
                     elif change == ChangeType.CHANGED:
-                        fmt_changes = sc_format.notify(group)
+                        fmt_changes = sc_format.cmp(
+                            group,
+                            is_detailed = do_detailed_compare
+                        )
 
-                    if fmt_changes is not None:
+                    if fmt_changes.text is not None:
                         header += "\n\n"
-                        header += fmt_changes
+
+                        if fmt_changes.has_detailed and not do_detailed_compare:
+                            header += messages.format_detailed_compare_not_shown()
+                            header += "\n"
+
+                        header += fmt_changes.text
 
                     mappings.append(BroadcastGroup(name, header, sc_type))
         

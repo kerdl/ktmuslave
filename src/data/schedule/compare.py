@@ -29,6 +29,12 @@ class PrimitiveChange(GenericModel, Generic[T]):
     old: Optional[T]
     new: T
 
+    def is_same(self) -> bool:
+        return self.old == self.new
+    
+    def is_different(self) -> bool:
+        return not self.is_same()
+
 
 class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
     name: str
@@ -77,4 +83,5 @@ class GroupCompare(TranslatedBaseModel, RepredBaseModel):
 
 class PageCompare(BaseModel):
     raw: str
+    date: PrimitiveChange[Range[datetime.date]]
     groups: Changes[GroupCompare, Group]
