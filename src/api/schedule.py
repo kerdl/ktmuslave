@@ -64,7 +64,7 @@ class LastNotify(BaseModel):
             await f.write(ser)
     
     def poll_save(self):
-        defs.loop.create_task(self.save())
+        defs.create_task(self.save())
     
     @classmethod
     def load(cls, path: Path):

@@ -350,7 +350,7 @@ class Ctx:
             await f.write(dump)
     
     def poll_save(self):
-        asyncio.get_event_loop().create_task(self.save())
+        defs.create_task(self.save())
 
     async def save_forever(self):
         while True:
@@ -1230,8 +1230,8 @@ def run_forever():
                 await asyncio.sleep(e.retry_after)
                 logger.info("starting tg polling again")
 
-    loop.create_task(tg_start_polling())
-    loop.create_task(vk.run_polling())
+    defs.create_task(tg_start_polling())
+    defs.create_task(vk.run_polling())
 
     try:
         loop.run_forever()

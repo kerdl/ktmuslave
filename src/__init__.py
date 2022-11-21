@@ -26,22 +26,13 @@ COLOR_ESCAPE_REGEX = re.compile(r"\x1b[[]\d{1,}m")
 
 
 def sink(message: Message):
+    is_error = False
     record = message.record
 
     if record["exception"]:
-        from src.svc import vk
-
-        exc = record["exception"]
-        
-        async def send_error():
-            admin_id = get_key(".env", "VK_ADMIN")
-
-            await vk.chunked_send(
-                peer_id = admin_id,
-                message = str(exc),
-            )
-
-        defs.loop.create_task(send_error())
+        is_error = True
+    elif record["level"].name == "ERROR":
+        is_error = True
 
     async def write_out():
         await defs.log_file.write(no_escapes)
@@ -64,7 +55,20 @@ def sink(message: Message):
 
     no_escapes = COLOR_ESCAPE_REGEX.sub("", message)
 
-    defs.loop.create_task(write_out())
+    if is_error:
+        from src.svc import vk
+        
+        async def send_error():
+            admin_id = get_key(".env", "VK_ADMIN")
+
+            await vk.chunked_send(
+                peer_id = admin_id,
+                message = str(no_escapes),
+            )
+
+        defs.create_task(send_error())
+
+    defs.create_task(write_out())
 
 
 @dataclass
@@ -124,7 +128,7 @@ class Defs:
         await SCHEDULE_API.daily()
         await SCHEDULE_API.weekly()
 
-        self.loop.create_task(SCHEDULE_API.updates())
+        self.create_task(SCHEDULE_API.updates())
 
     async def get_vk_bot_info(self):
         groups_data = await self.vk_bot.api.groups.get_by_id()
@@ -171,7 +175,7 @@ class Defs:
         from src.svc.common import Ctx
 
         self.ctx = Ctx.load_or_init()
-        self.loop.create_task(self.ctx.save_forever())
+        self.create_task(self.ctx.save_forever())
 
         self.loop.run_until_complete(self.init_schedule_api())
 
@@ -212,5 +216,23 @@ class Defs:
         )
 
         self.log_dir
+    
+    def create_task(self, coro, *, name=None, context=None):
+        task = self.loop.create_task(coro, name=name, context=context)
+
+        task.add_done_callback(self._handle_task)
+
+    def _handle_task(self, task: asyncio.Task):
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            try:
+                fn = task.get_coro().cr_code.co_name
+            except AttributeError:
+                fn = "unknown"
+
+            logger.exception(f"task function <{fn}> raised {type(e).__name__}: {e}")
 
 defs = Defs()
