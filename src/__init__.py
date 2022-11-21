@@ -217,8 +217,8 @@ class Defs:
 
         self.log_dir
     
-    def create_task(self, coro, *, name=None, context=None):
-        task = self.loop.create_task(coro, name=name, context=context)
+    def create_task(self, coro, *, name=None):
+        task = self.loop.create_task(coro, name=name)
 
         task.add_done_callback(self._handle_task)
 
