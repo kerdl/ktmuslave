@@ -55,27 +55,17 @@ class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
     def repr_name(self) -> str:
         return self.name
 
-class DayCompare(TranslatedBaseModel, RepredBaseModel):
+class DayCompare(RepredBaseModel):
     weekday: WEEKDAY_LITERAL
     subjects: Changes[SubjectCompare, Subject]
-
-    __translation__: ClassVar[dict[str, str]] = {
-        "weekday": "День",
-        "subjects": "Пары"
-    }
 
     @property
     def repr_name(self) -> str:
         return self.weekday
 
-class GroupCompare(TranslatedBaseModel, RepredBaseModel):
+class GroupCompare(RepredBaseModel):
     name: str
     days: Changes[DayCompare, Day]
-
-    __translation__: ClassVar[dict[str, str]] = {
-        "name": "Группа",
-        "days": "Дни"
-    }
 
     @property
     def repr_name(self) -> str:

@@ -107,18 +107,19 @@ class ScheduleApi(Api):
     _update_period: Optional[Duration] = None
     _last_update: Optional[datetime.datetime] = None
 
-    async def _req(self, url: str, method: Callable[[str], Awaitable[ClientResponse]]):
+    async def _req(self, url: str, method: Callable[[str], Awaitable[ClientResponse]], return_result: bool = True):
         from src.api import Response
 
         resp = await method(url)
         resp_text = await resp.text()
 
-        response = Response.parse_raw(resp_text)
+        if return_result:
+            response = Response.parse_raw(resp_text)
 
-        return response
+            return response
 
-    async def _get(self, url: str):
-        return await self._req(url, defs.http.get)
+    async def _get(self, url: str, return_result: bool = True):
+        return await self._req(url, defs.http.get, return_result=return_result)
 
     async def _post(self, url: str):
         return await self._req(url, defs.http.post)
@@ -154,16 +155,29 @@ class ScheduleApi(Api):
                 groups_list.append(daily_group)
 
         return groups_list
+    
+    async def ping(self):
+        retry_period = 5
+        is_connect_error_logged = False
+        url = "http://" + self.url
 
-    async def schedule(self, url: str) -> Page:
         while True:
             try:
-                response = await self._get(url)
-                break
+                await self._get(url, return_result = False)
             except ClientConnectorError:
-                logger.error(f"can't fetch {url}, retrying in 5s")
-                await asyncio.sleep(5)
+                if not is_connect_error_logged:
+                    logger.error(
+                        f"run schedule HTTP API server on {url} first, "
+                        f"will keep trying reconnecting each {retry_period} secs"
+                    )
+                    is_connect_error_logged = True
+                await asyncio.sleep(retry_period)
                 continue
+
+            break
+
+    async def schedule(self, url: str) -> Page:
+        response = await self._get(url)
 
         return response.data.page
 
@@ -197,14 +211,7 @@ class ScheduleApi(Api):
     async def last_update(self, force: bool = False) -> datetime.datetime:
         url = "http://" + self.url + "/update/last"
 
-        if force or self._last_update is None:
-            while True:
-                try:
-                    self._last_update = (await self._get(url)).data.last_update
-                    break
-                except ClientConnectorError:
-                    logger.error(f"can't get last update date, retrying in 5s")
-                    await asyncio.sleep(5)
+        self._last_update = (await self._get(url)).data.last_update
 
         return self._last_update
 
@@ -286,6 +293,9 @@ class ScheduleApi(Api):
         return (await self._get(url)).is_ok
 
     async def updates(self):
+        retry_period = 5
+        is_connect_error_logged = False
+    
         while True:
             try:
                 if self.interactor is None or not await self.interactor_valid():
@@ -304,6 +314,8 @@ class ScheduleApi(Api):
 
                 async with client.connect(url, create_protocol=protocol_factory) as socket:
                     try:
+                        is_connect_error_logged = False
+
                         logger.info(f"awaiting updates...")
                         async for message in socket:
                             await self.last_update(force=True)
@@ -328,7 +340,14 @@ class ScheduleApi(Api):
                         return await self.updates()
 
             except ClientConnectorError:
-                logger.error(f"can't connect to updates server, retrying in 5s")
+                if not is_connect_error_logged:
+                    logger.error(
+                        f"can't connect to updates server, "
+                        f"will keep retrying each {retry_period} secs"
+                    )
+
+                    is_connect_error_logged = True
+        
                 await asyncio.sleep(5)
                 continue
 

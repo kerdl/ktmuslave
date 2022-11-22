@@ -270,31 +270,34 @@ def cmp(
 
                 local_rows.append(DISAPPEAR.format(repr_name))
 
-            if local_rows:
+            if len(local_rows) > 0 and local_translation is not None:
                 local_rows_joined = ", ".join(local_rows)
                 rows.append(f"{local_translation}: {local_rows_joined}")
+            elif len(local_rows) > 0:
+                for row in local_rows:
+                    rows.append(row)
 
             for changed in value.changed:
-                if (
-                    isinstance(changed, TranslatedBaseModel)
-                    and isinstance(changed, RepredBaseModel)
-                ):
-                    has_detailed = True
+                has_detailed = True
 
-                    if is_detailed:
-                        compared = cmp(changed)
-                    else:
-                        compared = CompareFormatted(text="", has_detailed=False)
+                if is_detailed:
+                    compared = cmp(changed)
+                else:
+                    compared = CompareFormatted(text="", has_detailed=False)
 
-                    indented_compared = text.indent(compared.text, width = 2, add_dropdown = True)
+                indented_compared = text.indent(compared.text, width = 2, add_dropdown = True)
+                
+                name = changed
+                
+                if isinstance(changed, RepredBaseModel):
                     name = changed.repr_name
 
-                    if compared.text == "":
-                        formatted = CHANGE.format(name)
-                    else:
-                        formatted = f"{CHANGE.format(name)}\n{indented_compared}"
+                if compared.text == "":
+                    formatted = CHANGE.format(name)
+                else:
+                    formatted = f"{CHANGE.format(name)}\n{indented_compared}"
 
-                    rows.append(formatted)
+                rows.append(formatted)
 
         elif isinstance(value, PrimitiveChange):
             old = fmt.value_repr(value.old)
