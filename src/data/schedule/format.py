@@ -234,7 +234,7 @@ async def group(
 
 @dataclass
 class CompareFormatted:
-    text: str
+    text: Optional[str]
     has_detailed: bool
 
 def cmp(

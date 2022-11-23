@@ -331,7 +331,10 @@ class Ctx:
                     name = group.repr_name
                     
                     if change == ChangeType.APPEARED:
-                        fmt_changes = None
+                        fmt_changes = sc_format.CompareFormatted(
+                            text=None,
+                            has_detailed=False
+                        )
                     elif change == ChangeType.CHANGED:
                         fmt_changes = sc_format.cmp(
                             group,
