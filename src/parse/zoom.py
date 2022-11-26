@@ -63,27 +63,25 @@ class Parser:
         first_name_occurrence_found = False
         prev_key: Optional[KEY_LITERAL] = None
 
-        current_section = ""
+        current_section_rows = []
 
         for (index, line) in enumerate(newline_split):
             is_last = (index + 1) == len(newline_split)
 
             this_line_key = Key.find(line)
 
-            if this_line_key is not None or prev_key == Key.NOTES:
-                current_section += line
-                current_section += "\n"
-
-            if Key.is_relevant(Key.NAME, line) and first_name_occurrence_found is False:
+            if this_line_key == Key.NAME and first_name_occurrence_found is False:
                 first_name_occurrence_found = True
-                continue
+            elif this_line_key == Key.NAME:
+                sections.append("\n".join(current_section_rows))
+                current_section_rows = []
 
-            if Key.is_relevant(Key.NAME, line) or is_last:
-                sections.append(current_section)
-                current_section = ""
-                current_section += line
-                current_section += "\n"
+            if this_line_key is not None or prev_key == Key.NOTES:
+                current_section_rows.append(line)
             
+            if is_last:
+                sections.append("\n".join(current_section_rows))
+
             if this_line_key is not None:
                 prev_key = this_line_key
 
