@@ -66,7 +66,7 @@ def chunks(text: str, limit: int = 4096) -> list[str]:
 
     lines: list[str] = []
     for (index, line) in enumerate(shortened_lines):
-        is_last = (index + 1) == len(newline_split)
+        is_last = (index + 1) == len(shortened_lines)
 
         if chunks_len(lines) > limit:
             last_line = lines[-1]
