@@ -75,6 +75,12 @@ class Data(Translated, Emojized):
         "notes": "📝"
     }
 
+    def i_promise_i_will_get_rid_of_this_thing_but_not_now(self):
+        try:
+            self.notes
+        except AttributeError:
+            self.notes = Field(None)
+
     @classmethod
     def parse(cls: type[Data], text: str) -> list[Data]:
         from src.parse import zoom

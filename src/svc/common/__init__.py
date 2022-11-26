@@ -376,6 +376,17 @@ class Ctx:
 
         with open(path, mode="rb") as f:
             self: Ctx = pickle.load(f)
+
+            for messenger in [self.vk, self.tg]:
+                messenger: dict[int, BaseCtx]
+
+                for (id, ctx) in messenger.items():
+                    for tchr in ctx.settings.zoom.entries.set:
+                        tchr.i_promise_i_will_get_rid_of_this_thing_but_not_now()
+                    
+                    for tchr in ctx.settings.zoom.new_entries.set:
+                        tchr.i_promise_i_will_get_rid_of_this_thing_but_not_now()
+
             return self
 
     @classmethod
