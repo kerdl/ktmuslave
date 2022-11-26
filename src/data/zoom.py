@@ -8,7 +8,7 @@ if __name__ == "__main__":
 
 from loguru import logger
 from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urlparse
 
 from src.svc import common
@@ -55,21 +55,24 @@ def format_section(name: str, fields: list[str]):
 @dataclass
 class Data(Translated, Emojized):
     name: Field[str]
-    url: Field[Optional[str]]
-    id: Field[Optional[str]]
-    pwd: Field[Optional[str]]
+    url: Field[Optional[str]]   = field(default_factory = lambda: Field(None))
+    id: Field[Optional[str]]    = field(default_factory = lambda: Field(None))
+    pwd: Field[Optional[str]]   = field(default_factory = lambda: Field(None))
+    notes: Field[Optional[str]] = field(default_factory = lambda: Field(None))
 
     __translation__: ClassVar[dict[str, str]] = {
         "name": "Имя",
         "url": "Ссылка",
         "id": "ID",
         "pwd": "Пароль",
+        "notes": "Заметки",
     }
     __emojis__: ClassVar[dict[str, str]] = {
         "name": "🐷",
         "url": "🌐",
         "id": "📍",
         "pwd": "🔑",
+        "notes": "📝"
     }
 
     @classmethod
@@ -138,7 +141,9 @@ class Data(Translated, Emojized):
         return [field for field in self.__dict__.items() if filter_(field)]
 
     def all_fields_are_set(self) -> bool:
-        return all([field[1].value for field in self.fields()])
+        ignored = ["notes"]
+
+        return all([field[1].value for field in self.fields() if field[0] not in ignored])
 
     def all_fields_without_warns(
         self, 
@@ -324,12 +329,7 @@ class Entries:
             self.set.add(data)
 
     def add_from_name(self, name: str):
-        data = Data(
-            name = Field(name),
-            url  = Field(None),
-            id   = Field(None),
-            pwd  = Field(None),
-        )
+        data = Data(name = Field(name))
 
         self.add(data)
 

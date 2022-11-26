@@ -75,12 +75,10 @@ def date(dt: datetime.date) -> str:
 
 def teachers(
     tchrs: list[str],
-    entries: Optional[set[zoom.Data]]
+    format: FORMAT_LITERAL,
+    entries: set[zoom.Data]
 ) -> list[str]:
-    if entries is not None:
-        str_entries = [entry.name.value for entry in entries]
-    else:
-        str_entries = []
+    str_entries = [entry.name.value for entry in entries]
 
     fmt_teachers: list[str] = []
 
@@ -100,16 +98,21 @@ def teachers(
             if entry.name.value == first_match:
                 found_entry = entry
         
-        if found_entry.url.value is not None:
-            data.append(found_entry.url.value)
+        if format == Format.REMOTE:
+            if found_entry.url.value is not None:
+                data.append(found_entry.url.value)
 
-        if found_entry.id.value is not None:
-            translation = found_entry.__translation__.get("id")
-            data.append(f"{translation}: {found_entry.id.value}")
+            if found_entry.id.value is not None:
+                translation = found_entry.__translation__.get("id")
+                data.append(f"{translation}: {found_entry.id.value}")
 
-        if found_entry.pwd.value is not None:
-            translation = found_entry.__translation__.get("pwd").lower()
-            data.append(f"{translation}: {found_entry.pwd.value}")
+            if found_entry.pwd.value is not None:
+                translation = found_entry.__translation__.get("pwd").lower()
+                data.append(f"{translation}: {found_entry.pwd.value}")
+
+        if found_entry.notes.value is not None:
+            translation = found_entry.__translation__.get("notes").lower()
+            data.append(f"{translation}: {found_entry.notes.value}")
 
         fmt_data = ", ".join(data)
 
@@ -119,7 +122,8 @@ def teachers(
 
 def subject(
     subject: Subject,
-    entries: Optional[set[zoom.Data]]
+    format: FORMAT_LITERAL,
+    entries: set[zoom.Data]
 ) -> str:
     if subject.is_unknown_window():
         return UNKNOWN_WINDOW.format(subject.raw)
@@ -127,7 +131,7 @@ def subject(
     num     = keycap_num(subject.num)
     time    = str(subject.time)
     name    = subject.name
-    tchrs   = teachers(subject.teachers, entries)
+    tchrs   = teachers(subject.teachers, format, entries)
     cabinet = subject.cabinet
 
     joined_tchrs = ", ".join(tchrs)
@@ -157,7 +161,7 @@ def days(
         fmt_subjs: list[tuple[int, FORMAT_LITERAL, str]] = []
 
         for subj in day.subjects:
-            fmt_subj = subject(subj, entries if subj.format == Format.REMOTE else None)
+            fmt_subj = subject(subj, subj.format, entries)
             fmt_subjs.append((subj.num, subj.format, fmt_subj))
         
         rows: list[str] = []

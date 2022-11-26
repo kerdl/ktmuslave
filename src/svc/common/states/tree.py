@@ -1,25 +1,4 @@
-from . import (
-    Space,
-    State,
-    Tree,
-    INIT_MAIN,
-    HUB_MAIN,
-    SETTINGS_MAIN,
-    GROUP,
-    UNKNOWN_GROUP,
-    BROADCAST,
-    SHOULD_PIN,
-    INIT_FINISH,
-    INIT_ZOOM,
-    ZOOM_MASS,
-    ZOOM_MASS_CHECK,
-    ZOOM_BROWSE,
-    ZOOM_ENTRY,
-    ZOOM_EDIT_NAME,
-    ZOOM_EDIT_URL,
-    ZOOM_EDIT_ID,
-    ZOOM_EDIT_PWD
-)
+from . import *
 
 
 class Init(Tree):
@@ -82,6 +61,7 @@ class Zoom(Tree):
     IIII_URL     = State(**ZOOM_EDIT_URL)
     IIII_ID      = State(**ZOOM_EDIT_ID)
     IIII_PWD     = State(**ZOOM_EDIT_PWD)
+    IIII_NOTES   = State(**ZOOM_EDIT_NOTES)
     I_MASS_CHECK = State(**ZOOM_MASS_CHECK)
 
 

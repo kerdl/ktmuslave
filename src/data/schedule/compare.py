@@ -40,7 +40,7 @@ class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
     name: str
     num: Optional[Union[int, PrimitiveChange[int]]]
     teachers: Optional[Union[list[str], Changes[str, str]]]
-    cabinet: Optional[Union[str, PrimitiveChange[str]]]
+    cabinet: Optional[Union[Optional[str], PrimitiveChange[Optional[str]]]]
     time: Optional[Union[Range[datetime.time], PrimitiveChange[Range[datetime.time]]]]
 
     __translation__: ClassVar[dict[str, str]] = {

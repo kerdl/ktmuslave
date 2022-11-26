@@ -165,7 +165,30 @@ async def to_mass_check(everything: CommonEverything):
     everything.navigator.append(ZOOM.I_MASS_CHECK)
     return await mass_check(everything)
 
+@r.on_everything(StateFilter(ZOOM.IIII_NOTES))
+async def notes(everything: CommonEverything):
+    def getter():
+        return everything.ctx.settings.zoom.focused.selected.notes.value
 
+    def setter(value: Any):
+        everything.ctx.settings.zoom.focused.selected.notes = Field(value)
+
+    def nuller():
+        everything.ctx.settings.zoom.focused.selected.notes = Field(None)
+
+    return await set_attribute(
+        everything   = everything,
+        main_message = messages.format_enter_notes(),
+        getter       = getter,
+        setter       = setter,
+        nuller       = nuller,
+    )
+
+@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.NOTES))
+async def to_notes(everything: CommonEverything):
+    everything.navigator.append(ZOOM.IIII_NOTES)
+    return await notes(everything)
+    
 @r.on_everything(StateFilter(ZOOM.IIII_PWD))
 async def pwd(everything: CommonEverything):
 

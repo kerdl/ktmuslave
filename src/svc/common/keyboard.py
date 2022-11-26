@@ -57,6 +57,7 @@ class Payload:
     URL        = "url"
     ID         = "id"
     PWD        = "pwd"
+    NOTES      = "notes"
 
     # Hub buttons
     RESEND     = "resend"

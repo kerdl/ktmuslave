@@ -283,3 +283,6 @@ ZOOM_EDIT_ID = {
 ZOOM_EDIT_PWD = {
     "name": "Пароль",
 }
+ZOOM_EDIT_NOTES = {
+    "name": "Заметки",
+}
