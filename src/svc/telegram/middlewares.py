@@ -23,8 +23,10 @@ class Log:
     ) -> Any:
         try:
             def fmt(username: str, first_name: str, last_name: str):
+                event_str = str(event).replace("<", "\<")
+
                 logger.opt(colors=True).info(
-                    f"<W><k><d>{first_name} {last_name} ({username})</></></> tg event: {event}"
+                    f"<W><k><d>{first_name} {last_name} ({username})</></></> tg event: {event_str}"
                 )
 
             if event.callback_query is not None:

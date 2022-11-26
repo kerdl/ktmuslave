@@ -23,9 +23,11 @@ class LogRaw(BaseMiddleware[RawEvent]):
             last_name = user[0].last_name
             peer_id = self.event["object"]["peer_id"]
 
+            event_str = str(self.event).replace("<", "\<")
+
             logger.opt(colors=True).info(
                 f"<W><k><d>{first_name} {last_name} at {peer_id}</></></> "
-                f"vk event: {self.event}"
+                f"vk event: {event_str}"
             )
         except Exception as e:
             logger.warning(f"error while logging raw: {e}")
@@ -39,9 +41,11 @@ class LogMessage(BaseMiddleware[Message]):
             last_name = user.last_name
             peer_id = self.event.peer_id
 
+            event_str = str(self.event).replace("<", "\<")
+
             logger.opt(colors=True).info(
                 f"<W><k><d>{first_name} {last_name} at {peer_id}</></></> "
-                f"vk event: {self.event}"
+                f"vk event: {event_str}"
             )
         except Exception as e:
             logger.warning(f"error while logging message: {e}")
