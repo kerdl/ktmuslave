@@ -673,6 +673,7 @@ class CommonBotMessage:
     """ ## ID of this exact message """
     reply_to: Optional[int] = None
     was_split: Optional[bool] = None
+    timestamp: Optional[float] = None
 
     @property
     def is_from_vk(self):
@@ -717,6 +718,7 @@ class CommonBotMessage:
         # change a few fields in this copy
         bot_message.chat_id = chat_id
         bot_message.id = id
+        bot_message.timestamp = time.time()
 
         return bot_message
     
@@ -927,12 +929,16 @@ class CommonEvent(BaseCommonEvent):
         )
 
         was_split = False
+        was_sent_instead = False
+        sent_more_than_24_hr_ago = (self.ctx.last_bot_message.timestamp + 24 * 3600) > time.time() 
 
         if self.is_from_vk:
             chat_id = self.vk["object"]["peer_id"]
             message_id = self.vk["object"]["conversation_message_id"]
 
-            if self.ctx.last_bot_message.was_split:
+            if sent_more_than_24_hr_ago or self.ctx.last_bot_message.was_split:
+                was_sent_instead = True
+
                 result = await vk.chunked_send(
                     peer_id          = chat_id,
                     message          = text,
@@ -961,6 +967,8 @@ class CommonEvent(BaseCommonEvent):
             message_id = self.tg.message.message_id
 
             if self.ctx.last_bot_message.was_split:
+                was_sent_instead = True
+                
                 result = await tg.chunked_send(
                     chat_id = chat_id,
                     text    = text,
@@ -981,6 +989,11 @@ class CommonEvent(BaseCommonEvent):
                     message_id = result[1][-1].message_id
                     was_split = True
 
+        if was_sent_instead:
+            await self.show_notification(
+                messages.format_sent_as_new_message()
+            )
+        
         bot_message = CommonBotMessage(
             src         = self.src,
             chat_id     = chat_id,
