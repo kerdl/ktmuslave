@@ -209,7 +209,7 @@ class Defs:
             enqueue=True,
             colorize=True,
             catch=True,
-            level="DEBUG"
+            level="INFO"
         )
 
         self.log_dir
