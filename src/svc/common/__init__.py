@@ -721,6 +721,8 @@ class CommonBotMessage:
         return bot_message
     
     async def pin(self):
+        error = None
+
         if self.is_from_vk:
             try:
                 await defs.vk_bot.api.messages.pin(
@@ -728,9 +730,9 @@ class CommonBotMessage:
                     conversation_message_id = self.id
                 )
             # You are not admin of this chat
-            except VKAPIError[925]:
-                pass
-
+            except VKAPIError[925] as e:
+                error = e
+        
         elif self.is_from_tg:
             try:
                 await defs.tg_bot.pin_chat_message(
@@ -738,7 +740,13 @@ class CommonBotMessage:
                     message_id = self.id
                 )
             except TelegramBadRequest:
-                pass
+                error = e
+        
+        if error is not None:
+            logger.warning(
+                f"unable to pin {self.src} message {self.id} "
+                f"for {self.chat_id}: {error}"
+            )
     
     def __str__(self) -> str:
         # all fields of this class as string
