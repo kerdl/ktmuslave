@@ -188,10 +188,13 @@ class Keyboard:
         footer: list[list[Button]] = [[]],
         add_back: bool = True, 
         next_button: Optional[Button] = None,
+        width: int = 2,
     ) -> Keyboard:
+        schema_row: list[Button] = []
         schema: list[Button] = []
 
-        for (key, value) in dataclass.__dict__.items():
+        for index, (key, value) in enumerate(dataclass.__dict__.items()):
+            is_last = index + 1 == len(dataclass.__dict__)
             emoji = None
 
             if isinstance(value, Field):
@@ -224,7 +227,11 @@ class Keyboard:
                 color    = Color.BLUE if value is not None else Color.GRAY
             )
 
-            schema.append([button])
+            schema_row.append(button)
+
+            if len(schema_row) == width or is_last:
+                schema.append(schema_row)
+                schema_row = []
         
         for row in footer:
             if not row:
