@@ -76,6 +76,12 @@ class Data(Translated, Emojized):
     }
 
     def i_promise_i_will_get_rid_of_this_thing_but_not_now(self):
+        """
+        put new trash added to the dataclass here
+        to add it to old pickled objects
+        """
+        return
+
         try:
             self.notes
         except AttributeError:
