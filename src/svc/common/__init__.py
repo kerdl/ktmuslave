@@ -98,8 +98,8 @@ class BaseCtx:
 
         current_time = time.time()
 
-        # allowed to call again after 2 seconds
-        next_allowed_time = self.last_call + 2
+        # allowed to call again after 1 second
+        next_allowed_time = self.last_call + 1
 
         if next_allowed_time > current_time:
             # then throttle

@@ -2,7 +2,7 @@ from __future__ import annotations
 import datetime
 from typing import Literal, Optional, TypeVar
 from dataclasses import dataclass
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
 from time import time
 
 from src.data import RepredBaseModel
@@ -105,6 +105,7 @@ class Subject(RepredBaseModel):
     def repr_name(self) -> str:
         return self.name
 
+
 class Day(RepredBaseModel):
     raw: str
     weekday: WEEKDAY_LITERAL
@@ -115,6 +116,7 @@ class Day(RepredBaseModel):
     def repr_name(self) -> str:
         return self.weekday
 
+
 class Group(RepredBaseModel):
     raw: str
     name: str
@@ -123,6 +125,7 @@ class Group(RepredBaseModel):
     @property
     def repr_name(self) -> str:
         return self.name
+
 
 class Page(BaseModel):
     raw: str

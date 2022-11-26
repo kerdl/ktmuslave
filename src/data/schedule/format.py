@@ -83,7 +83,7 @@ def teachers(
     fmt_teachers: list[str] = []
 
     for teacher in tchrs:
-        matches = difflib.get_close_matches(teacher, str_entries)
+        matches = difflib.get_close_matches(teacher, str_entries, cutoff=0.8)
 
         if len(matches) < 1:
             fmt_teachers.append(teacher)
@@ -111,8 +111,7 @@ def teachers(
                 data.append(f"{translation}: {found_entry.pwd.value}")
 
         if found_entry.notes.value is not None:
-            translation = found_entry.__translation__.get("notes").lower()
-            data.append(f"{translation}: {found_entry.notes.value}")
+            data.append(found_entry.notes.value)
 
         if len(data) > 0:
             fmt_data = ", ".join(data)

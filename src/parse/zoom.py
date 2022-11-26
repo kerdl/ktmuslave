@@ -1,7 +1,8 @@
-from typing import Optional
-from re import Match
+from __future__ import annotations
+from typing import Optional, Literal
 from dataclasses import dataclass
 from urllib import parse
+import re
 
 from src import data
 from src.data import zoom
@@ -17,6 +18,37 @@ from .pattern import (
 )
 
 
+KEY_LITERAL = Literal["имя", "ссылка", "ид", "код", "заметки"]
+
+
+class Key:
+    NAME  = "имя"
+    URL   = "ссылка"
+    ID    = "ид"
+    PWD   = "код"
+    NOTES = "заметки"
+
+    @staticmethod
+    def with_semicolon(key: KEY_LITERAL) -> str:
+        return f"{key}:"
+
+    @classmethod
+    def is_relevant(cls, key: KEY_LITERAL, line: str) -> bool:
+        return line.lower().startswith(cls.with_semicolon(key))
+    
+    @classmethod
+    def find(cls, line: str) -> Optional[KEY_LITERAL]:
+        for (_, key) in cls.__dict__.items():
+            if cls.is_relevant(key, line):
+                return key
+        
+        return None
+
+    @staticmethod
+    def remove(key: KEY_LITERAL, line: str) -> str:
+        return re.sub(Key.with_semicolon(key), "", line, flags=re.IGNORECASE).strip()
+
+
 @dataclass
 class Parser:
     text: str
@@ -24,20 +56,50 @@ class Parser:
     def remove_newline_spaces(self, text: str) -> str:
         return SPACE_NEWLINE.sub("\n\n", text)
 
-    def split_sections(self, text: str) -> list[str]: 
-        return text.split("\n\n")
+    def split_sections(self, text: str) -> list[str]:
+        newline_split = text.split("\n")
+        sections: list[str] = []
+        
+        first_name_occurrence_found = False
+        prev_key: Optional[KEY_LITERAL] = None
+
+        current_section = ""
+
+        for (index, line) in enumerate(newline_split):
+            is_last = (index + 1) == len(newline_split)
+
+            this_line_key = Key.find(line)
+
+            if this_line_key is not None or prev_key == Key.NOTES:
+                current_section += line
+                current_section += "\n"
+
+            if Key.is_relevant(Key.NAME, line) and first_name_occurrence_found is False:
+                first_name_occurrence_found = True
+                continue
+
+            if Key.is_relevant(Key.NAME, line) or is_last:
+                sections.append(current_section)
+                current_section = ""
+                current_section += line
+                current_section += "\n"
+            
+            if this_line_key is not None:
+                prev_key = this_line_key
+
+        return sections
     
     def parse_name(self, line: str) -> Optional[str]:
         def search_full_name(line: str) -> list[str]:
             """ ## `Ебанько Хуйло Йоба` """
             return NAME.findall(line)
 
-        def search_short_name(line: str) -> Optional[Match[str]]:
+        def search_short_name(line: str) -> Optional[re.Match[str]]:
             """ ## `Ебанько Х.` or `Ебанько Х.Й.` """
             return SHORT_NAME.search(line)
 
         # try to find short name first
-        short_name: Optional[Match[str]] = search_short_name(line)
+        short_name: Optional[re.Match[str]] = search_short_name(line)
 
         if short_name is not None:
             return short_name.group()
@@ -72,82 +134,82 @@ class Parser:
             return id.group()
         
         return None
-    
-    def parse_pwd(self, line: str) -> Optional[str]:        
-        non_word_line = NON_LETTER_NO_SPACE.sub("", line)
-
-        pwd = ZOOM_PWD.search(non_word_line)
-
-        if pwd is not None:
-            # if no digits in pwd
-            if not DIGIT.search(pwd.group()):
-                return None
-            
-            # if no letters in pwd
-            if not LETTER.search(pwd.group()):
-                return None
-            
-            return pwd.group()
-        
-        return None
 
     def parse_section(self, text: str) -> Optional[zoom.Data]:
-        name: data.Field[Optional[str]] = data.Field(None)
-        url:  data.Field[Optional[str]] = data.Field(None)
-        id:   data.Field[Optional[str]] = data.Field(None)
-        pwd:  data.Field[Optional[str]] = data.Field(None)
+        name:  data.Field[Optional[str]] = data.Field(None)
+        url:   data.Field[Optional[str]] = data.Field(None)
+        id:    data.Field[Optional[str]] = data.Field(None)
+        pwd:   data.Field[Optional[str]] = data.Field(None)
+        notes: data.Field[Optional[str]] = data.Field(None)
 
         lines: list[str] = text.split("\n")
 
+        prev_key: Optional[KEY_LITERAL] = None
+
         for line in lines:
-            line = line.rstrip().lstrip()
+            line = line.strip()
 
             if line == "":
                 continue
 
-            # if name is not found yet
-            if name.value is None:
-                parsed = self.parse_name(line)
+            this_line_key = Key.find(line)
+
+            # if that is a name key
+            if Key.is_relevant(Key.NAME, line):
+                parsed = self.parse_name(Key.remove(Key.NAME, line))
 
                 if parsed is not None:
                     name.value = parsed
                     continue
                     
-            # if url is not found yet
-            if url.value is None:   
-                parsed = parse.urlparse(line)
+            # if that is a url key
+            elif Key.is_relevant(Key.URL, line): 
+                url.value = Key.remove(Key.URL, line)
 
-                if "zoom" in parsed.netloc and "/j/" in parsed.path:
-                    clean_url = line.lstrip().rstrip().replace("\n", "")
-                    url.value = clean_url
+            # if that is an id key
+            elif Key.is_relevant(Key.ID, line):
+                id.value = Key.remove(Key.ID, line)
 
-                    if id.value is None:
-                        id.value = self.parse_id(parsed.path)
-                    
-                    continue
+            # if that is a pwd key
+            elif Key.is_relevant(Key.PWD, line):
+                pwd.value = Key.remove(Key.PWD, line)
+            
+            # if that is a notes key
+            elif Key.is_relevant(Key.NOTES, line):
+                if notes.value is None:
+                    notes.value = ""
 
-            # if id is not found yet
-            if id.value is None:
-                id.value = self.parse_id(line)
+                without_key = Key.remove(Key.NOTES, line)
 
-                if id.value is not None:
-                    continue
+                if without_key != "":
+                    notes.value += without_key
+                    notes.value += "\n"
 
-            # if pwd is not found yet
-            if pwd.value is None:
-                pwd.value = self.parse_pwd(line)
+            elif prev_key == Key.NOTES:
+                notes.value += line
+                notes.value += "\n"
 
-                if pwd.value is not None:
-                    continue
+            if this_line_key is not None:
+                prev_key = this_line_key
 
         if name.value is None:
             return None
+        
+        if url.value is not None and id.value is None:
+            matched = ZOOM_ID.search(url.value)
+
+            if matched is not None:
+                id.value = matched.group()
+
+        if notes.value is not None:
+            notes.value = ", ".join([section for section in notes.value.split("\n") if section != ""])
 
         model = zoom.Data(
-            name = name,
-            url  = url,
-            id   = id,
-            pwd  = pwd
+            name  = name,
+            url   = url,
+            id    = id,
+            pwd   = pwd,
+            notes = notes
         )
 
         model.check()

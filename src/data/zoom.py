@@ -125,7 +125,7 @@ class Data(Translated, Emojized):
     def check_id(id: str) -> set[Warning]:
         warns = set()
 
-        if not pattern.ZOOM_ID.search(id):
+        if not pattern.ZOOM_ID.search(id.replace(" ", "")):
             warns.add(data.INCORRECT_ID_FORMAT)
         
         if pattern.PUNCTUATION.search(id):

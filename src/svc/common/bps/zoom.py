@@ -61,7 +61,7 @@ async def set_attribute(
             )
 
         try:
-            setter(message.text)
+            setter(", ".join([section for section in message.text.split("\n") if section != ""]))
         except error.ZoomNameInDatabase:
             answer_text = (
                 messages.Builder()
@@ -422,8 +422,9 @@ async def mass(everything: CommonEverything):
 
         answer_text = (
             messages.Builder()
+                    .add(messages.format_send_zoom_data())
                     .add(messages.format_zoom_data_format())
-                    .add(messages.format_send_zoom_data(everything.src, everything.is_group_chat))
+                    .add(messages.format_mass_zoom_data_explain())
                     .add(footer_addition)
         )
         answer_keyboard = kb.Keyboard.default().assign_next(kb.NEXT_BUTTON.only_if(has_new_entries))
@@ -469,6 +470,7 @@ async def mass(everything: CommonEverything):
             answer_text = (
                 messages.Builder()
                         .add(messages.format_zoom_data_format())
+                        .add(messages.format_mass_zoom_data_explain())
                         .add(messages.format_doesnt_contain_zoom())
                         .add(footer_addition)
             )
