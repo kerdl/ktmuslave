@@ -930,7 +930,7 @@ class CommonEvent(BaseCommonEvent):
 
         was_split = False
         was_sent_instead = False
-        sent_more_than_24_hr_ago = (self.ctx.last_bot_message.timestamp + 24 * 3600) > time.time() 
+        sent_more_than_24_hr_ago = self.ctx.last_bot_message.timestamp is not None and (self.ctx.last_bot_message.timestamp + 24 * 3600) > time.time() 
 
         if self.is_from_vk:
             chat_id = self.vk["object"]["peer_id"]
