@@ -114,8 +114,10 @@ def teachers(
             translation = found_entry.__translation__.get("notes").lower()
             data.append(f"{translation}: {found_entry.notes.value}")
 
-        fmt_data = ", ".join(data)
+        if len(data) < 1:
+            continue
 
+        fmt_data = ", ".join(data)
         fmt_teachers.append(f"{teacher} ({fmt_data})")
     
     return fmt_teachers
