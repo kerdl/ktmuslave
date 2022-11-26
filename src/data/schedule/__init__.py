@@ -83,7 +83,6 @@ class Schedule:
         from src.api.schedule import SCHEDULE_API
 
         response = await SCHEDULE_API.update()
-        await SCHEDULE_API.last_update(force = True)
 
         self.last_update = time()
 

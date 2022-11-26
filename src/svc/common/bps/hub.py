@@ -80,13 +80,15 @@ async def hub(
 
     schedule_text = "ЫЫ ЧО ЗА ХУЙНЯ???"
 
+    group = ctx.settings.group.confirmed
+
     if ctx.schedule.message.is_weekly:
-        weekly_page = await SCHEDULE_API.cached_weekly()
-        users_group = weekly_page.get_group(ctx.settings.group.confirmed)
+        weekly_page = await SCHEDULE_API.weekly(group)
+        users_group = weekly_page.get_group(group)
 
     elif ctx.schedule.message.is_daily:
-        daily_page = await SCHEDULE_API.cached_daily()
-        users_group = daily_page.get_group(ctx.settings.group.confirmed)
+        daily_page = await SCHEDULE_API.daily(group)
+        users_group = daily_page.get_group(group)
 
     schedule_text = await sc_format.group(
         users_group,

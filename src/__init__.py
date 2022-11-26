@@ -116,7 +116,6 @@ class Defs:
         from src.api.schedule import SCHEDULE_API
 
         await SCHEDULE_API.ping()
-        await SCHEDULE_API.last_update(force=True)
         await SCHEDULE_API.update_period()
         await SCHEDULE_API.ft_daily_friendly_url()
         await SCHEDULE_API.ft_weekly_friendly_url()
@@ -125,9 +124,6 @@ class Defs:
         SCHEDULE_API.ft_daily_url_button()
         SCHEDULE_API.ft_weekly_url_button()
         SCHEDULE_API.r_weekly_url_button()
-
-        await SCHEDULE_API.daily()
-        await SCHEDULE_API.weekly()
 
         self.create_task(SCHEDULE_API.updates())
 
@@ -213,7 +209,7 @@ class Defs:
             enqueue=True,
             colorize=True,
             catch=True,
-            level="INFO"
+            level="DEBUG"
         )
 
         self.log_dir

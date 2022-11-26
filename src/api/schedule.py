@@ -11,6 +11,7 @@ from pathlib import Path
 import asyncio
 import datetime
 import aiofiles
+import time
 
 from src import defs
 from src.api.base import Api
@@ -110,8 +111,12 @@ class ScheduleApi(Api):
     async def _req(self, url: str, method: Callable[[str], Awaitable[ClientResponse]], return_result: bool = True):
         from src.api import Response
 
+        start = time.time()
         resp = await method(url)
         resp_text = await resp.text()
+        end = time.time()
+
+        logger.debug(f"req for url {url} took {end - start}")
 
         if return_result:
             response = Response.parse_raw(resp_text)
@@ -127,7 +132,7 @@ class ScheduleApi(Api):
     async def daily_groups(self) -> list[str]:
         groups: list[str] = []
 
-        for group in (await self.cached_daily()).groups:
+        for group in (await self.daily()).groups:
             groups.append(group.name)
         
         return groups
@@ -135,7 +140,7 @@ class ScheduleApi(Api):
     async def weekly_groups(self) -> list[str]:
         groups: list[str] = []
 
-        for group in (await self.cached_weekly()).groups:
+        for group in (await self.weekly()).groups:
             groups.append(group.name)
         
         return groups
@@ -181,39 +186,29 @@ class ScheduleApi(Api):
 
         return response.data.page
 
-    async def daily(self) -> Page:
+    async def daily(self, group: Optional[str] = None) -> Page:
         url = "http://" + self.url + "/daily"
-        self._last_daily = await self.schedule(url)
 
-        return self._last_daily
+        if group is not None:
+            url += f"?group={group}"
+
+        return await self.schedule(url)
     
-    async def weekly(self) -> Page:
+    async def weekly(self, group: Optional[str] = None) -> Page:
         url = "http://" + self.url + "/weekly"
-        self._last_weekly = await self.schedule(url)
 
-        return self._last_weekly
+        if group is not None:
+            url += f"?group={group}"
 
-    async def cached_daily(self) -> Page:
-        if self._last_daily is None:
-            return await self.daily()
-
-        return self._last_daily
-
-    async def cached_weekly(self) -> Page:
-        if self._last_weekly is None:
-            return await self.weekly()
-
-        return self._last_weekly
+        return await self.schedule(url)
 
     async def get_url(self, url: str) -> str:
         return (await self._get(url)).data.url
 
-    async def last_update(self, force: bool = False) -> datetime.datetime:
+    async def last_update(self) -> datetime.datetime:
         url = "http://" + self.url + "/update/last"
 
-        self._last_update = (await self._get(url)).data.last_update
-
-        return self._last_update
+        return (await self._get(url)).data.last_update
 
     async def update_period(self) -> Duration:
         url = "http://" + self.url + "/update/period"
@@ -318,8 +313,6 @@ class ScheduleApi(Api):
 
                         logger.info(f"awaiting updates...")
                         async for message in socket:
-                            await self.last_update(force=True)
-
                             notify = Notify.parse_raw(message)
 
                             if notify.random in LAST_NOTIFY.randoms:
@@ -361,5 +354,5 @@ class ScheduleApi(Api):
 
         return response
 
-SCHEDULE_API = ScheduleApi("localhost:8080/schedule")
+SCHEDULE_API = ScheduleApi("127.0.0.1:8080/schedule")
 LAST_NOTIFY  = LastNotify.load_or_init(defs.data_dir.joinpath("last_notify.json"))

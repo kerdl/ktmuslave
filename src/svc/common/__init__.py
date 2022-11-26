@@ -209,7 +209,7 @@ class Ctx:
 
                     if mapping.sc_type == Type.DAILY:
                         opposite_type = Type.WEEKLY
-                        page = await SCHEDULE_API.cached_daily()
+                        page = await SCHEDULE_API.daily()
 
                         if ctx.last_weekly_message is not None:
                             reply_to = ctx.last_weekly_message.id
@@ -218,7 +218,7 @@ class Ctx:
 
                     elif mapping.sc_type == Type.WEEKLY:
                         opposite_type = Type.DAILY
-                        page = await SCHEDULE_API.cached_weekly()
+                        page = await SCHEDULE_API.weekly()
 
                         if ctx.last_daily_message is not None:
                             reply_to = ctx.last_daily_message.id
