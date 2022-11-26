@@ -55,10 +55,10 @@ def format_section(name: str, fields: list[str]):
 @dataclass
 class Data(Translated, Emojized):
     name: Field[str]
-    url: Field[Optional[str]]   = field(default_factory = lambda: Field(None))
-    id: Field[Optional[str]]    = field(default_factory = lambda: Field(None))
-    pwd: Field[Optional[str]]   = field(default_factory = lambda: Field(None))
-    notes: Field[Optional[str]] = field(default_factory = lambda: Field(None))
+    url: Field[Optional[str]]   = Field(None)
+    id: Field[Optional[str]]    = Field(None)
+    pwd: Field[Optional[str]]   = Field(None)
+    notes: Field[Optional[str]] = Field(None)
 
     __translation__: ClassVar[dict[str, str]] = {
         "name": "Имя",
