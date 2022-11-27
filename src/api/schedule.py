@@ -26,12 +26,12 @@ AUTO_LITERAL = Literal["auto"]
 class Interactor(BaseModel):
     key: str
 
-class Ivoker(BaseModel):
+class Invoker(BaseModel):
     manually: Interactor
 
 class Notify(BaseModel):
     random: str
-    invoker: Union[AUTO_LITERAL, Ivoker]
+    invoker: Union[AUTO_LITERAL, Invoker]
     daily: Optional[compare.PageCompare]
     weekly: Optional[compare.PageCompare]
 
@@ -54,6 +54,14 @@ class Notify(BaseModel):
                         return True
         
         return False
+    
+    @property
+    def is_auto_invoked(self) -> bool:
+        return self.invoker == "auto"
+    
+    @property
+    def is_manually_invoked(self) -> bool:
+        return isinstance(self.invoker, Invoker)
 
 class LastNotify(BaseModel):
     path: Optional[Path]

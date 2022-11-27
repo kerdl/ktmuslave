@@ -43,7 +43,8 @@ async def update(everything: CommonEverything):
                 allow_edit = allow_edit
             )
 
-        await defs.ctx.broadcast(notify, invoker = ctx)
+        if notify.is_manually_invoked:
+            await defs.ctx.broadcast(notify, invoker = ctx)
     else:
         await everything.event.show_notification(
             messages.format_too_fast_retry_after(
