@@ -50,7 +50,7 @@ def chunks_len(chunks: list[str]) -> int:
     
     return length
 
-def chunks(text: str, limit: int = 4096) -> list[str]:
+def chunks(text: str, limit: int = 4000) -> list[str]:
     newline_split = text.split("\n")
     shortened_lines = []
 
