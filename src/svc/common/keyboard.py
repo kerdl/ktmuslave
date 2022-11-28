@@ -16,7 +16,7 @@ from aiogram.types import (
 from dataclasses import dataclass
 
 from src.svc import common
-from src.data import Emojized, Repred, Translated, Field, Emoji, format as fmt
+from src.data import Emojized, Repred, Translated, Field, Emoji, format as fmt, schedule
 from src.svc.vk.keyboard import CMD
 
 
@@ -113,6 +113,11 @@ class Text:
     UNFOLD     = "⮝ Развернуть"
     UPDATE     = "↻ Обновить"
     SETTINGS   = "⚙️ Настройки"
+    FT_DAILY   = "Очн. день"
+    FT_WEEKLY  = "Очн. нед."
+    R_WEEKLY   = "Дист. нед."
+    MATERIALS  = "Материалы"
+    JOURNALS   = "Журналы"
 
 COLOR_LITERAL = Literal["gray", "blue", "green", "red"]
 
@@ -392,3 +397,6 @@ GROUP_BUTTON         = Button(text = Text.GROUP,      callback = Payload.GROUP, 
 BROADCAST_BUTTON     = Button(text = Text.BROADCAST,  callback = Payload.BROADCAST,     color = Color.BLUE)
 PIN_BUTTON           = Button(text = Text.PIN,        callback = Payload.PIN,           color = Color.BLUE)
 ZOOM_BUTTON          = Button(text = Text.ZOOM,       callback = Payload.ZOOM,          color = Color.BLUE)
+
+MATERIALS_BUTTON     = Button(text = Text.MATERIALS,  url = schedule.MATERIALS_URL)
+JOURNALS_BUTTON      = Button(text = Text.JOURNALS,   url = schedule.JOURNALS_URL)

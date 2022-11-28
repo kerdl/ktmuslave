@@ -259,6 +259,7 @@ class Ctx:
                                 SCHEDULE_API.ft_weekly_url_button()
                             ],
                             [SCHEDULE_API.r_weekly_url_button()],
+                            [kb.MATERIALS_BUTTON, kb.JOURNALS_BUTTON],
                         ], add_back = False),
                         src      = src,
                         chat_id  = chat_id,

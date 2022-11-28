@@ -107,11 +107,13 @@ async def hub(
                 .add(schedule_text)
     )
     answer_keyboard = kb.Keyboard([
-        [kb.WEEKLY_BUTTON.only_if(is_daily)],
-        [kb.DAILY_BUTTON.only_if(is_weekly)],
+        [
+            kb.WEEKLY_BUTTON.only_if(is_daily),
+            kb.DAILY_BUTTON.only_if(is_weekly),
+            kb.UPDATE_BUTTON
+        ],
         #[kb.FOLD_BUTTON.only_if(is_unfolded)],
         #[kb.UNFOLD_BUTTON.only_if(is_folded)],
-        [kb.UPDATE_BUTTON],
         [kb.RESEND_BUTTON],
         [kb.SETTINGS_BUTTON],
         [
@@ -119,6 +121,7 @@ async def hub(
             SCHEDULE_API.ft_weekly_url_button()
         ],
         [SCHEDULE_API.r_weekly_url_button()],
+        [kb.MATERIALS_BUTTON, kb.JOURNALS_BUTTON],
     ], add_back = False)
 
     if (

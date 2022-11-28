@@ -253,7 +253,7 @@ class ScheduleApi(Api):
     def ft_daily_url_button(self) -> kb.Button:
         if self._ft_daily_url_button is None:
             self._ft_daily_url_button = kb.Button(
-                text = "Очн. день",
+                text = kb.Text.FT_DAILY,
                 url  = self._ft_daily_friendly_url
             )
         
@@ -262,7 +262,7 @@ class ScheduleApi(Api):
     def ft_weekly_url_button(self) -> kb.Button:
         if self._ft_weekly_url_button is None:
             self._ft_weekly_url_button = kb.Button(
-                text = "Очн. нед.",
+                text = kb.Text.FT_WEEKLY,
                 url  = self._ft_weekly_friendly_url
             )
         
@@ -271,7 +271,7 @@ class ScheduleApi(Api):
     def r_weekly_url_button(self) -> kb.Button:
         if self._r_weekly_url_button is None:
             self._r_weekly_url_button = kb.Button(
-                text = "Дист. нед.",
+                text = kb.Text.R_WEEKLY,
                 url  = self._r_weekly_friendly_url
             )
         
