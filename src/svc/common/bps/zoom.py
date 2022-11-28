@@ -5,7 +5,7 @@ from src import defs, text
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages, pagination, Ctx, bps
 from src.svc.common.states import formatter as states_fmt
-from src.svc.common.states.tree import ZOOM
+from src.svc.common.states.tree import ZOOM, Space
 from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common import keyboard as kb
@@ -66,6 +66,7 @@ async def set_attribute(
     getter: Callable[[], Any],
     setter: Callable[[Any], None],
     nuller: Callable[[], None] = lambda: None,
+    limit: Optional[int] = zoom.VALUE_LIMIT,
 ):
     ctx = everything.ctx
 
@@ -94,12 +95,12 @@ async def set_attribute(
                 keyboard = answer_keyboard
             )
         
-        if len(message.text) > zoom.VALUE_LIMIT:
+        if len(message.text) > limit:
             answer_text = (
                 messages.Builder()
-                        .add(messages.format_value_too_big(zoom.VALUE_LIMIT))
                         .add(messages.format_current_value(getter()))
                         .add(main_message)
+                        .add(messages.format_value_too_big(limit))
                         .add(footer_addition)
             )
 
@@ -175,10 +176,18 @@ async def remove_entries(everything: CommonEverything):
 async def confirm_mass_add(everything: CommonEverything):
     ctx = everything.ctx
 
+    is_init_space = Space.INIT in ctx.navigator.spaces
+    is_hub_space = Space.HUB in ctx.navigator.spaces
+
     # move everything from `new_entries` to `entries`
     ctx.settings.zoom.confirm_new_entries()
-    # jump back to space that is different from current one
-    ctx.navigator.space_jump_back()
+
+    if is_init_space:
+        # jump back to space that is different from current one
+        ctx.navigator.space_jump_back()
+    elif is_hub_space:
+        ctx.navigator.jump_back_to(ZOOM.II_BROWSE)
+        ctx.navigator.jump_back_to(ZOOM.II_BROWSE)
 
     # get module for current space
     space = bps.get_module_space(ctx.navigator.space)
@@ -351,6 +360,7 @@ async def name(everything: CommonEverything):
         main_message = messages.format_enter_name(),
         getter       = getter,
         setter       = setter,
+        limit        = zoom.NAME_LIMIT
     )
 
 @r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.NAME))
@@ -383,13 +393,15 @@ async def to_entry(everything: CommonEverything):
     everything.navigator.jump_back_to_or_append(ZOOM.III_ENTRY)
     return await entry(everything)
 
-
-@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.ADD))
-async def add_entry(everything: CommonEverything):
+@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.ADD_INIT))
+async def add_init_entry(everything: CommonEverything):
     return await to_name(everything)
 
 
-@r.on_callback(StateFilter(ZOOM.II_BROWSE))
+@r.on_callback(
+    StateFilter(ZOOM.II_BROWSE),
+    lambda every: every.event.payload != kb.Payload.ADD_HUB
+)
 async def browse(
     everything: CommonEverything, 
     text_footer: Optional[str] = None
@@ -397,6 +409,9 @@ async def browse(
     ctx = everything.ctx
     has_entries = ctx.settings.zoom.entries.has_something
     has_new_entries = ctx.settings.zoom.new_entries.has_something
+
+    is_init_space = Space.INIT in ctx.navigator.spaces
+    is_hub_space = Space.HUB in ctx.navigator.spaces
 
     if everything.is_from_event:
         # try to check if user selected an entry in list
@@ -427,8 +442,12 @@ async def browse(
             data = ctx.settings.zoom.entries.set,
             text_footer = text_footer,
             keyboard_footer = [
-                [kb.ADD_BUTTON, kb.REMOVE_ALL_BUTTON.only_if(has_entries)], 
-                [kb.DUMP_BUTTON],
+                [
+                    kb.ADD_INIT_BUTTON.only_if(is_init_space),
+                    kb.ADD_HUB_BUTTON.only_if(is_hub_space),
+                    kb.REMOVE_ALL_BUTTON.only_if(has_entries)
+                ], 
+                [kb.DUMP_BUTTON.only_if(has_entries)],
                 [kb.BACK_BUTTON],
             ],
         )
@@ -442,7 +461,8 @@ async def to_browse(
     everything: CommonEverything, 
     text_footer: Optional[str] = None
 ):
-    everything.navigator.jump_back_to_or_append(ZOOM.II_BROWSE)
+    if everything.navigator.current != ZOOM.II_BROWSE:
+        everything.navigator.append(ZOOM.II_BROWSE)
 
     #if everything.navigator.current != Zoom.II_BROWSE:
     #    everything.navigator.append(Zoom.II_BROWSE)
@@ -454,7 +474,9 @@ async def to_browse(
     UnionFilter((
         StateFilter(ZOOM.I_MASS),
         StateFilter(ZOOM.II_BROWSE)
-    ))
+    )),
+    lambda every: every.event.payload != kb.Payload.ADD_HUB if every.event is not None else True,
+    lambda every: every.event.payload != kb.Payload.CONTINUE if every.event is not None else True,
 )
 async def mass(everything: CommonEverything):
     ctx = everything.ctx
@@ -476,7 +498,9 @@ async def mass(everything: CommonEverything):
                     .add(messages.format_mass_zoom_data_explain())
                     .add(footer_addition)
         )
-        answer_keyboard = kb.Keyboard.default().assign_next(kb.NEXT_BUTTON.only_if(has_new_entries))
+        answer_keyboard = kb.Keyboard.default().assign_next(
+            kb.CONTINUE_BUTTON.only_if(has_new_entries)
+        )
 
         await event.edit_message(
             text        = answer_text.make(),

@@ -81,6 +81,13 @@ async def skip_add_zoom(everything: CommonEverything):
 
 @r.on_callback(
     StateFilter(SETTINGS.II_ZOOM), 
+    PayloadFilter(Payload.MANUALLY_HUB)
+)
+async def add_zoom_manually_hub(everything: CommonEverything):
+    return await zoom_bp.to_name(everything)
+
+@r.on_callback(
+    StateFilter(SETTINGS.II_ZOOM), 
     PayloadFilter(Payload.FROM_TEXT)
 )
 async def add_zoom_from_text(everything: CommonEverything):
@@ -88,8 +95,16 @@ async def add_zoom_from_text(everything: CommonEverything):
 
 
 @r.on_callback(
+    StateFilter(ZOOM.I_MASS), 
+    PayloadFilter(Payload.CONTINUE)
+)
+async def continue_mass_adding(everything: CommonEverything):
+    return await zoom_bp.to_browse(everything)
+
+
+@r.on_callback(
     StateFilter(SETTINGS.II_ZOOM), 
-    PayloadFilter(Payload.MANUALLY)
+    PayloadFilter(Payload.MANUALLY_INIT)
 )
 async def add_zoom_manually(everything: CommonEverything):
     return await zoom_bp.to_browse(everything)
@@ -101,15 +116,35 @@ async def add_zoom_manually(everything: CommonEverything):
 @r.on_everything(StateFilter(SETTINGS.II_ZOOM))
 async def add_zoom(everything: CommonEverything):
     ctx = everything.ctx
-    is_from_hub = HUB.I_MAIN in ctx.navigator.trace
+
+    is_from_init = Space.INIT in ctx.navigator.spaces
+    is_from_hub  = Space.HUB in ctx.navigator.spaces
+
+    adding_types = ""
+
+    if is_from_init:
+        adding_types = "\n".join([
+            messages.format_zoom_add_from_text_explain(),
+            messages.format_zoom_add_manually_init_explain()
+        ])
+    elif is_from_hub:
+        adding_types = "\n".join([
+            messages.format_zoom_add_from_text_explain(),
+            messages.format_zoom_add_manually_hub_explain()
+        ])
 
     answer_text = (
         messages.Builder()
-                .add(messages.format_recommend_adding_zoom())
-                .add(messages.format_zoom_adding_types_explain())
+                .add_if(messages.format_recommend_adding_zoom(), is_from_init)
+                .add_if(messages.format_choose_adding_type(), is_from_hub)
+                .add(adding_types)
     )
     answer_keyboard = Keyboard([
-        [kb.FROM_TEXT_BUTTON, kb.MANUALLY_BUTTON],
+        [
+            kb.FROM_TEXT_BUTTON,
+            kb.MANUALLY_INIT_BUTTON.only_if(is_from_init),
+            kb.MANUALLY_HUB_BUTTON.only_if(is_from_hub)
+        ],
     ])
 
     if not is_from_hub:
@@ -125,13 +160,22 @@ async def add_zoom(everything: CommonEverything):
         add_tree    = not is_from_hub,
         tree_values = ctx.settings
     )
+
 @r.on_callback(
-    PayloadFilter(Payload.ZOOM),
-    StateFilter(SETTINGS.I_MAIN)
+    PayloadFilter(Payload.ADD_HUB),
+    StateFilter(ZOOM.II_BROWSE)
 )
 async def to_add_zoom(everything: CommonEverything):
     everything.navigator.append(SETTINGS.II_ZOOM)
     return await add_zoom(everything)
+
+
+@r.on_callback(
+    PayloadFilter(Payload.ZOOM),
+    StateFilter(SETTINGS.I_MAIN)
+)
+async def to_browse_zoom(everything: CommonEverything):
+    return await zoom_bp.to_browse(everything)
 
 
 

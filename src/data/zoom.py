@@ -19,6 +19,7 @@ from src.parse import pattern, zoom
 
 T = TypeVar("T")
 
+NAME_LIMIT = 30
 VALUE_LIMIT = 500
 
 
@@ -596,4 +597,7 @@ def unfocus(everything: common.CommonEverything):
     everything.ctx.settings.zoom.unfocus()
 
 def unselect(everything: common.CommonEverything):
+    if everything.ctx.settings.zoom.focused is None:
+        everything.ctx.settings.zoom.focus(Storage.ENTRIES)
+
     everything.ctx.settings.zoom.focused.unselect()

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Union
 from vkbottle import GroupEventType
 from vkbottle.bot import MessageEvent
+import inspect
 
 from src import defs
 from src.svc.common import CommonEverything, CommonMessage
@@ -105,6 +106,7 @@ class Router:
             # if filter condition interrupted this
             # handler from execution
             filter_interrupt = True
+            filter_check_interrupt = False
 
             # if no filters, this handler
             # should always be executed
@@ -117,15 +119,26 @@ class Router:
                 filter_results: list[bool] = []
 
                 for filter_ in handler.filters:
-                    # call the filter
                     try:
-                        result = await filter_(everything)
-                    except RecursionError as e:
-                        logger.error(f"at filter {filter_}")
-                        logger.error(f"at handler {handler}")
-                        raise e
+                        call_fn = filter_.__call__
+                    except AttributeError:
+                        call_fn = filter_
+
+                    # call the filter
+                    if inspect.iscoroutinefunction(call_fn):
+                        result = await call_fn(everything)
+                    else:
+                        result = call_fn(everything)
+
+                    if result is False:
+                        filter_check_interrupt = True
+                        break
+
                     filter_results.append(result)
                 
+                if filter_check_interrupt:
+                    continue
+
                 # if all filters were passed
                 if all(filter_results):
                     filter_interrupt = False
@@ -135,6 +148,7 @@ class Router:
                 # handlers
                 continue
             else:
+                logger.info(f"choosing handler {handler}")
                 kwargs = {}
 
                 # look for function arguments and their type hints

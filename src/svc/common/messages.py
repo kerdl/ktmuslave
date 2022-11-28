@@ -10,7 +10,7 @@ from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
 
-DEBUGGING = False
+DEBUGGING = True
 
 
 class Builder:
@@ -71,10 +71,6 @@ DEBUG = (
     "{trace}\n"
     "8==o🤮 back_trace:\n"
     "{back_trace}\n"
-    "8==o🤮 last_bot_message:\n"
-    "   {last_bot_message}\n"
-    "8==o🤮 settings:\n"
-    "   {settings}"
 )
 def format_debug(trace: list[State], back_trace: list[State], last_bot_message: common.CommonBotMessage, settings: Settings):
     
@@ -84,14 +80,9 @@ def format_debug(trace: list[State], back_trace: list[State], last_bot_message: 
     trace_str = fmt_trace(trace)
     back_trace_str = fmt_trace(back_trace)
 
-    last_bot_message = "впизду этот мессадж он огромный как член у меня в жопе"
-    settings         = "похуй"
-
     return DEBUG.format(
         trace            = trace_str,
         back_trace       = back_trace_str,
-        last_bot_message = last_bot_message,
-        settings         = settings
     )
 
 
@@ -279,14 +270,34 @@ def format_recommend_adding_zoom():
     return RECOMMEND_ADDING_ZOOM
 
 
-ZOOM_ADDING_TYPES_EXPLAIN = (
+CHOOSE_ADDING_TYPE = (
+    "📝 | Выбери как ты хочешь добавить запись/записи"
+)
+def format_choose_adding_type():
+    return CHOOSE_ADDING_TYPE
+
+
+ZOOM_ADD_FROM_TEXT_EXPLAIN = (
     f"{Text.FROM_TEXT} - пишешь одно большое сообщение по формату, "
-    f"автоматом берёт все данные\n"
+    f"автоматом берёт все данные"
+)
+def format_zoom_add_from_text_explain():
+    return ZOOM_ADD_FROM_TEXT_EXPLAIN
+
+
+ZOOM_ADD_MANUALLY_INIT_EXPLAIN = (
     f"{Text.MANUALLY} - добавляешь, изменяешь, удаляешь "
     f"по отдельности"
 )
-def format_zoom_adding_types_explain():
-    return ZOOM_ADDING_TYPES_EXPLAIN
+def format_zoom_add_manually_init_explain():
+    return ZOOM_ADD_MANUALLY_INIT_EXPLAIN
+
+
+ZOOM_ADD_MANUALLY_HUB_EXPLAIN = (
+    f"{Text.MANUALLY} - добавить новое имя вручную"
+)
+def format_zoom_add_manually_hub_explain():
+    return ZOOM_ADD_MANUALLY_HUB_EXPLAIN
 
 
 SEND_ZOOM_DATA = (
@@ -318,8 +329,9 @@ def format_mass_zoom_data_explain():
 
 
 DOESNT_CONTAIN_ZOOM = (
-    "❌ | Eblan? Посмотри формат, по нему тут нихуя нет 🤨\n"
-    "   ╰ 🤔 Блоки без ФИО игнорируются"
+    f"❌ | Eblan? Посмотри формат, по нему тут нихуя нет 🤨\n"
+    f"   ╰ 🤔 Блоки без ФИО игнорируются\n"
+    f"   ╰ 🤔 Имена больше {zoom.NAME_LIMIT} символов игнорируются"
 )
 def format_doesnt_contain_zoom():
     return DOESNT_CONTAIN_ZOOM

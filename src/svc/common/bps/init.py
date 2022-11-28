@@ -22,7 +22,7 @@ from src.svc.common.keyboard import (
     BEGIN_BUTTON,
     DO_PIN_BUTTON,
     FROM_TEXT_BUTTON,
-    MANUALLY_BUTTON,
+    MANUALLY_INIT_BUTTON,
     NEXT_ZOOM_BUTTON,
     FINISH_BUTTON
 )

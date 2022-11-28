@@ -214,6 +214,12 @@ class Navigator:
                 "that is not in trace"
             )
         
+        if self.current == state:
+            self.back(
+                trace_it = False,
+                execute_actions = execute_actions
+            )
+
         while self.current != state:
             self.back(
                 trace_it = trace_it, 

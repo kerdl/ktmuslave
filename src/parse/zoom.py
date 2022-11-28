@@ -189,6 +189,16 @@ class Parser:
         if name.value is None:
             return None
         
+        if len(name.value) > zoom.NAME_LIMIT:
+            return None
+        
+        for field in [url, id, pwd, notes]:
+            if field.value is None:
+                continue
+
+            if len(field.value) > zoom.VALUE_LIMIT:
+                field.value = None
+        
         if url.value is not None and id.value is None:
             matched = ZOOM_ID.search(url.value)
 
