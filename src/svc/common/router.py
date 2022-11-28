@@ -148,7 +148,6 @@ class Router:
                 # handlers
                 continue
             else:
-                logger.info(f"choosing handler {handler}")
                 kwargs = {}
 
                 # look for function arguments and their type hints
