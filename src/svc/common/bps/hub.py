@@ -1,6 +1,7 @@
 from time import time
 from loguru import logger
-import re
+import asyncio
+import async_timeout
 
 from src import defs
 from src.api.schedule import SCHEDULE_API
@@ -20,37 +21,42 @@ from src.svc.common import keyboard as kb
 async def update(everything: CommonEverything):
     ctx = everything.ctx
 
-    if ctx.schedule.can_update:
-        notify = await ctx.schedule.update()
-
-        if notify.has_updates_for_group(ctx.settings.group.confirmed):
-            message = messages.format_updates_sent()
-            await everything.event.show_notification(message)
-        else:
-            message = messages.format_no_updates()
-            await everything.event.show_notification(message)
-
-            allow_edit = (
-                everything.event.message_id == ctx.last_bot_message.id
-                and everything.event.message_id not in [
-                    ctx.last_weekly_message.id if ctx.last_weekly_message is not None else None,
-                    ctx.last_daily_message.id if ctx.last_daily_message is not None else None
-                ]
-            )
-
-            return await hub(
-                everything,
-                allow_edit = allow_edit
-            )
-
-        if notify.is_manually_invoked:
-            await defs.ctx.broadcast(notify, invoker = ctx)
-    else:
-        await everything.event.show_notification(
-            messages.format_too_fast_retry_after(
-                int(ctx.schedule.until_allowed)
-            )
+    if not ctx.schedule.can_update:
+        message = messages.format_too_fast_retry_after(
+            int(ctx.schedule.until_allowed)
         )
+        return await everything.event.show_notification(message)
+
+    try:
+        async with async_timeout.timeout(10):
+            notify = await ctx.schedule.update()
+    except asyncio.TimeoutError:
+        message = messages.format_updates_timeout()
+        return await everything.event.show_notification(message)
+
+    if notify.is_manually_invoked:
+        defs.create_task(defs.ctx.broadcast(notify, invoker = ctx))
+
+    if notify.has_updates_for_group(ctx.settings.group.confirmed):
+        message = messages.format_updates_sent()
+        return await everything.event.show_notification(message)
+    else:
+        message = messages.format_no_updates()
+        await everything.event.show_notification(message)
+
+        allow_edit = (
+            everything.event.message_id == ctx.last_bot_message.id
+            and everything.event.message_id not in [
+                ctx.last_weekly_message.id if ctx.last_weekly_message is not None else None,
+                ctx.last_daily_message.id if ctx.last_daily_message is not None else None
+            ]
+        )
+
+        return await hub(
+            everything,
+            allow_edit = allow_edit
+        )
+
 
 @r.on_callback(StateFilter(HUB.I_MAIN), PayloadFilter(kb.Payload.WEEKLY))
 async def switch_to_weekly(everything: CommonEverything):

@@ -215,7 +215,7 @@ async def group(
     utc3_last_update     = last_update + datetime.timedelta(hours=3)
     fmt_utc3_last_update = utc3_last_update.strftime("%H:%M:%S, %d.%m.%Y")
 
-    update_period    = await SCHEDULE_API.update_period()
+    update_period        = await SCHEDULE_API.update_period()
 
     update_params = (
         f"⏱ Последнее обновление: {fmt_utc3_last_update}\n"

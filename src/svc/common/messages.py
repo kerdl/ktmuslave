@@ -436,11 +436,16 @@ def format_no_updates():
     return NO_UPDATES
 
 UPDATES_SENT = (
-    "✅ Обновления найдены, отправлены в новом сообщении"
+    "✅ Обновления найдены, будут отправлены в новом сообщении"
 )
-
 def format_updates_sent():
     return UPDATES_SENT
+
+UPDATES_TIMEOUT = (
+    "Превышено время обновления, повтори попытку позже"
+)
+def format_updates_timeout():
+    return UPDATES_TIMEOUT
 
 
 TOO_FAST_RETRY_AFTER = (
