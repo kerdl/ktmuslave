@@ -51,6 +51,8 @@ async def remove_entry(everything: CommonEverything):
     focused = everything.ctx.settings.zoom.focused
     selected = focused.selected
 
+    everything.navigator.jump_back_to(ZOOM.II_BROWSE)
+
     if selected is None:
         # usually it should not happen,
         # only in case of rate limit
