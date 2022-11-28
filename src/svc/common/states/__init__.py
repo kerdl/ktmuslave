@@ -286,3 +286,6 @@ ZOOM_EDIT_PWD = {
 ZOOM_EDIT_NOTES = {
     "name": "Заметки",
 }
+ZOOM_DUMP = {
+    "name": "Дамп",
+}

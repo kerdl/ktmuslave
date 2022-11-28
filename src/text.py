@@ -42,15 +42,7 @@ def shorten(text: str, limit: int = 10) -> str:
     
     return text
 
-def chunks_len(chunks: list[str]) -> int:
-    length = 0
-
-    for chunk in chunks:
-        length += len(chunk)
-    
-    return length
-
-def chunks(text: str, limit: int = 4000) -> list[str]:
+def shorten_lines(text: str, limit: int = 4000) -> list[str]:
     newline_split = text.split("\n")
     shortened_lines = []
 
@@ -61,7 +53,19 @@ def chunks(text: str, limit: int = 4000) -> list[str]:
             shortened_lines.append(short)
         else:
             shortened_lines.append(line)
+    
+    return shortened_lines
 
+def chunks_len(chunks: list[str]) -> int:
+    length = 0
+
+    for chunk in chunks:
+        length += len(chunk)
+    
+    return length
+
+def chunks(text: str, limit: int = 4000) -> list[str]:
+    shortened_lines = shorten_lines(text, limit)
     output: list[str] = []
 
     lines: list[str] = []
@@ -83,5 +87,31 @@ def chunks(text: str, limit: int = 4000) -> list[str]:
         
         else:
             lines.append(line)
+    
+    return output
+
+def double_newline_chunks(text: str, limit: int = 4000) -> list[str]:
+    blocks = text.split("\n\n")
+    output: list[str] = []
+
+    temp_blocks: list[str] = []
+    for (index, block) in enumerate(blocks):
+        is_last = (index + 1) == len(blocks)
+
+        if chunks_len(temp_blocks) > limit:
+            last_block = temp_blocks[-1]
+            del temp_blocks[-1]
+
+            output.append("\n\n".join(temp_blocks))
+            temp_blocks = []
+            temp_blocks.append(last_block)
+            temp_blocks.append(block)
+
+        elif is_last:
+            temp_blocks.append(block)
+            output.append("\n\n".join(temp_blocks))
+        
+        else:
+            temp_blocks.append(block)
     
     return output

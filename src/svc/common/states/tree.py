@@ -42,8 +42,7 @@ class Hub(Tree):
     """
     ```
     MAIN
-      ┕ SETTINGS
-        ┕ (other states inherited from Init)
+      ┕ (Settings space)
     ```notpython
     """
     __space__ = Space.HUB
@@ -62,6 +61,7 @@ class Zoom(Tree):
     IIII_ID      = State(**ZOOM_EDIT_ID)
     IIII_PWD     = State(**ZOOM_EDIT_PWD)
     IIII_NOTES   = State(**ZOOM_EDIT_NOTES)
+    III_DUMP     = State(**ZOOM_DUMP)
     I_MASS_CHECK = State(**ZOOM_MASS_CHECK)
 
 

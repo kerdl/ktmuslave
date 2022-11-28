@@ -1,7 +1,7 @@
 from typing import Any, Callable, Optional
 from loguru import logger
 
-from src import defs
+from src import defs, text
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages, pagination, Ctx, bps
 from src.svc.common.states import formatter as states_fmt
@@ -10,6 +10,40 @@ from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common import keyboard as kb
 from src.data import zoom, Field, error
+
+
+@r.on_callback(StateFilter(ZOOM.III_DUMP), PayloadFilter(kb.Payload.DUMP))
+async def dump(everything: CommonEverything):
+    ctx = everything.ctx
+
+    await everything.send_message(
+        text = ctx.settings.zoom.entries.dump(),
+        chunker = text.double_newline_chunks
+    )
+
+    everything.force_send = True
+
+    return await bps.back(everything)
+
+
+async def going_to_dump(everything: CommonEverything):
+    answer_text = (
+        messages.Builder()
+                .add(messages.format_dump_explain())
+    )
+    answer_keyboard = kb.Keyboard([
+        [kb.DUMP_BUTTON]
+    ])
+
+    return await everything.edit_or_answer(
+        text = answer_text.make(),
+        keyboard = answer_keyboard
+    )
+
+@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.DUMP))
+async def to_going_to_dump(everything: CommonEverything):
+    everything.navigator.append(ZOOM.III_DUMP)
+    return await going_to_dump(everything)
 
 
 @r.on_callback(PayloadFilter(kb.Payload.REMOVE))
@@ -50,6 +84,20 @@ async def set_attribute(
             answer_text = (
                 messages.Builder()
                         .add(messages.format_no_text())
+                        .add(messages.format_current_value(getter()))
+                        .add(main_message)
+                        .add(footer_addition)
+            )
+
+            return await message.answer(
+                text     = answer_text.make(),
+                keyboard = answer_keyboard
+            )
+        
+        if len(message.text) > zoom.VALUE_LIMIT:
+            answer_text = (
+                messages.Builder()
+                        .add(messages.format_value_too_big(zoom.VALUE_LIMIT))
                         .add(messages.format_current_value(getter()))
                         .add(main_message)
                         .add(footer_addition)
@@ -370,7 +418,7 @@ async def browse(
             text_footer = text_footer,
             keyboard_footer = [
                 [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
-                [kb.BACK_BUTTON]
+                [kb.BACK_BUTTON],
             ],
         )
     elif ctx.settings.zoom.is_focused_on_entries:
@@ -380,7 +428,8 @@ async def browse(
             text_footer = text_footer,
             keyboard_footer = [
                 [kb.ADD_BUTTON, kb.REMOVE_ALL_BUTTON.only_if(has_entries)], 
-                [kb.BACK_BUTTON]
+                [kb.DUMP_BUTTON],
+                [kb.BACK_BUTTON],
             ],
         )
 

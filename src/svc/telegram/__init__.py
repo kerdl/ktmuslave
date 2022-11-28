@@ -1,5 +1,5 @@
 import asyncio
-from typing import Literal, Optional
+from typing import Literal, Optional, Callable
 from dotenv import get_key
 from aiogram import Bot, Router, Dispatcher
 from aiogram.types import MessageEntity, ForceReply, InlineKeyboardMarkup, Message
@@ -26,9 +26,10 @@ async def chunked_send(
     text: str,
     disable_web_page_preview: bool = True,
     reply_markup: Optional[InlineKeyboardMarkup] = None,
-    reply_to_message_id: Optional[int] = None
+    reply_to_message_id: Optional[int] = None,
+    chunker: Callable[[str, Optional[int]], list[str]] = text_utils.chunks
 ) -> list[Message]:
-    chunks = text_utils.chunks(text)
+    chunks = chunker(text)
     responses = []
     
     for (index, chunk) in enumerate(chunks):
@@ -52,9 +53,10 @@ async def chunked_edit(
     message_id: int,
     text: str,
     disable_web_page_preview: bool = True,
-    reply_markup: Optional[InlineKeyboardMarkup] = None
+    reply_markup: Optional[InlineKeyboardMarkup] = None,
+    chunker: Callable[[str, Optional[int]], list[str]] = text_utils.chunks
 ) -> tuple[Message, list[Message]]:
-    chunks = text_utils.chunks(text)
+    chunks = chunker(text)
 
     is_used_first_edit = False
 

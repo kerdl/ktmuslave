@@ -794,26 +794,31 @@ class CommonEvent(BaseCommonEvent):
     tg: Optional[CallbackQuery] = None
     """ ## Info about recieved Telegram callback button click """
 
+    force_send: Optional[bool] = None
+    """ ## Even if we can edit the message, we may want to send a new one instead """
+
 
     @classmethod
-    def from_vk(cls, event: RawEvent):
+    def from_vk(cls: type[CommonEvent], event: RawEvent):
         event_object = event["object"]
         peer_id = event_object["peer_id"]
 
         self = cls(
-            src=Source.VK,
-            vk=event,
-            chat_id=peer_id
+            src        = Source.VK,
+            chat_id    = peer_id,
+            vk         = event,
+            force_send = False
         )
 
         return self
     
     @classmethod
-    def from_tg(cls, callback_query: CallbackQuery):
+    def from_tg(cls: type[CommonEvent], callback_query: CallbackQuery):
         self = cls(
-            src=Source.TG,
-            tg=callback_query,
-            chat_id=callback_query.message.chat.id
+            src        = Source.TG,
+            chat_id    = callback_query.message.chat.id,
+            tg         = callback_query,
+            force_send = False,
         )
 
         return self
@@ -941,13 +946,20 @@ class CommonEvent(BaseCommonEvent):
 
         was_split = False
         was_sent_instead = False
-        sent_more_than_24_hr_ago = self.ctx.last_bot_message.timestamp is not None and (self.ctx.last_bot_message.timestamp + 24 * 3600) > time.time() 
+        sent_more_than_24_hr_ago = (
+            self.ctx.last_bot_message.timestamp is not None
+            and (self.ctx.last_bot_message.timestamp + 24 * 3600) > time.time()
+        ) 
 
         if self.is_from_vk:
             chat_id = self.vk["object"]["peer_id"]
             message_id = self.vk["object"]["conversation_message_id"]
 
-            if sent_more_than_24_hr_ago or self.ctx.last_bot_message.was_split:
+            if (
+                self.force_send
+                or sent_more_than_24_hr_ago
+                or self.ctx.last_bot_message.was_split
+            ):
                 was_sent_instead = True
 
                 result = await vk.chunked_send(
@@ -977,7 +989,7 @@ class CommonEvent(BaseCommonEvent):
             chat_id = self.tg.message.chat.id
             message_id = self.tg.message.message_id
 
-            if self.ctx.last_bot_message.was_split:
+            if self.force_send or self.ctx.last_bot_message.was_split:
                 was_sent_instead = True
                 
                 result = await tg.chunked_send(
@@ -1099,22 +1111,27 @@ class CommonEverything(BaseCommonEvent):
     event: Optional[CommonEvent] = None
     """ ## Info about recieved callback button press """
 
+    force_send: Optional[bool] = None
+    """ ## Even if we can edit the message, we may want to send a new one instead """
+
     @classmethod
     def from_message(cls: type[CommonEverything], message: CommonMessage):
         self = cls(
-            src=message.src,
-            event_src=Source.MESSAGE,
-            message=message,
+            src       = message.src,
+            chat_id   = message.chat_id,
+            event_src = Source.MESSAGE,
+            message   = message,
         )
 
         return self
     
     @classmethod
-    def from_event(cls, event: CommonEvent):
+    def from_event(cls: type[CommonEverything], event: CommonEvent):
         self = cls(
-            src=event.src,
-            event_src=Source.EVENT,
-            event=event,
+            src       = event.src,
+            chat_id   = event.chat_id,
+            event_src = Source.EVENT,
+            event     = event,
         )
 
         return self
@@ -1209,6 +1226,7 @@ class CommonEverything(BaseCommonEvent):
 
         if self.is_from_event:
             event = self.event
+            event.force_send = self.force_send
 
             return await event.edit_message(
                 text        = text, 
@@ -1252,6 +1270,27 @@ class CommonEverything(BaseCommonEvent):
                 keyboard    = keyboard,
                 add_tree    = add_tree,
                 tree_values = tree_values
+            )
+    
+    async def send_message(
+        self,
+        text: str, 
+        keyboard: Optional[kb.Keyboard] = None,
+        chunker: Callable[[str, Optional[int]], list[str]] = text.chunks
+    ):
+        if self.is_from_vk:
+            return await vk.chunked_send(
+                peer_id  = self.chat_id,
+                message  = text,
+                keyboard = keyboard,
+                chunker  = chunker
+            )
+        if self.is_from_tg:
+            return await tg.chunked_send(
+                chat_id      = self.chat_id,
+                text         = text,
+                reply_markup = keyboard,
+                chunker      = chunker
             )
 
 def run_forever():

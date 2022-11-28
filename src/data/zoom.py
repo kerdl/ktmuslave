@@ -14,10 +14,12 @@ from urllib.parse import urlparse
 from src.svc import common
 from src.data import error
 from src.data import Emojized, Translated, Warning, Field
-from src.parse import pattern
+from src.parse import pattern, zoom
 
 
 T = TypeVar("T")
+
+VALUE_LIMIT = 500
 
 
 NAME = (
@@ -73,6 +75,13 @@ class Data(Translated, Emojized):
         "id": "📍",
         "pwd": "🔑",
         "notes": "📝"
+    }
+    __keys__: ClassVar[dict[str, str]] = {
+        "name": zoom.Key.NAME,
+        "url": zoom.Key.URL,
+        "id": zoom.Key.ID,
+        "pwd": zoom.Key.PWD,
+        "notes": zoom.Key.NOTES
     }
 
     def i_promise_i_will_get_rid_of_this_thing_but_not_now(self):
@@ -244,6 +253,26 @@ class Data(Translated, Emojized):
         
         return fmt_name + "\n" + fmt_fields
 
+    def dump_list(self) -> list[str]:
+        fields: list[str] = []
+
+        for (key, field) in self.fields():
+            if field.value is None:
+                continue
+
+            parsing_key = self.__keys__.get(key)
+
+            if parsing_key is None:
+                continue
+                
+            fmt_field = f"{parsing_key}: {field.value}"
+            fields.append(fmt_field)
+        
+        return fields
+    
+    def dump_str(self) -> str:
+        return "\n".join(self.dump_list())
+
     def __setattr__(self, __name: str, __value: Any) -> None:
         super().__setattr__(__name, __value)
 
@@ -394,6 +423,15 @@ class Entries:
 
     def clear(self):
         self.set = set()
+    
+    def dump(self) -> str:
+        entries_dumps: list[str] = []
+
+        for entry in self.set:
+            dump = entry.dump_str()
+            entries_dumps.append(dump)
+        
+        return "\n\n".join(entries_dumps)
 
     def __len__(self):
         return len(self.set)

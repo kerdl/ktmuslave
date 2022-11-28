@@ -50,6 +50,7 @@ class Payload:
     NULL       = "null"
     REMOVE     = "remove"
     REMOVE_ALL = "remove_all"
+    DUMP       = "dump"
     CLEAR      = "clear"
     NEXT_ZOOM  = "next_zoom"
 
@@ -96,6 +97,7 @@ class Text:
     NULL       = "✕ Обнулить"
     REMOVE     = "✕ Удалить"
     REMOVE_ALL = "✕ Удалить всё"
+    DUMP       = "💾 Дамп"
     CLEAR      = "✕ Очистить"
 
     # Hub buttons
@@ -360,6 +362,7 @@ CONFIRM_BUTTON    = Button(text = Text.CONFIRM,    callback = Payload.CONFIRM,  
 NULL_BUTTON       = Button(text = Text.NULL,       callback = Payload.NULL,       color = Color.RED)
 REMOVE_BUTTON     = Button(text = Text.REMOVE,     callback = Payload.REMOVE,     color = Color.RED)
 REMOVE_ALL_BUTTON = Button(text = Text.REMOVE_ALL, callback = Payload.REMOVE_ALL, color = Color.RED)
+DUMP_BUTTON       = Button(text = Text.DUMP,       callback = Payload.DUMP,       color = Color.BLUE)
 CLEAR_BUTTON      = Button(text = Text.CLEAR,      callback = Payload.CLEAR,      color = Color.RED)
 
 BEGIN_BUTTON      = Button(text = Text.BEGIN,      callback = Payload.BEGIN)

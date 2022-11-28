@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Callable
 from vkbottle import Bot, VKAPIError
 from vkbottle.tools.dev.mini_types.bot.foreign_message import ForeignMessageMin
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
@@ -28,8 +28,9 @@ async def chunked_send(
     keyboard: Optional[str] = None,
     reply_to: Optional[int] = None,
     dont_parse_links: bool = True,
+    chunker: Callable[[str, Optional[int]], list[str]] = text.chunks
 ) -> list[MessagesSendUserIdsResponseItem]:
-    chunks = text.chunks(message)
+    chunks = chunker(message)
     responses = []
 
     fwd = None
@@ -68,8 +69,9 @@ async def chunked_edit(
     message: Optional[str],
     keyboard: Optional[str],
     dont_parse_links: bool = True,
+    chunker: Callable[[str, Optional[int]], list[str]] = text.chunks
 ) -> tuple[BaseBoolInt, list[MessagesSendUserIdsResponseItem]]:
-    chunks = text.chunks(message)
+    chunks = chunker(message)
 
     used_first_edit = False
 

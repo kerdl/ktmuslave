@@ -154,11 +154,7 @@ class Parser:
 
             # if that is a name key
             if Key.is_relevant(Key.NAME, line):
-                parsed = self.parse_name(Key.remove(Key.NAME, line))
-
-                if parsed is not None:
-                    name.value = parsed
-                    continue
+                name.value = Key.remove(Key.NAME, line)
                     
             # if that is a url key
             elif Key.is_relevant(Key.URL, line): 
