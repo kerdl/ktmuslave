@@ -22,7 +22,7 @@ from src.svc.common.states import formatter as states_fmt, Values
 from src.svc.common.states.tree import HUB
 from src.svc.common.navigator import Navigator
 from src.svc.common import pagination, messages, error
-from src.svc.vk.types import RawEvent
+from src.svc.vk.types_ import RawEvent
 from src.svc.common import keyboard as kb
 from src.data import zoom, RepredBaseModel
 from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL
@@ -825,6 +825,17 @@ class CommonEvent(BaseCommonEvent):
         return self
     
     @property
+    def from_message_id(self):
+        if self.is_from_vk:
+            return self.vk["object"]["conversation_message_id"]
+        if self.is_from_tg:
+            return self.tg.message.message_id
+    
+    @property
+    def is_from_last_message(self):
+        return self.ctx.last_bot_message.id == self.from_message_id
+    
+    @property
     def payload(self) -> str:
         if self.is_from_tg:
             return self.tg.data
@@ -948,6 +959,7 @@ class CommonEvent(BaseCommonEvent):
         was_split = False
         was_sent_instead = False
         sent_more_than_24_hr_ago = (
+            self.is_from_last_message and
             self.ctx.last_bot_message.timestamp is not None
             and (self.ctx.last_bot_message.timestamp + 24 * 3600) > time.time()
         ) 
@@ -976,7 +988,7 @@ class CommonEvent(BaseCommonEvent):
             if (
                 self.force_send
                 or sent_more_than_24_hr_ago
-                or self.ctx.last_bot_message.was_split
+                or (self.is_from_last_message and self.ctx.last_bot_message.was_split)
             ):
                 await send()
             else:
@@ -1000,7 +1012,10 @@ class CommonEvent(BaseCommonEvent):
             chat_id = self.tg.message.chat.id
             message_id = self.tg.message.message_id
 
-            if self.force_send or self.ctx.last_bot_message.was_split:
+            if self.force_send or (
+                self.is_from_last_message
+                and self.ctx.last_bot_message.was_split
+            ):
                 was_sent_instead = True
                 
                 result = await tg.chunked_send(

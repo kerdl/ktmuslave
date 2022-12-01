@@ -8,7 +8,7 @@ from src.svc import vk
 from src.svc.common import CommonMessage, CommonEvent, CommonEverything, messages
 from src.svc.common import keyboard as kb
 from src.svc.common.states.tree import INIT, SETTINGS, HUB
-from .types import RawEvent
+from .types_ import RawEvent
 from . import keyboard as vk_kb
 
 
