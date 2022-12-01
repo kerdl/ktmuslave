@@ -58,14 +58,14 @@ async def update(everything: CommonEverything):
         )
 
 
-@r.on_callback(StateFilter(HUB.I_MAIN), PayloadFilter(kb.Payload.WEEKLY))
+@r.on_callback(PayloadFilter(kb.Payload.WEEKLY))
 async def switch_to_weekly(everything: CommonEverything):
     ctx = everything.ctx
     ctx.schedule.message.switch_to_weekly()
 
     return await hub(everything)
 
-@r.on_callback(StateFilter(HUB.I_MAIN), PayloadFilter(kb.Payload.DAILY))
+@r.on_callback(PayloadFilter(kb.Payload.DAILY))
 async def switch_to_daily(everything: CommonEverything):
     ctx = everything.ctx
     ctx.schedule.message.switch_to_daily()
@@ -125,9 +125,8 @@ async def hub(
     ], add_back = False)
 
     if (
-        everything.is_from_event 
-        and everything.event.payload == kb.Payload.RESEND
-        and allow_send
+        (everything.is_from_event and allow_send and not allow_edit)
+        or everything.event.payload == kb.Payload.RESEND
     ):
         await everything.event.show_notification(
             text = messages.format_sent_as_new_message()
@@ -151,13 +150,21 @@ async def hub(
         )
 
 
-async def to_hub(everything: CommonEverything):
+async def to_hub(
+    everything: CommonEverything, 
+    allow_edit: bool = True,
+    allow_send: bool = True
+):
     everything.navigator.clear()
     everything.navigator.append(HUB.I_MAIN)
 
     everything.navigator.auto_ignored()
 
-    return await hub(everything)
+    return await hub(
+        everything,
+        allow_edit = allow_edit,
+        allow_send = allow_send
+    )
 
 
 STATE_MAP = {

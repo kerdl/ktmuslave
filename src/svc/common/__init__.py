@@ -956,11 +956,11 @@ class CommonEvent(BaseCommonEvent):
             chat_id = self.vk["object"]["peer_id"]
             message_id = self.vk["object"]["conversation_message_id"]
 
-            if (
-                self.force_send
-                or sent_more_than_24_hr_ago
-                or self.ctx.last_bot_message.was_split
-            ):
+            async def send():
+                nonlocal was_sent_instead
+                nonlocal message_id
+                nonlocal was_split 
+
                 was_sent_instead = True
 
                 result = await vk.chunked_send(
@@ -972,20 +972,30 @@ class CommonEvent(BaseCommonEvent):
 
                 message_id = result[-1].conversation_message_id
                 was_split = len(result) > 1
-
+            
+            if (
+                self.force_send
+                or sent_more_than_24_hr_ago
+                or self.ctx.last_bot_message.was_split
+            ):
+                await send()
             else:
-                result = await vk.chunked_edit(
-                    peer_id                 = chat_id,
-                    conversation_message_id = message_id,
-                    message                 = text,
-                    keyboard                = keyboard.to_vk().get_json() if keyboard else None,
-                    dont_parse_links        = True,
-                )
+                try:
+                    result = await vk.chunked_edit(
+                        peer_id                 = chat_id,
+                        conversation_message_id = message_id,
+                        message                 = text,
+                        keyboard                = keyboard.to_vk().get_json() if keyboard else None,
+                        dont_parse_links        = True,
+                    )
 
-                if len(result[1]) > 0:
-                    message_id = result[1][-1].conversation_message_id
-                    was_split = True
-        
+                    if len(result[1]) > 0:
+                        message_id = result[1][-1].conversation_message_id
+                        was_split = True
+                
+                except VKAPIError[909]:
+                    await send()
+
         elif self.is_from_tg:
             chat_id = self.tg.message.chat.id
             message_id = self.tg.message.message_id

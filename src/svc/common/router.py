@@ -158,7 +158,7 @@ class Router:
                         kwargs[argument] = everything.message
                     elif annotation == CommonEvent:
                         kwargs[argument] = everything.event
-
+                    
                 await handler.func(**kwargs)
                 
                 if handler.is_blocking:

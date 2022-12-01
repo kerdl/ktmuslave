@@ -169,6 +169,8 @@ class OldMessagesBlock(BaseMiddleware[RawEvent]):
     ### It's a `raw_event` middleware
     """
     async def pre(self):
+        from src.svc.common.bps import hub
+
         user_ctx = defs.ctx.vk.get(self.event["object"]["peer_id"])
 
         this_message_id = self.event["object"]["conversation_message_id"]
@@ -189,7 +191,12 @@ class OldMessagesBlock(BaseMiddleware[RawEvent]):
         if this_message_id != last_message_id:
             payload = self.event["object"]["payload"]
 
-            if vk_kb.payload_eq(payload, kb.Payload.UPDATE):
+            if payload.get(vk_kb.CMD) in [
+                kb.Payload.WEEKLY,
+                kb.Payload.DAILY,
+                kb.Payload.UPDATE,
+                kb.Payload.RESEND
+            ]:
                 return
 
             elif vk_kb.payload_eq(payload, kb.Payload.SETTINGS):
@@ -199,6 +206,14 @@ class OldMessagesBlock(BaseMiddleware[RawEvent]):
 
                 return
 
+            elif not user_ctx.last_bot_message.can_edit:
+                await hub.to_hub(
+                    user_ctx.last_everything,
+                    allow_edit = False
+                )
+                
+                self.stop()
+            
             await send_snackbar(messages.format_cant_press_old_buttons())
 
             # send last bot message again

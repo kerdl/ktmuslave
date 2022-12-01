@@ -194,6 +194,15 @@ class CommonEventMaker:
 
         common_event = CommonEvent.from_tg(event)
         common_everything = CommonEverything.from_event(common_event)
+    
+        if common_everything.ctx.last_everything is None:
+            # this is first event for this ctx
+            common_everything.ctx.set_everything(common_everything)
+            common_everything.navigator.auto_ignored()
+            common_everything.ctx.settings.defaults_from_everything(common_everything)
+        else:
+            common_everything.ctx.set_everything(common_everything)
+
 
         data["common_event"] = common_event
         data["everything"] = common_everything
@@ -207,6 +216,8 @@ class OldMessagesBlock:
         event: CallbackQuery,
         data: dict[str, Any]
     ):
+        from src.svc.common.bps import hub
+
         common_event: CommonEvent = data["common_event"]
         user_ctx = common_event.ctx
 
@@ -214,8 +225,13 @@ class OldMessagesBlock:
         last_message_id = common_event.ctx.last_bot_message.id
 
         if this_message_id != last_message_id:
-
-            if common_event.payload == kb.Payload.UPDATE:
+            
+            if common_event.payload in [
+                kb.Payload.WEEKLY,
+                kb.Payload.DAILY,
+                kb.Payload.UPDATE,
+                kb.Payload.RESEND
+            ]:
                 return await handler(event, data)
 
             elif common_event.payload == kb.Payload.SETTINGS:
@@ -227,6 +243,14 @@ class OldMessagesBlock:
                 )
 
                 return await handler(event, data)
+
+            elif not user_ctx.last_bot_message.can_edit:
+                await hub.to_hub(
+                    user_ctx.last_everything,
+                    allow_edit = False
+                )
+                
+                return
 
             await common_event.show_notification(
                 messages.format_cant_press_old_buttons()
