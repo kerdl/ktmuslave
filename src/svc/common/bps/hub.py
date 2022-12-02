@@ -125,8 +125,10 @@ async def hub(
     ], add_back = False)
 
     if (
-        (everything.is_from_event and allow_send and not allow_edit)
-        or everything.event.payload == kb.Payload.RESEND
+        everything.is_from_event and (
+            (allow_send and not allow_edit)
+            or everything.event.payload == kb.Payload.RESEND
+        )
     ):
         await everything.event.show_notification(
             text = messages.format_sent_as_new_message()
