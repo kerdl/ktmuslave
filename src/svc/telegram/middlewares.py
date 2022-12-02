@@ -88,7 +88,7 @@ class BotMentionFilter:
             
             if event.text == "/":
                 return False
-            elif "/" in event.text:
+            elif event.text.startswith("/"):
                 return True
             
             return False
