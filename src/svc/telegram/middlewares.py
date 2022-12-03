@@ -88,7 +88,7 @@ class BotMentionFilter:
             
             if event.text == "/":
                 return False
-            elif event.text.startswith("/"):
+            elif any(cmd in event.text for cmd in defs.tg_bot_commands):
                 return True
             
             return False

@@ -85,6 +85,7 @@ class Defs:
     tg_bot: Optional[TgBot] = None
     tg_bot_info: Optional[User] = None
     tg_bot_mention: Optional[str] = None
+    tg_bot_commands: Optional[list[str]] = None
     tg_router: Optional[Router] = None
     tg_dispatch: Optional[Dispatcher] = None
 
@@ -140,6 +141,7 @@ class Defs:
         self.tg_bot_info = me
         #self.tg_bot_mention = "@" + me.username
         self.tg_bot_mention = "/nigga"
+        self.tg_bot_commands = ["/nigga"]
 
     def init_vars(
         self, 
