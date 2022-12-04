@@ -20,14 +20,20 @@ class ChangeType:
     CHANGED = "changed"
 
 
-class Changes(GenericModel, Generic[CMP_T, ORIGNAL_T]):
+class DetailedChanges(GenericModel, Generic[CMP_T, ORIGNAL_T]):
     appeared: list[ORIGNAL_T]
     disappeared: list[ORIGNAL_T]
     changed: list[CMP_T]
 
+class Changes(GenericModel, Generic[T]):
+    appeared: list[T]
+    disappeared: list[T]
+    changed: list[T]
+    unchanged: list[T]
+
 class PrimitiveChange(GenericModel, Generic[T]):
     old: Optional[T]
-    new: T
+    new: Optional[T]
 
     def is_same(self) -> bool:
         return self.old == self.new
@@ -37,11 +43,11 @@ class PrimitiveChange(GenericModel, Generic[T]):
 
 
 class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
-    name: str
-    num: Optional[Union[int, PrimitiveChange[int]]]
-    teachers: Optional[Union[list[str], Changes[Optional[str], Optional[str]]]]
-    cabinet: Optional[Union[Optional[str], PrimitiveChange[Optional[str]]]]
-    time: Optional[Union[Range[datetime.time], PrimitiveChange[Range[datetime.time]]]]
+    name: Optional[str]
+    num: Optional[PrimitiveChange[int]]
+    teachers: Optional[Changes[str]]
+    cabinet: Optional[PrimitiveChange[Optional[str]]]
+    time: Optional[PrimitiveChange[Range[datetime.time]]]
 
     __translation__: ClassVar[dict[str, str]] = {
         "name": "Пара",
@@ -53,25 +59,25 @@ class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
 
     @property
     def repr_name(self) -> str:
-        return self.name
+        return self.name or ""
 
 class DayCompare(RepredBaseModel):
-    weekday: WEEKDAY_LITERAL
-    subjects: Changes[SubjectCompare, Subject]
+    weekday: Optional[WEEKDAY_LITERAL]
+    subjects: DetailedChanges[SubjectCompare, Subject]
 
     @property
     def repr_name(self) -> str:
-        return self.weekday
+        return self.weekday or ""
 
 class GroupCompare(RepredBaseModel):
-    name: str
-    days: Changes[DayCompare, Day]
+    name: Optional[str]
+    days: DetailedChanges[DayCompare, Day]
 
     @property
     def repr_name(self) -> str:
-        return self.name
+        return self.name or ""
 
 class PageCompare(BaseModel):
-    raw: str
+    raw: Optional[str]
     date: PrimitiveChange[Range[datetime.date]]
-    groups: Changes[GroupCompare, Group]
+    groups: DetailedChanges[GroupCompare, Group]

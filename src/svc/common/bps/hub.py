@@ -91,11 +91,11 @@ async def hub(
 
     if ctx.schedule.message.is_weekly:
         weekly_page = await SCHEDULE_API.weekly(group)
-        users_group = weekly_page.get_group(group)
+        users_group = weekly_page.get_group(group) if weekly_page is not None else None
 
     elif ctx.schedule.message.is_daily:
         daily_page = await SCHEDULE_API.daily(group)
-        users_group = daily_page.get_group(group)
+        users_group = daily_page.get_group(group) if daily_page is not None else None
 
     schedule_text = await sc_format.group(
         users_group,

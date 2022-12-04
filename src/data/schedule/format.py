@@ -4,7 +4,7 @@ from typing import Optional, Any, Union
 from pydantic import BaseModel
 from dataclasses import dataclass
 
-from src.data.schedule.compare import GroupCompare, Changes, PrimitiveChange
+from src.data.schedule.compare import GroupCompare, DetailedChanges, PrimitiveChange
 from src.data.schedule import Page, Group, Day, Subject, Format, FORMAT_LITERAL
 from src.data.range import Range
 from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt
@@ -255,7 +255,7 @@ def cmp(
         key = field[0]
         value = field[1]
 
-        if isinstance(value, Changes):
+        if isinstance(value, DetailedChanges):
             local_translation = None if not is_translated else compare.translate(key)
             local_rows: list[str] = []
 

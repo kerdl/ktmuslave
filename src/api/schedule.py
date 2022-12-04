@@ -140,7 +140,12 @@ class ScheduleApi(Api):
     async def daily_groups(self) -> list[str]:
         groups: list[str] = []
 
-        for group in (await self.daily()).groups:
+        daily = await self.daily()
+
+        if daily is None:
+            return groups
+
+        for group in daily.groups:
             groups.append(group.name)
         
         return groups
@@ -148,7 +153,12 @@ class ScheduleApi(Api):
     async def weekly_groups(self) -> list[str]:
         groups: list[str] = []
 
-        for group in (await self.weekly()).groups:
+        weekly = await self.weekly()
+
+        if weekly is None:
+            return groups
+
+        for group in weekly.groups:
             groups.append(group.name)
         
         return groups
@@ -189,8 +199,10 @@ class ScheduleApi(Api):
 
             break
 
-    async def schedule(self, url: str) -> Page:
+    async def schedule(self, url: str) -> Optional[Page]:
         response = await self._get(url)
+        if response.data is None:
+            return None
 
         return response.data.page
 
