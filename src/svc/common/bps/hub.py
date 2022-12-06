@@ -54,7 +54,8 @@ async def update(everything: CommonEverything):
 
         return await hub(
             everything,
-            allow_edit = allow_edit
+            allow_edit = allow_edit,
+            allow_send = False,
         )
 
 
