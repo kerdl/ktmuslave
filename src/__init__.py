@@ -35,21 +35,24 @@ def sink(message: Message):
         is_error = True
 
     async def write_out():
-        await defs.log_file.write(no_escapes)
-        await defs.log_file.flush()
+        try:
+            await defs.log_file.write(no_escapes)
+            await defs.log_file.flush()
 
-        if (await ospath.getsize(defs.log_path)) > 1_048_576: # 1mb
-            now = datetime.datetime.now()
-            now_str = str(now)
-            now_str = now_str.replace(":", "_").replace("/", "_")
+            if (await ospath.getsize(defs.log_path)) > 1_048_576: # 1mb
+                now = datetime.datetime.now()
+                now_str = str(now)
+                now_str = now_str.replace(":", "_").replace("/", "_")
 
-            await defs.log_file.close()
+                await defs.log_file.close()
 
-            defs.log_path.rename(defs.log_dir.joinpath(f"log_{now_str}.txt"))
+                defs.log_path.rename(defs.log_dir.joinpath(f"log_{now_str}.txt"))
 
-            defs.log_file = await aiofiles.open(
-                defs.log_path, mode="a", encoding="utf8", newline="\n"
-            )
+                defs.log_file = await aiofiles.open(
+                    defs.log_path, mode="a", encoding="utf8", newline="\n"
+                )
+        except Exception:
+            ...
 
     print(message, end="")
 
@@ -61,10 +64,13 @@ def sink(message: Message):
         async def send_error():
             admin_id = get_key(".env", "VK_ADMIN")
 
-            await vk.chunked_send(
-                peer_id = admin_id,
-                message = str(no_escapes),
-            )
+            try:
+                await vk.chunked_send(
+                    peer_id = admin_id,
+                    message = str(no_escapes),
+                )
+            except Exception:
+                ...
 
         defs.create_task(send_error())
 

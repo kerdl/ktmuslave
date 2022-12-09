@@ -271,8 +271,6 @@ class Ctx:
 
                     logger.info(f"broadcasting {mapping.sc_type} to {ctx.id}")
 
-                    ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
-
                     try:
                         ctx.last_bot_message = await message.send()
                     except VKAPIError[913]:
@@ -290,6 +288,8 @@ class Ctx:
                         logger.error(
                             f"cannot broadcast {mapping.sc_type} to {ctx.id}: {e}"
                         )
+                    
+                    ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
 
                     if mapping.sc_type == Type.DAILY:
                         ctx.last_daily_message = ctx.last_bot_message
@@ -297,7 +297,7 @@ class Ctx:
                         ctx.last_weekly_message = ctx.last_bot_message
 
                     if ctx.settings.should_pin:
-                        await ctx.last_bot_message.pin()
+                        await ctx.last_bot_message.safe_pin()
 
     async def broadcast(self, notify: Notify, invoker: Optional[BaseCtx] = None):
         from src.data.schedule.compare import ChangeType
@@ -735,31 +735,25 @@ class CommonBotMessage:
         return bot_message
     
     async def pin(self):
-        error = None
-
         if self.is_from_vk:
-            try:
-                await defs.vk_bot.api.messages.pin(
-                    peer_id                 = self.chat_id,
-                    conversation_message_id = self.id
-                )
-            # You are not admin of this chat
-            except VKAPIError[925] as e:
-                error = e
+            await defs.vk_bot.api.messages.pin(
+                peer_id                 = self.chat_id,
+                conversation_message_id = self.id
+            )
         
         elif self.is_from_tg:
-            try:
-                await defs.tg_bot.pin_chat_message(
-                    chat_id    = self.chat_id,
-                    message_id = self.id
-                )
-            except TelegramBadRequest:
-                error = e
-        
-        if error is not None:
+            await defs.tg_bot.pin_chat_message(
+                chat_id    = self.chat_id,
+                message_id = self.id
+            )
+
+    async def safe_pin(self):
+        try:
+            await self.pin()
+        except Exception as e:
             logger.warning(
                 f"unable to pin {self.src} message {self.id} "
-                f"for {self.chat_id}: {error}"
+                f"for {self.chat_id}: {e}"
             )
     
     def __str__(self) -> str:
