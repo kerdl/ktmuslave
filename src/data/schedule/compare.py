@@ -29,7 +29,6 @@ class Changes(GenericModel, Generic[T]):
     appeared: list[T]
     disappeared: list[T]
     changed: list[T]
-    unchanged: list[T]
 
 class PrimitiveChange(GenericModel, Generic[T]):
     old: Optional[T]
