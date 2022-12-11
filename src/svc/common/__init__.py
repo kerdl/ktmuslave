@@ -1330,12 +1330,26 @@ def run_forever():
             try:
                 await tg.start_polling(tg_bot)
             except TelegramRetryAfter as e:
-                logger.info(f"CAUGHT TELEGRAM RETRY AFTER {e.retry_after}")
+                logger.warning(f"CAUGHT TELEGRAM RETRY AFTER {e.retry_after}")
                 await asyncio.sleep(e.retry_after)
-                logger.info("starting tg polling again")
+            except Exception as e:
+                logger.warning(f"CAUGHT TELEGRAM POLLING ERROR {e}")
+                await asyncio.sleep(1)
+            
+            logger.info("starting tg polling again")
+
+    async def vk_run_polling():
+        while True:
+            try:
+                await vk.run_polling()
+            except Exception as e:
+                logger.warning(f"CAUGHT VK POLLING ERROR: {e}")
+                await asyncio.sleep(1)
+
+            logger.info("starting vk polling again")
 
     defs.create_task(tg_start_polling())
-    defs.create_task(vk.run_polling())
+    defs.create_task(vk_run_polling())
 
     try:
         loop.run_forever()
