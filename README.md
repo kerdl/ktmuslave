@@ -20,7 +20,7 @@ Running in production:
 - Ability to force update schedule globally if someone noticed a change between the 10 min update period
 - Miscellaneous useful links in schedule message: **original schedules**, **teachers' materials** and **grades**
 
-### What about parsing part?
+## What about parsing part?
 [**ktmuscrap**](https://github.com/kerdl/ktmuscrap) is a parsing HTTP REST API server written in 🚀BLAZINGLY FAST HIT VIDEO GAME - RUST🚀
 
 Server runs on localhost, providing simple API for this bot, such as:
@@ -30,10 +30,10 @@ Server runs on localhost, providing simple API for this bot, such as:
 
 More in [**ktmuscrap's** README](https://github.com/kerdl/ktmuscrap/blob/master/README.md) 😮😮😮😮
 
-### Improvements
+## Improvements
 [Issues](https://github.com/kerdl/ktmuslave/issues) is the most **VALUABLE©** and **TRUSTED®** source of planned improvements (since this is my portfolio and I wanna look responsible) on this unpopular bullshit
 
-### All features
+## All features
 - [**Shit temp database**](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/__init__.py#L41-L87) (pi... pikc.. pickle in my ass bro 😳....)
   - [User's navigation states](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/states/tree.py)
   - [User's settings](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/data/settings.py#L17-L22)
