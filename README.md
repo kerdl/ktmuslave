@@ -62,3 +62,5 @@ More in [**ktmuscrap's** README](https://github.com/kerdl/ktmuscrap/blob/master/
   - Replying to the last schedule message to quickly see schedule's history ([↩️ reply conditions](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/__init__.py#L208-L226))
   - Ability to force invoke global schedule update if someone noticed a change between 10 min auto-update period ([🔄 update button](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/bps/hub.py#L114), [💥 what happens on press](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/bps/hub.py#L20-L59))
   - Lots of byautoful text formatting ([🖌️ formatter](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/data/schedule/format.py#L208-L238))
+-**Other**
+  - Notify for bot's admin in case of any exception raise ([⚙️ implementation](https://github.com/kerdl/ktmuslave/blob/e7990a044526435c49471ed8be06871ce0c50384/src/__init__.py#L61-L75))
