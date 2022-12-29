@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Any
 from dataclasses import dataclass
+from pydantic import BaseModel, Field as PydField
 
 from src.data import zoom
 from src.svc import common
@@ -8,25 +9,17 @@ from src.svc.common.states import State, Values
 from src.svc.common.states.tree import INIT, SETTINGS as SettingsTree
 
 
-@dataclass
-class Group:
+class Group(BaseModel):
     typed: Optional[str] = None
     valid: Optional[str] = None
     confirmed: Optional[str] = None
 
-@dataclass
-class Settings(Values):
-    group: Group
-    zoom: zoom.Container
+class Settings(BaseModel, Values):
+    group: Group = PydField(default_factory=Group)
+    zoom: zoom.Container = PydField(default_factory=zoom.Container)
     broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None
 
-    @classmethod
-    def default(cls: type[Settings]):
-        return cls(
-            group = Group(),
-            zoom  = zoom.Container.default(),
-        )
 
     def get_from_state(self, state: State) -> Any:
         VALUES = {

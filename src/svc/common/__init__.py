@@ -2,33 +2,32 @@ from __future__ import annotations
 from loguru import logger
 import time
 import asyncio
-import random
-from typing import Any, Literal, Optional, Callable
+from typing import Literal, Optional, Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
+from pydantic import BaseModel
 from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
-from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
+from aiogram.exceptions import TelegramRetryAfter
 import pickle
 import aiofiles
-import datetime
 
 from src import defs
 from src.svc import vk, telegram as tg
 from src import text
 from src.svc.common.states import formatter as states_fmt, Values
 from src.svc.common.states.tree import HUB
-from src.svc.common.navigator import Navigator
-from src.svc.common import pagination, messages, error
+from src.svc.common.navigator import Navigator, DbNavigator
+from src.svc.common import pagination, messages
 from src.svc.vk.types_ import RawEvent
 from src.svc.common import keyboard as kb
-from src.data import zoom, RepredBaseModel
+from src.data import RepredBaseModel
 from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL
-from src.data.settings import Settings, Group
+from src.data.settings import Settings
 from src.api.schedule import Notify
-from .states.tree import INIT, Hub, Space
+from .states.tree import Space
 
 
 @dataclass
@@ -37,16 +36,24 @@ class BroadcastGroup:
     header: str
     sc_type: TYPE_LITERAL
 
+class DbBaseCtx(BaseModel):
+    is_registered: bool
+
+    navigator: DbNavigator
+    settings: Settings
+    schedule: Schedule
+
+    pages: pagination.Container
 
 @dataclass
 class BaseCtx:
     is_registered: bool = False
 
-    navigator: Navigator = field(default_factory=Navigator.default)
+    navigator: Navigator = field(default_factory=Navigator)
     """ # `Back`, `next` buttons tracer """
-    settings: Settings = field(default_factory=Settings.default)
+    settings: Settings = field(default_factory=Settings)
     """ # Storage for settings and zoom data """
-    schedule: Schedule = field(default_factory=Schedule.default)
+    schedule: Schedule = field(default_factory=Schedule)
     """ # Schedule data """
     
     last_call: float = 0.0
@@ -58,7 +65,7 @@ class BaseCtx:
     click buttons too fast
     """
 
-    pages: pagination.Container = field(default_factory=pagination.Container.default)
+    pages: pagination.Container = field(default_factory=pagination.Container)
     """
     # Page storage for big data
 
@@ -147,8 +154,8 @@ class Ctx:
 
     def add_vk(self, peer_id: int) -> VkCtx:
         self.vk[peer_id] = VkCtx(
-            last_call           = time.time(),
-            peer_id             = peer_id
+            last_call = time.time(),
+            peer_id   = peer_id
         )
 
         logger.info("created ctx for vk {}", peer_id)
@@ -157,8 +164,8 @@ class Ctx:
 
     def add_tg(self, chat: TgChat) -> TgCtx:
         self.tg[chat.id] = TgCtx(
-            last_call           = time.time(),
-            chat                = chat
+            last_call = time.time(),
+            chat      = chat
         )
 
         logger.info("created ctx for tg {}", chat.id)
@@ -644,17 +651,6 @@ class CommonMessage(BaseCommonEvent):
         )
 
         self.ctx.last_bot_message = bot_message
-
-@dataclass
-class CommonBotTemplate:
-    """
-    ## Container of message to send later
-    - unlike `CommonBotMessage`, this may not
-    be already sent, it's just a template
-    - used to construct pages from massive data
-    """
-    text: str
-    keyboard: kb.Keyboard
 
 @dataclass
 class CommonBotMessage:

@@ -9,6 +9,7 @@ if __name__ == "__main__":
 from loguru import logger
 from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar
 from dataclasses import dataclass, field
+from pydantic import BaseModel, Field as PydField
 from urllib.parse import urlparse
 
 from src.svc import common
@@ -55,13 +56,12 @@ def format_section(name: str, fields: list[str]):
     )
 
 
-@dataclass
-class Data(Translated, Emojized):
+class Data(BaseModel, Translated, Emojized):
     name: Field[str]
-    url: Field[Optional[str]]   = field(default_factory = lambda: Field(None))
-    id: Field[Optional[str]]    = field(default_factory = lambda: Field(None))
-    pwd: Field[Optional[str]]   = field(default_factory = lambda: Field(None))
-    notes: Field[Optional[str]] = field(default_factory = lambda: Field(None))
+    url: Field[Optional[str]]   = PydField(default_factory = lambda: Field(value=None))
+    id: Field[Optional[str]]    = PydField(default_factory = lambda: Field(value=None))
+    pwd: Field[Optional[str]]   = PydField(default_factory = lambda: Field(value=None))
+    notes: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
 
     __translation__: ClassVar[dict[str, str]] = {
         "name": "Имя",
@@ -95,7 +95,7 @@ class Data(Translated, Emojized):
         try:
             self.notes
         except AttributeError:
-            self.notes = Field(None)
+            self.notes = Field(value=None)
 
     @classmethod
     def parse(cls: type[Data], text: str) -> list[Data]:
@@ -286,9 +286,8 @@ class Data(Translated, Emojized):
         return self.name.value == other
 
 
-@dataclass
-class Entries:
-    set: set[Data]
+class Entries(BaseModel):
+    set: set[Data] = PydField(default_factory=set)
     """
     # The collection of data itself
     """
@@ -298,10 +297,6 @@ class Entries:
     - used for selecting an entry from pagination,
     so we know what is being edited right now
     """
-
-    @classmethod
-    def default(cls: type[Entries]):
-        return cls(set = set())
 
     @classmethod
     def from_set(cls: type[Entries], set: set[Data]):
@@ -329,7 +324,7 @@ class Entries:
         self.remove(old)
 
         # change our backup with a new name
-        data.name = Field(new)
+        data.name = Field(value=new)
 
         # add this backup with changed name back
         self.add(data)
@@ -371,7 +366,7 @@ class Entries:
             self.set.add(data)
 
     def add_from_name(self, name: str):
-        data = Data(name = Field(name))
+        data = Data(name=Field(value=name))
 
         self.add(data)
 
@@ -469,15 +464,14 @@ class Storage:
 STORAGE = Literal["entries", "new_entries"]
 
 
-@dataclass
-class Container:
-    entries: Entries
+class Container(BaseModel):
+    entries: Entries = PydField(default_factory=Entries)
     """
     ## Main database of zoom
 
     - takes links for schedule here
     """
-    new_entries: Entries
+    new_entries: Entries = PydField(default_factory=Entries)
     """
     ## Temp storage for unconfirmed new entries
 
@@ -487,7 +481,7 @@ class Container:
     user confirms
     """
 
-    is_finished: bool
+    is_finished: bool = False
     """
     ## Initial step of adding Zoom was completed
 
@@ -495,18 +489,10 @@ class Container:
     `"0"` at the right of `"Add zoom"`
     state
     """
-    focused_at: Optional[STORAGE]
+    focused_at: Optional[STORAGE] = None
     """ ## Tells which container to use """
 
-    @classmethod
-    def default(cls: type[Container]) -> Container:
-        return cls(
-            entries     = Entries.default(), 
-            new_entries = Entries.default(),
-            is_finished = False,
-            focused_at  = None
-        )
-    
+
     @property
     def is_focused_on_entries(self) -> bool:
         return self.focused_at == Storage.ENTRIES

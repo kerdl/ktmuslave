@@ -4,8 +4,6 @@ from typing import Callable, Any, Awaitable, Optional
 
 from src import defs
 from src.svc import telegram as tg
-from src.svc.common import CommonMessage, CommonEvent, CommonEverything, messages, keyboard as kb
-from src.svc.common.states.tree import INIT, SETTINGS, HUB
 
 
 def get_chat(event: Update) -> Optional[Chat]:
@@ -167,6 +165,7 @@ class CommonMessageMaker:
         """
         ## Makes `CommonMessage` from tg message and sends it to a handler
         """
+        from src.svc.common import CommonMessage, CommonEverything
 
         common_message = CommonMessage.from_tg(event)
         common_everything = CommonEverything.from_message(common_message)
@@ -191,6 +190,7 @@ class CommonEventMaker:
         event: CallbackQuery,
         data: dict[str, Any]
     ) -> Any:
+        from src.svc.common import CommonEvent, CommonEverything
 
         common_event = CommonEvent.from_tg(event)
         common_everything = CommonEverything.from_event(common_event)
@@ -217,6 +217,8 @@ class OldMessagesBlock:
         data: dict[str, Any]
     ):
         from src.svc.common.bps import hub
+        from src.svc.common import CommonEvent, messages, keyboard as kb
+        from src.svc.common.states.tree import HUB
 
         common_event: CommonEvent = data["common_event"]
         user_ctx = common_event.ctx

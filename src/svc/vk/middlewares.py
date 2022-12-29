@@ -5,9 +5,6 @@ from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 
 from src import defs
 from src.svc import vk
-from src.svc.common import CommonMessage, CommonEvent, CommonEverything, messages
-from src.svc.common import keyboard as kb
-from src.svc.common.states.tree import INIT, SETTINGS, HUB
 from .types_ import RawEvent
 from . import keyboard as vk_kb
 
@@ -95,6 +92,8 @@ class CtxCheckRaw(BaseMiddleware[RawEvent]):
     ### It's a `raw_event` middleware
     """
     async def pre(self):
+        from src.svc.common.states.tree import SETTINGS
+
         event_object = self.event["object"]
         peer_id = event_object["peer_id"]
         from_id = event_object["user_id"]
@@ -137,6 +136,8 @@ class CommonMessageMaker(BaseMiddleware[Message]):
     ### It's a `message_new` middleware
     """
     async def pre(self):
+        from src.svc.common import CommonMessage, CommonEverything
+
         message = CommonMessage.from_vk(self.event)
         everything = CommonEverything.from_message(message)
         
@@ -149,6 +150,8 @@ class CommonEventMaker(BaseMiddleware[RawEvent]):
     ### It's a `raw_event` middleware
     """
     async def pre(self):
+        from src.svc.common import CommonEvent, CommonEverything
+
         event = CommonEvent.from_vk(self.event)
         everything = CommonEverything.from_event(event)
         
@@ -170,6 +173,9 @@ class OldMessagesBlock(BaseMiddleware[RawEvent]):
     """
     async def pre(self):
         from src.svc.common.bps import hub
+        from src.svc.common import messages
+        from src.svc.common import keyboard as kb
+        from src.svc.common.states.tree import HUB
 
         user_ctx = defs.ctx.vk.get(self.event["object"]["peer_id"])
 

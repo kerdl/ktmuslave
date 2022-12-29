@@ -150,10 +150,7 @@ class Tree:
         
         self.__states__ = []
 
-        filtered_states: filter[tuple[str, State]] = (
-            # filter by condition              for trees
-            filter(self.__filter_states__, type(self).__dict__.items())
-        )
+        filtered_states = self.__filter_states__()
 
         parent_trace: list[State] = []
 
@@ -199,11 +196,19 @@ class Tree:
                     stateB.child.append(stateA)
                     break
 
+    def from_str(self, state: str) -> Optional[State]:
+        for tree_state in self.__filter_states__():
+            name = tree_state[0]
+            state_data = tree_state[1]
+
+            if tree_state[0] == state:
+                return state_data
+
     def __iter__(self) -> Iterable[State]:
         return iter(self.__states__)
 
     @staticmethod
-    def __filter_states__(attr: tuple[str, State]):
+    def __states_filter__(attr: tuple[str, State]):
         """
         ## Called by `filter` as a condition check
         - `attr` - a tuple of `( KEY, VALUE )`
@@ -215,6 +220,11 @@ class Tree:
         value = attr[1]
 
         return key.startswith("I")
+    
+    def __filter_states__(self) -> filter[tuple[str, State]]:
+                      # filter by condition              for trees
+        return filter(self.__states_filter__, type(self).__dict__.items())
+
 
     @staticmethod
     def __level__(name: str) -> int:

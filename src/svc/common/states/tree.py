@@ -47,7 +47,7 @@ class Hub(Tree):
     """
     __space__ = Space.HUB
 
-    I_MAIN                 = State(**HUB_MAIN)
+    I_MAIN = State(**HUB_MAIN)
 
 
 class Zoom(Tree):
@@ -65,7 +65,17 @@ class Zoom(Tree):
     I_MASS_CHECK = State(**ZOOM_MASS_CHECK)
 
 
-INIT     = Init()
-HUB      = Hub()
-ZOOM     = Zoom()
+INIT = Init()
+HUB = Hub()
+ZOOM = Zoom()
 SETTINGS = Settings()
+
+STR_MAP = {
+    "Init": INIT,
+    "Hub": HUB,
+    "Zoom": ZOOM,
+    "Settings": SETTINGS,
+}
+
+def from_str(tree: str) -> Optional[Tree]:
+    return STR_MAP.get(tree)

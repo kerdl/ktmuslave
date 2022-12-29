@@ -134,11 +134,11 @@ class Parser:
         return None
 
     def parse_section(self, text: str) -> Optional[zoom.Data]:
-        name:  data.Field[Optional[str]] = data.Field(None)
-        url:   data.Field[Optional[str]] = data.Field(None)
-        id:    data.Field[Optional[str]] = data.Field(None)
-        pwd:   data.Field[Optional[str]] = data.Field(None)
-        notes: data.Field[Optional[str]] = data.Field(None)
+        name:  data.Field[Optional[str]] = data.Field(value=None)
+        url:   data.Field[Optional[str]] = data.Field(value=None)
+        id:    data.Field[Optional[str]] = data.Field(value=None)
+        pwd:   data.Field[Optional[str]] = data.Field(value=None)
+        notes: data.Field[Optional[str]] = data.Field(value=None)
 
         lines: list[str] = text.split("\n")
 

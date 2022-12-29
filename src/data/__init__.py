@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import ClassVar, Iterable, TypeVar, Generic, Optional, Generator, Any
 from dataclasses import dataclass, field
-from pydantic import BaseModel
+from pydantic import BaseModel, Field as PydField
+from pydantic.generics import GenericModel
 
 from . import format as fmt
 
@@ -74,11 +75,10 @@ class Warning:
     def __eq__(self, other: object) -> bool:
         return self.anchor == other
 
-@dataclass
-class Field(Generic[T], Repred):
+class Field(GenericModel, Generic[T], Repred):
     value: T
 
-    warnings: set[Warning] = field(default_factory=set)
+    warnings: set[Warning] = PydField(default_factory=set)
     """
     # Warns if `value` is unusual
     """
