@@ -173,7 +173,6 @@ def load(loop = None) -> Bot:
     for mw in message_view_middlewares:
         bot.labeler.message_view.middlewares.append(mw)
     
-    # mw - MiddleWare
     for mw in raw_event_view_middlewares:
         bot.labeler.raw_event_view.middlewares.append(mw)
     
