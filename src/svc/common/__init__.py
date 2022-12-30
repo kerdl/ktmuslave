@@ -2,10 +2,11 @@ from __future__ import annotations
 from loguru import logger
 import time
 import asyncio
-from typing import Literal, Optional, Callable
+from typing import Literal, Optional, Callable, Any, TypeVar, Generic
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pydantic import BaseModel
+from redis_om import JsonModel
 from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
@@ -30,13 +31,31 @@ from src.api.schedule import Notify
 from .states.tree import Space
 
 
+class Source:
+    """
+    ## Different sources of messengers, events
+    """
+    VK = "vk"
+    """ ## Message/event came from VK """
+    TG = "tg"
+    """ ## Message/event came from Telegram """
+    MESSAGE = "message"
+    """ ## Event came from incoming message """
+    EVENT = "event"
+    """ ## Event came from pressing keyboard buttons inside message """
+
+MESSENGER_SOURCE = Literal["vk", "tg"]
+MESSENGER_SOURCE_T = TypeVar("MESSENGER_SOURCE_T")
+EVENT_SOURCE = Literal["message", "event"]
+
+
 @dataclass
 class BroadcastGroup:
     name: str
     header: str
     sc_type: TYPE_LITERAL
 
-class DbBaseCtx(BaseModel):
+class DbBaseCtx(JsonModel):
     is_registered: bool
 
     navigator: DbNavigator
@@ -44,6 +63,30 @@ class DbBaseCtx(BaseModel):
     schedule: Schedule
 
     pages: pagination.Container
+
+    last_call: float = 0.0
+    last_everything: Optional[CommonEverything]
+    last_bot_message: Optional[CommonBotMessage]
+    last_daily_message: Optional[CommonBotMessage]
+    last_weekly_message: Optional[CommonBotMessage]
+
+    @classmethod
+    def from_runtime(cls: type[DbBaseCtx], ctx: BaseCtx) -> DbBaseCtx:
+        return cls(
+            is_registered=ctx.is_registered,
+            navigator=ctx.navigator.to_db(),
+            settings=ctx.settings,
+            schedule=ctx.schedule,
+            pages=ctx.pages,
+            last_call=ctx.last_call,
+            last_everything=ctx.last_everything,
+            last_bot_message=ctx.last_bot_message,
+            last_daily_message=ctx.last_daily_message,
+            last_weekly_message=ctx.last_weekly_message
+        )
+    
+    def to_runtime(self) -> BaseCtx:
+        return BaseCtx.from_db(self)
 
 @dataclass
 class BaseCtx:
@@ -93,6 +136,24 @@ class BaseCtx:
     last_daily_message: Optional[CommonBotMessage] = None
     last_weekly_message: Optional[CommonBotMessage] = None
 
+    @classmethod
+    def from_db(cls: type[BaseCtx], db: DbBaseCtx) -> BaseCtx:
+        return cls(
+            is_registered=db.is_registered,
+            navigator=db.navigator.to_runtime(db.last_everything),
+            settings=db.settings,
+            schedule=db.schedule,
+            last_call=db.last_call,
+            pages=db.pages,
+            last_everything=db.last_everything,
+            last_bot_message=db.last_bot_message,
+            last_daily_message=db.last_daily_message,
+            last_weekly_message=db.last_weekly_message
+        )
+    
+    def to_db(self) -> DbBaseCtx:
+        return DbBaseCtx.from_runtime(self)
+
     @property
     def id(self) -> int:
         raise NotImplemented
@@ -120,6 +181,7 @@ class BaseCtx:
         self.last_everything = everything
         self.navigator.everything = everything
 
+
 @dataclass
 class VkCtx(BaseCtx):
     """ ## Context specific to VK """
@@ -137,6 +199,12 @@ class TgCtx(BaseCtx):
     @property
     def id(self) -> int:
         return self.chat.id
+
+
+@dataclass
+class DbIterator(Generic[MESSENGER_SOURCE_T]):
+    ...
+
 
 @dataclass
 class Ctx:
@@ -409,25 +477,8 @@ class Ctx:
         else:
             return cls.load()
 
-class Source:
-    """
-    ## Different sources of messengers, events
-    """
-    VK = "vk"
-    """ ## Message/event came from VK """
-    TG = "tg"
-    """ ## Message/event came from Telegram """
-    MESSAGE = "message"
-    """ ## Event came from incoming message """
-    EVENT = "event"
-    """ ## Event came from pressing keyboard buttons inside message """
 
-MESSENGER_SOURCE = Literal["vk", "tg"]
-EVENT_SOURCE = Literal["message", "event"]
-
-
-@dataclass
-class BaseCommonEvent:
+class BaseCommonEvent(BaseModel):
     src: Optional[MESSENGER_SOURCE] = None
     chat_id: Optional[int] = None
 
@@ -488,7 +539,6 @@ class BaseCommonEvent:
         return text
 
 
-@dataclass
 class CommonMessage(BaseCommonEvent):
     """
     ## Container for only one source of recieved event
@@ -652,8 +702,7 @@ class CommonMessage(BaseCommonEvent):
 
         self.ctx.last_bot_message = bot_message
 
-@dataclass
-class CommonBotMessage:
+class CommonBotMessage(BaseModel):
     """
     ## Already sent message
     - unlike `CommonBotTemplate`, this message
@@ -778,7 +827,6 @@ class CommonBotMessage:
 
         return attrs_str
 
-@dataclass
 class CommonEvent(BaseCommonEvent):
     vk: Optional[RawEvent] = None
     """ ## Info about recieved VK callback button click """
@@ -1111,7 +1159,6 @@ class CommonEvent(BaseCommonEvent):
 
         self.ctx.last_bot_message = bot_message
 
-@dataclass
 class CommonEverything(BaseCommonEvent):
     """
     ## Stores only one type of event inside

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from src.svc import common
 from src.svc.common import error
+from src.svc.common import states
 from src.svc.common.states import State, SPACE_LITERAL, tree
 
 
@@ -13,8 +14,16 @@ class DbNavigator(BaseModel):
     back_trace: list[str]
     ignored: list[str]
 
-    def to_runtime():
-        ...
+    @classmethod
+    def from_runtime(cls: type[DbNavigator], navigator: Navigator) -> DbNavigator:
+        return cls(
+            trace=[str(state) for state in navigator.trace],
+            back_trace=[str(state) for state in navigator.back_trace],
+            ignored=[str(state) for state in navigator.ignored]
+        )
+    
+    def to_runtime(self, everything: Optional[common.CommonEverything] = None) -> Navigator:
+        return Navigator.from_db(self, everything)
 
 @dataclass
 class Navigator:
@@ -259,6 +268,15 @@ class Navigator:
         
         if not self.everything.is_group_chat:
             self.ignored.add(tree.SETTINGS.III_SHOULD_PIN)
+
+    @classmethod
+    def from_db(cls: type[Navigator], db: DbNavigator, everything: Optional[common.CommonEverything] = None) -> Navigator:
+        return cls(
+            trace=[states.from_encoded(state) for state in db.trace],
+            back_trace=[states.from_encoded(state) for state in db.back_trace],
+            ignored=[states.from_encoded(state) for state in db.ignored],
+            everything=everything
+        )
     
-    def to_db(self):
-        ...
+    def to_db(self) -> DbNavigator:
+        return DbNavigator.from_runtime(self)

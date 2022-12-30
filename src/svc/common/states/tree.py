@@ -1,3 +1,4 @@
+from typing import Optional
 from . import *
 
 
@@ -71,10 +72,10 @@ ZOOM = Zoom()
 SETTINGS = Settings()
 
 STR_MAP = {
-    "Init": INIT,
-    "Hub": HUB,
-    "Zoom": ZOOM,
-    "Settings": SETTINGS,
+    Init.__name__: INIT,
+    Hub.__name__: HUB,
+    Zoom.__name__: ZOOM,
+    Settings.__name__: SETTINGS,
 }
 
 def from_str(tree: str) -> Optional[Tree]:

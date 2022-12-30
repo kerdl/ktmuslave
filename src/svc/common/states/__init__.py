@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from pydantic import BaseModel
 from typing import Callable, ClassVar, Optional, Literal, Iterable
 
 from src.data import zoom
@@ -9,11 +10,11 @@ from src.svc.common import error
 
 class Space:
     """ ## In what space the user currently in """
-    INIT        = "init"
+    INIT     = "init"
     """
     Where user gets first time with welcome message
     """
-    SETTINGS    = "settings"
+    SETTINGS = "settings"
     """
     Common area, where user can specify:
         - his group
@@ -21,14 +22,14 @@ class Space:
         - if the bot should pin the broadcast
         - if he wants to add zoom data
     """
-    HUB         = "hub"
+    HUB      = "hub"
     """
     The main user area, where he can 
         - view schedule, 
         - view links,
         - can change settings
     """
-    ZOOM        = "zoom"
+    ZOOM     = "zoom"
     """
     Where user can:
         - add multiple zoom entries from one message
@@ -39,7 +40,7 @@ class Space:
 SPACE_LITERAL = Literal["init", "settings", "hub", "zoom"]
 
 
-class Values:
+class Values(BaseModel):
     def get_from_state(self, state: State): ...
 
 def default_action(everything: common.CommonEverything) -> None: ...
@@ -127,6 +128,9 @@ class State:
     - when `navigator` deletes this state
     from trace, no matter where it was
     """
+
+    def __str__(self) -> str:
+        return f"{self.space}:{self.name}"
 
     def __hash__(self) -> int:
         return hash(f"{self.tree}:{self.anchor}")
@@ -236,6 +240,14 @@ class Tree:
 
         return len(name.split("_")[0])
 
+def from_encoded(encoded: str) -> Optional[State]:
+    from .tree import from_str
+
+    (str_tree, str_state) = encoded.split(":")
+    class_tree = from_str(str_tree)
+
+    return class_tree.from_str(str_state)
+
 INIT_MAIN = {
     "name": "Категорически приветствую",
 }
@@ -299,3 +311,28 @@ ZOOM_EDIT_NOTES = {
 ZOOM_DUMP = {
     "name": "Дамп",
 }
+
+__all__ = (
+    "INIT_MAIN",
+    "HUB_MAIN",
+    "SETTINGS_MAIN",
+    "GROUP",
+    "UNKNOWN_GROUP",
+    "BROADCAST",
+    "SHOULD_PIN",
+    "INIT_ZOOM",
+    "INIT_FINISH",
+    "ZOOM_MASS",
+    "ZOOM_MASS_CHECK",
+    "ZOOM_BROWSE",
+    "ZOOM_ENTRY",
+    "ZOOM_EDIT_NAME",
+    "ZOOM_EDIT_URL",
+    "ZOOM_EDIT_ID",
+    "ZOOM_EDIT_PWD",
+    "ZOOM_EDIT_NOTES",
+    "ZOOM_DUMP",
+    "Tree",
+    "State",
+    "Space"
+)

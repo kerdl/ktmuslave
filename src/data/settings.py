@@ -14,7 +14,7 @@ class Group(BaseModel):
     valid: Optional[str] = None
     confirmed: Optional[str] = None
 
-class Settings(BaseModel, Values):
+class Settings(Values):
     group: Group = PydField(default_factory=Group)
     zoom: zoom.Container = PydField(default_factory=zoom.Container)
     broadcast: Optional[bool] = None
