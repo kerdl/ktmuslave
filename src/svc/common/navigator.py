@@ -259,6 +259,17 @@ class Navigator:
         self.back_trace = []
         self.ignored = set()
     
+    def set_everything(self, everything: common.CommonEverything):
+        should_auto_ignore = False
+
+        if self.everything is None:
+            should_auto_ignore = True
+        
+        self.everything = everything
+
+        if should_auto_ignore:
+            self.auto_ignored()
+
     def auto_ignored(self):
         if tree.INIT.I_MAIN in self.spaces:
             self.ignored.add(tree.SETTINGS.I_MAIN)

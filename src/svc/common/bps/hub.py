@@ -73,7 +73,7 @@ async def switch_to_daily(everything: CommonEverything):
 
     return await hub(everything)
 
-@r.on_everything(StateFilter(HUB.I_MAIN))
+@r.on_callback(StateFilter(HUB.I_MAIN))
 async def hub(
     everything: CommonEverything,
     allow_edit: bool = True,

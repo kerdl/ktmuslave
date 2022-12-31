@@ -148,44 +148,7 @@ def load(loop = None) -> Bot:
     """
     ## Set token, load blueprints and return a `Bot`
     """
-
     bot = Bot(token=get_key(".env", "VK_TOKEN"), loop=loop)
-
-    from .middlewares import (
-        LogRaw,
-        LogMessage,
-        BotMentionFilter,
-        CtxCheckRaw,
-        CtxCheckMessage,
-        ThrottleRaw,
-        ThrottleMessage,
-        CommonMessageMaker,
-        CommonEventMaker,
-        OldMessagesBlock
-    )
-
-    message_view_middlewares = [
-        LogMessage,
-        BotMentionFilter,
-        CtxCheckMessage,
-        ThrottleMessage,
-        CommonMessageMaker,
-    ]
-
-    raw_event_view_middlewares = [
-        LogRaw,
-        CtxCheckRaw,
-        ThrottleRaw,
-        CommonEventMaker,
-        OldMessagesBlock
-    ]
-    
-    # mw - MiddleWare
-    for mw in message_view_middlewares:
-        bot.labeler.message_view.middlewares.append(mw)
-    
-    for mw in raw_event_view_middlewares:
-        bot.labeler.raw_event_view.middlewares.append(mw)
     
     bot.labeler.message_view.replace_mention = True
 

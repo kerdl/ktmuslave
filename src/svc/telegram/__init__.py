@@ -147,53 +147,12 @@ def load_router() -> Router:
 
     return r
 
-def load_dispatch(router: Router, init_middlewares: bool = True) -> Dispatcher:
+def load_dispatch(router: Router) -> Dispatcher:
     """
     ## Init dispatcher
     """
 
     dp = Dispatcher()
     dp.include_router(router)
-
-    if init_middlewares:
-        from .middlewares import (
-            Log,
-            Throttling,
-            BotMentionFilter,
-            CtxCheck,
-            CommonMessageMaker,
-            CommonEventMaker,
-            OldMessagesBlock
-        )
-
-        update_outer_middlewares = [
-            Log(),
-            CtxCheck(),
-            Throttling(),
-        ]
-
-        message_outer_middlewares = [
-            BotMentionFilter(),
-            CommonMessageMaker()
-        ]
-
-        callback_query_outer_middlewares = [
-            CommonEventMaker(),
-            OldMessagesBlock()
-        ]
-
-    else:
-        update_outer_middlewares = []
-        message_outer_middlewares = []
-        callback_query_outer_middlewares = []
-
-    for mw in update_outer_middlewares:
-        dp.update.outer_middleware(mw)
-    
-    for mw in message_outer_middlewares:
-        dp.message.outer_middleware(mw)
-
-    for mw in callback_query_outer_middlewares:
-        dp.callback_query.outer_middleware(mw)
 
     return dp

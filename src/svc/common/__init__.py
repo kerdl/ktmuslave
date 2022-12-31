@@ -10,6 +10,7 @@ from redis_om import JsonModel
 from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
+from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
 from aiogram.exceptions import TelegramRetryAfter
 import pickle
@@ -136,6 +137,7 @@ class BaseCtx:
     last_daily_message: Optional[CommonBotMessage] = None
     last_weekly_message: Optional[CommonBotMessage] = None
 
+
     @classmethod
     def from_db(cls: type[BaseCtx], db: DbBaseCtx) -> BaseCtx:
         return cls(
@@ -179,7 +181,7 @@ class BaseCtx:
     
     def set_everything(self, everything: CommonEverything) -> None:
         self.last_everything = everything
-        self.navigator.everything = everything
+        self.navigator.set_everything(everything)
 
 
 @dataclass
@@ -219,6 +221,25 @@ class Ctx:
     ## Telegram chats
     - stored in a dict of `{chat_id: ctx}`
     """
+
+    def is_added(self, everything: CommonEverything) -> bool:
+        if everything.is_from_vk:
+            return everything.chat_id in self.vk.keys()
+        if everything.is_from_tg:
+            return everything.chat_id in self.tg.keys()
+    
+    def add_from_everything(self, everything: CommonEverything) -> BaseCtx:
+        if everything.is_from_vk:
+            ctx = self.add_vk(everything.chat_id)
+        elif everything.is_from_tg:
+            if everything.is_from_event:
+                ctx = self.add_tg(everything.event.tg.message.chat)
+            elif everything.is_from_message:
+                ctx = self.add_tg(everything.message.tg.chat)
+        
+        ctx.set_everything(everything)
+
+        return ctx
 
     def add_vk(self, peer_id: int) -> VkCtx:
         self.vk[peer_id] = VkCtx(
@@ -630,11 +651,104 @@ class CommonMessage(BaseCommonEvent):
         if self.is_from_tg:
             return self.tg
     
+    def _tg_is_for_bot(self) -> bool:
+        if not self.is_from_tg:
+            return False
+
+        event = self.tg
+        is_group_chat = tg.is_group_chat(event.chat.type)
+
+        def is_invite() -> bool:
+            if event.content_type != "new_chat_members":
+                return False
+            
+            for new in event.new_chat_members:
+                if new.id == defs.tg_bot_info.id:
+                    return True
+            
+            return False
+
+        def did_user_used_bot_command() -> bool:
+            if event.text is None:
+                return False
+            
+            if event.text == "/":
+                return False
+            elif any(cmd in event.text for cmd in defs.tg_bot_commands):
+                return True
+            
+            return False
+
+        def did_user_mentioned_bot() -> bool:
+            if event.entities is None:
+                return False
+
+            mentions = tg.extract_mentions(event.entities, event.text)
+
+            # if our bot not in mentions
+            if defs.tg_bot_mention not in mentions:
+                return False
+
+            return True
+
+        def did_user_replied_to_bot_message() -> bool:
+            if event.reply_to_message is None:
+                return False
+
+            return event.reply_to_message.from_user.id == defs.tg_bot_info.id
+
+        if not is_invite() and (is_group_chat and not (
+            did_user_used_bot_command() or
+            did_user_mentioned_bot() or
+            did_user_replied_to_bot_message()
+        )):
+            return False
+        
+        return True
+    
+    def _vk_is_for_bot(self) -> bool:
+        if not self.is_from_vk:
+            return False
+
+        event = self.vk
+        is_group_chat = event.peer_id != event.from_id
+        bot_id = defs.vk_bot_info.id
+        negative_bot_id = -bot_id
+        
+        def is_invite() -> bool:
+            if event.action is None:
+                return False
+
+            return (
+                event.action.member_id == -defs.vk_bot_info.id
+                and event.action.type.value == MessagesMessageActionStatus.CHAT_INVITE_USER.value
+            )
+
+        def did_user_mentioned_bot() -> bool:
+            """ 
+            ## @<bot id> <message> 
+            ### `@<bot id>` is a mention
+            """
+            return event.is_mentioned
+
+        if not is_invite() and (is_group_chat and not (
+            did_user_mentioned_bot()
+        )):
+            return False
+        
+        return True
+    
+    def is_for_bot(self) -> bool:
+        if self.is_from_vk:
+            return self._vk_is_for_bot()
+        if self.is_from_tg:
+            return self._tg_is_for_bot()
+
     async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
         if self.is_from_vk:
             return await vk.name_from_message(self.vk)
         if self.is_from_tg:
-            return await tg.name_from_message(self.tg)
+            return tg.name_from_message(self.tg)
 
     async def vk_has_admin_rights(self) -> bool:
         if not self.is_from_vk:
@@ -952,7 +1066,7 @@ class CommonEvent(BaseCommonEvent):
         if self.is_from_vk:
             return await vk.name_from_raw(self.vk)
         if self.is_from_tg:
-            return await tg.name_from_callback(self.tg)
+            return tg.name_from_callback(self.tg)
 
     async def vk_has_admin_rights(self) -> bool:
         if not self.is_from_vk:
@@ -1295,6 +1409,12 @@ class CommonEverything(BaseCommonEvent):
             return self.event.corresponding
         if self.is_from_message:
             return self.message.corresponding
+
+    def is_for_bot(self) -> bool:
+        if self.is_from_event:
+            return True
+        if self.is_from_message:
+            return self.message.is_for_bot()
 
     async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
         if self.is_from_event:
