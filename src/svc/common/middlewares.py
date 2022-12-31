@@ -2,10 +2,12 @@ from loguru import logger
 from dataclasses import dataclass, field
 from vkbottle import BaseMiddleware
 from vkbottle.bot import Message as VkMessage
+from aiogram import Dispatcher
 from aiogram.types import Update, Message as TgMessage, CallbackQuery, Chat
 from typing import Callable, Any, Awaitable, Optional
 from typing import Literal
 
+from src import defs
 from src.svc.common import CommonEverything, CommonEvent, CommonMessage
 from src.svc.vk.types_ import RawEvent
 
@@ -50,7 +52,7 @@ class VkRawMiddleware(BaseMiddleware[RawEvent]):
 class VkMessageMiddleware(BaseMiddleware[VkMessage]):
     async def pre(self):
         try:
-            return await r.vk_raw(self, Order.PRE, ExecFilter.MESSAGE)
+            return await r.vk_message(self, Order.PRE, ExecFilter.MESSAGE)
         except Stop:
             self.stop()
         except Exception as e:
@@ -59,7 +61,7 @@ class VkMessageMiddleware(BaseMiddleware[VkMessage]):
     
     async def post(self):
         try:
-            return await r.vk_raw(self, Order.POST, ExecFilter.MESSAGE)
+            return await r.vk_message(self, Order.POST, ExecFilter.MESSAGE)
         except Stop:
             self.stop()
         except Exception as e:
@@ -74,34 +76,9 @@ class TgUpdateMiddleware:
         data: dict[str, Any]
     ) -> Any:
         try:
-            await r
-            return await handler(event, data)
-        except Stop:
-            ...
-
-class TgMessageMiddleware:
-    async def __call__(
-        self,
-        handler: Callable[[TgMessage, dict[str, Any]], Awaitable[Any]],
-        event: TgMessage,
-        data: dict[str, Any]
-    ) -> Any:
-        try:
-            await r
-            return await handler(event, data)
-        except Stop:
-            ...
-
-class TgEventMiddleware:
-    async def __call__(
-        self,
-        handler: Callable[[CallbackQuery, dict[str, Any]], Awaitable[Any]],
-        event: CallbackQuery,
-        data: dict[str, Any]
-    ) -> Any:
-        try:
-            await r
-            return await handler(event, data)
+            await r.tg_update(event, Order.PRE)
+            await handler(event, data)
+            await r.tg_update(event, Order.POST)
         except Stop:
             ...
 
@@ -112,6 +89,7 @@ class Middleware:
 
     async def pre(self, everything: CommonEverything): ...
     async def post(self, everything: CommonEverything): ...
+    def stop(self): raise Stop
 
 
 @dataclass
@@ -128,6 +106,21 @@ class EventMiddleware(Middleware):
 class Router:
     middlewares: list[Middleware] = field(default_factory=list)
 
+    def add(self, mw: Middleware):
+        self.middlewares.append(mw)
+    
+    def middleware(self):
+        def decorator(mw: type[Middleware]) -> Middleware:
+            self.add(mw())
+            return mw
+        
+        return decorator
+
+    def assign(self, tg_dp: Dispatcher):
+        defs.vk_bot.labeler.message_view.register_middleware(VkMessageMiddleware)
+        defs.vk_bot.labeler.raw_event_view.register_middleware(VkRawMiddleware)
+
+        tg_dp.update.outer_middleware(TgUpdateMiddleware())
 
     async def vk_raw(
         self,
@@ -157,9 +150,9 @@ class Router:
         order: ORDER_LITERAL,
     ):
         if event.event_type == "message":
-            return await self.tg_message(event, order)
+            return await self.tg_message(event.message, order)
         if event.event_type == "callback_query":
-            return await self.tg_event(event, order)
+            return await self.tg_event(event.callback_query, order)
         else:
             logger.warning(f"uncaught tg event type while processing middlewares: {event}")
     
@@ -179,7 +172,7 @@ class Router:
         order: ORDER_LITERAL,
     ):
         message = CommonEvent.from_tg(event)
-        everything = CommonEverything.from_message(message)
+        everything = CommonEverything.from_event(message)
 
         return await self.exec_from_order(everything, order, ExecFilter.RAW_EVENT)
 
@@ -206,3 +199,18 @@ class Router:
 
 
 r = Router()
+
+
+@r.middleware()
+class Log(Middleware):
+    async def pre(self, everything: CommonEverything):
+        src = everything.src.upper()
+        event_src = everything.event_src.upper()
+        first_name, last_name, nickname = await everything.sender_name()
+        chat_id = everything.chat_id
+
+        event_str = str(everything.event.corresponding).replace("<", "\<")
+
+        logger.opt(colors=True).info(
+            f"<W><k><d>{src} {event_src} from {first_name} {last_name} ({nickname}) at {chat_id}</></></>: {event_str}"
+        )

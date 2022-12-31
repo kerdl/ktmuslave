@@ -53,7 +53,7 @@ class Navigator:
 
     everything: Optional[common.CommonEverything] = None
     """
-    # Last recieved event
+    # Last received event
 
     ## Used
     - to pass it to `on_enter`, `on_exit` methods of states

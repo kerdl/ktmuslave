@@ -541,14 +541,14 @@ class BaseCommonEvent(BaseModel):
 
 class CommonMessage(BaseCommonEvent):
     """
-    ## Container for only one source of recieved event
-    - in example, if we recieved a message from VK,
+    ## Container for only one source of received event
+    - in example, if we received a message from VK,
     we'll pass it to `vk` field, leaving others as `None`
     """
     vk: Optional[VkMessage] = None
-    """ ## Info about recieved VK message """
+    """ ## Info about received VK message """
     tg: Optional[TgMessage] = None
-    """ ## Info about recieved Telegram message """
+    """ ## Info about received Telegram message """
 
 
     @classmethod
@@ -622,6 +622,19 @@ class CommonMessage(BaseCommonEvent):
             return vk.text_from_forwards(self.vk.fwd_messages)
         
         return None
+
+    @property
+    def corresponding(self) -> Any:
+        if self.is_from_vk:
+            return self.vk
+        if self.is_from_tg:
+            return self.tg
+    
+    async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
+        if self.is_from_vk:
+            return await vk.name_from_message(self.vk)
+        if self.is_from_tg:
+            return await tg.name_from_message(self.tg)
 
     async def vk_has_admin_rights(self) -> bool:
         if not self.is_from_vk:
@@ -829,9 +842,9 @@ class CommonBotMessage(BaseModel):
 
 class CommonEvent(BaseCommonEvent):
     vk: Optional[RawEvent] = None
-    """ ## Info about recieved VK callback button click """
+    """ ## Info about received VK callback button click """
     tg: Optional[CallbackQuery] = None
-    """ ## Info about recieved Telegram callback button click """
+    """ ## Info about received Telegram callback button click """
 
     force_send: Optional[bool] = None
     """ ## Even if we can edit the message, we may want to send a new one instead """
@@ -927,6 +940,19 @@ class CommonEvent(BaseCommonEvent):
             return self.vk["object"]["conversation_message_id"]
         if self.is_from_tg:
             return self.tg.message.message_id
+    
+    @property
+    def corresponding(self) -> Any:
+        if self.is_from_vk:
+            return self.vk
+        if self.is_from_tg:
+            return self.tg
+    
+    async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
+        if self.is_from_vk:
+            return await vk.name_from_raw(self.vk)
+        if self.is_from_tg:
+            return await tg.name_from_callback(self.tg)
 
     async def vk_has_admin_rights(self) -> bool:
         if not self.is_from_vk:
@@ -1170,9 +1196,9 @@ class CommonEverything(BaseCommonEvent):
     """ ## Point what to look for: `message` or `event` """
 
     message: Optional[CommonMessage] = None
-    """ ## Info about recieved message """
+    """ ## Info about received message """
     event: Optional[CommonEvent] = None
-    """ ## Info about recieved callback button press """
+    """ ## Info about received callback button press """
 
     force_send: Optional[bool] = None
     """ ## Even if we can edit the message, we may want to send a new one instead """
@@ -1262,7 +1288,20 @@ class CommonEverything(BaseCommonEvent):
             return self.vk_ctx
         if self.is_from_tg:
             return self.tg_ctx
-    
+
+    @property
+    def corresponding(self) -> Any:
+        if self.is_from_event:
+            return self.event.corresponding
+        if self.is_from_message:
+            return self.message.corresponding
+
+    async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
+        if self.is_from_event:
+            return await self.event.sender_name()
+        if self.is_from_message:
+            return await self.message.sender_name()
+
     async def vk_has_admin_rights(self) -> bool:
         if self.is_from_event:
             return await self.event.vk_has_admin_rights()
@@ -1284,7 +1323,7 @@ class CommonEverything(BaseCommonEvent):
     ):
         """
         - if we received a `message`, we SEND our response `(answer)`
-        - if we recieved an `event`, we EDIT the message with response
+        - if we received an `event`, we EDIT the message with response
         """
 
         if self.is_from_event:

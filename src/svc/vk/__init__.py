@@ -1,5 +1,6 @@
 from typing import Optional, Callable
 from vkbottle import Bot, VKAPIError
+from vkbottle.bot import Message
 from vkbottle.tools.dev.mini_types.bot.foreign_message import ForeignMessageMin
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.objects import MessagesForward
@@ -9,6 +10,7 @@ from io import StringIO
 import random
 
 from src import defs, text
+from src.svc.vk.types_ import RawEvent
 
 
 async def has_admin_rights(peer_id: int) -> bool:
@@ -21,6 +23,15 @@ async def has_admin_rights(peer_id: int) -> bool:
     # You don't have access to this chat
     except VKAPIError[917]:
         return False
+
+async def name_from_message(msg: Message) -> tuple[Optional[str], Optional[str], str]:
+    user = await msg.get_user()
+    return (user.first_name, user.last_name, user.nickname or str(user.id))
+
+async def name_from_raw(raw: RawEvent) -> tuple[Optional[str], Optional[str], str]:
+    user = (await defs.vk_bot.api.users.get([raw["object"]["user_id"]]))[0]
+    return (user.first_name, user.last_name, user.nickname or str(user.id))
+
 
 async def chunked_send(
     peer_id: int,
