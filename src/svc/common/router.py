@@ -1,5 +1,5 @@
 """
-## Cross-platform decorators for handlers
+## Cross-platform handlers
 """
 
 if __name__ == "__main__":
@@ -9,19 +9,93 @@ if __name__ == "__main__":
     from src.svc import common
 
 from loguru import logger
-from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Union
+from dataclasses import dataclass, field
+from typing import Any, Awaitable, Callable, Union, Literal
 from vkbottle import GroupEventType
-from vkbottle.bot import MessageEvent
+from vkbottle import BaseMiddleware
+from vkbottle.bot import MessageEvent, Message as VkMessage
+from aiogram import Dispatcher
+from aiogram.types import Update
+from pydantic import BaseModel
 import inspect
 
 from src import defs
+from src.svc.vk.types_ import RawEvent
 from src.svc.common import CommonEverything, CommonMessage
 from src.svc.common import CommonEvent
 from src.svc.common.filters import BaseFilter, MessageOnlyFilter, EventOnlyFilter
 
 
 FUNC_TYPE = Callable[[Union[CommonMessage, CommonEvent, CommonEverything]], Awaitable[Any]]
+
+class Order:
+    PRE = "pre"
+    POST = "post"
+
+ORDER_LITERAL = Literal["pre", "post"]
+
+
+class ExecFilter:
+    ALWAYS = "always"
+    RAW_EVENT = "raw_event"
+    MESSAGE = "message"
+
+EXEC_FILTER_LITERAL = Literal["always", "raw_event", "message"]
+
+
+class Stop(Exception): ...
+
+
+class VkRawCatcher(BaseMiddleware[RawEvent]):
+    async def pre(self) -> None:
+        event = CommonEvent.from_vk(self.event)
+        everything = CommonEverything.from_event(event)
+
+        await r.choose_handler(everything)
+
+class VkMessageCatcher(BaseMiddleware[VkMessage]):
+    async def pre(self) -> None:
+        message = CommonMessage.from_vk(self.event)
+        everything = CommonEverything.from_message(message)
+        
+        await r.choose_handler(everything)
+
+class TgUpdateCatcher:
+    async def __call__(
+        self,
+        handler: Callable[[Update, dict[str, Any]], Awaitable[Any]],
+        event: Update,
+        data: dict[str, Any]
+    ) -> Any:
+        if event.event_type == "message":
+            message = CommonMessage.from_tg(event.message)
+            everything = CommonEverything.from_message(message)
+        elif event.event_type == "callback_query":
+            event = CommonEvent.from_tg(event.callback_query)
+            everything = CommonEverything.from_event(event)
+        else:
+            logger.warning(f"unsupported tg event type: {event.event_type}")
+        
+        await r.choose_handler(everything)
+
+
+@dataclass
+class Middleware:
+    exec_filter: EXEC_FILTER_LITERAL = ExecFilter.ALWAYS
+
+    async def pre(self, everything: CommonEverything): ...
+    async def post(self, everything: CommonEverything): ...
+    def stop(self): raise Stop
+
+
+@dataclass
+class MessageMiddleware(Middleware):
+    exec_filter: EXEC_FILTER_LITERAL = ExecFilter.MESSAGE
+
+
+@dataclass
+class EventMiddleware(Middleware):
+    exec_filter: EXEC_FILTER_LITERAL = ExecFilter.RAW_EVENT
 
 
 @dataclass
@@ -32,7 +106,8 @@ class Handler:
 
 @dataclass
 class Router:
-    handlers: list[Handler]
+    handlers: list[Handler] = field(default_factory=list)
+    middlewares: list[Middleware] = field(default_factory=list)
 
     def on_message(
         self, 
@@ -73,34 +148,57 @@ class Router:
 
         return decorator
 
+    def add_middleware(self, mw: Middleware):
+        self.middlewares.append(mw)
+    
+    def middleware(self):
+        def decorator(mw: type[Middleware]) -> Middleware:
+            self.add_middleware(mw())
+            return mw
+        
+        return decorator
+
     def assign(self):
         """
-        ## Assign dummies to VK and Telegram decorators
+        ## Assign middleware dummies to VK and Telegram
         """
 
         """ Assign to VK """
-        # on message
-        vk_msg_decorator = defs.vk_bot.on.message()
-        vk_msg_decorator(self.choose_handler)
-
-        # on callback button press
-        vk_callback_decorator = defs.vk_bot.on.raw_event(
-            GroupEventType.MESSAGE_EVENT, 
-            MessageEvent
-        )
-        vk_callback_decorator(self.choose_handler)
-
+        defs.vk_bot.labeler.message_view.register_middleware(VkMessageCatcher)
+        defs.vk_bot.labeler.raw_event_view.register_middleware(VkRawCatcher)
 
         """ Assign to Telegram """
-        # on message handler
-        tg_msg_decorator = defs.tg_router.message()
-        tg_msg_decorator(self.choose_handler)
+        defs.tg_dispatch.update.outer_middleware(TgUpdateCatcher())
 
-        # on callback button press
-        tg_callback_decorator = defs.tg_router.callback_query()
-        tg_callback_decorator(self.choose_handler)
+    async def call_pre_middlewares(self, everything: CommonEverything):
+        if everything.is_from_event:
+            event_type = ExecFilter.RAW_EVENT
+        elif everything.is_from_message:
+            event_type = ExecFilter.MESSAGE
 
-    async def choose_handler(self, *args, everything: CommonEverything):
+        for mw in self.middlewares:
+            if mw.exec_filter == ExecFilter.ALWAYS or mw.exec_filter == event_type:
+                await mw.pre(everything)
+    
+    async def call_post_middlewares(self, everything: CommonEverything):
+        if everything.is_from_event:
+            event_type = ExecFilter.RAW_EVENT
+        elif everything.is_from_message:
+            event_type = ExecFilter.MESSAGE
+
+        for mw in self.middlewares:
+            if mw.exec_filter == ExecFilter.ALWAYS or mw.exec_filter == event_type:
+                await mw.post(everything)
+
+    async def choose_handler(self, everything: CommonEverything):
+        try:
+            await self.call_pre_middlewares(everything)
+        except Stop:
+            return
+        except Exception as e:
+            logger.exception(e)
+            raise e
+
         for handler in self.handlers:
 
             # if filter condition interrupted this
@@ -158,41 +256,12 @@ class Router:
                         kwargs[argument] = everything.message
                     elif annotation == CommonEvent:
                         kwargs[argument] = everything.event
-                    
+
                 await handler.func(**kwargs)
                 
                 if handler.is_blocking:
                     break
 
-r = Router([])
+        await self.call_post_middlewares(everything)
 
-
-if __name__ == "__main__":
-
-    @dataclass
-    class UrMomFilter(BaseFilter):
-        async def __call__(self, everything: CommonEverything):
-            return everything.is_from_tg
-
-    defs.init_all(init_handlers=False, init_middlewares=True)
-
-    @r.on_everything()
-    async def pizda(everything: CommonEverything):
-        if everything.is_from_message:
-            message = everything.message
-            await message.answer("mne pohui")
-        elif everything.is_from_event:
-            event = everything.event
-            await event.edit_message("mne VDVOINE POEBAT")
-
-    @r.on_message()
-    async def shit(message: CommonMessage):
-        await message.answer("rabotaet ebat")
-    
-    @r.on_callback()
-    async def cock(event: CommonEvent):
-        await event.edit_message("niger")
-
-    r.assign()
-
-    common.run_forever()
+r = Router()

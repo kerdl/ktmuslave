@@ -151,7 +151,6 @@ def load_dispatch(router: Router) -> Dispatcher:
     """
     ## Init dispatcher
     """
-
     dp = Dispatcher()
     dp.include_router(router)
 

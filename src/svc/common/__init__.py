@@ -452,9 +452,6 @@ class Ctx:
         await self.broadcast_mappings(mappings, invoker)
     
     async def save(self):
-        """
-        i dont care about nigger databases rn, shut up
-        """
         async with aiofiles.open(defs.data_dir.joinpath("ctx.bin"), mode="wb") as f:
             dump = pickle.dumps(self)
             await f.write(dump)

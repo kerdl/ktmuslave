@@ -1,6 +1,6 @@
 from typing import Optional, Callable
-from vkbottle import Bot, VKAPIError
-from vkbottle.bot import Message
+from vkbottle import Bot, VKAPIError, GroupEventType
+from vkbottle.bot import Message, MessageEvent
 from vkbottle.tools.dev.mini_types.bot.foreign_message import ForeignMessageMin
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.objects import MessagesForward
@@ -149,7 +149,12 @@ def load(loop = None) -> Bot:
     ## Set token, load blueprints and return a `Bot`
     """
     bot = Bot(token=get_key(".env", "VK_TOKEN"), loop=loop)
-    
+
+    # vkbottle does not call raw event middlewares
+    # if there's no raw event handlers
+    @bot.on.raw_event(GroupEventType.MESSAGE_EVENT, MessageEvent)
+    async def event_dummy(*_): ...
+
     bot.labeler.message_view.replace_mention = True
 
     return bot
