@@ -4,6 +4,7 @@ import asyncio
 import datetime
 import re
 import aiofiles
+from redis.asyncio import Redis
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from aiofiles import ospath
 from typing import Optional, TYPE_CHECKING
@@ -97,6 +98,7 @@ class Defs:
 
     http: Optional[ClientSession] = None
     ctx: Optional["Ctx"] = None
+    redis: Optional[Redis] = None
 
     data_dir: Optional[Path] = None
     log_dir: Optional[Path] = None
@@ -180,6 +182,7 @@ class Defs:
 
         self.ctx = Ctx.load_or_init()
         self.create_task(self.ctx.save_forever())
+        self.redis = Redis(host="127.0.0.1", port=6380, db=0)
 
         self.loop.run_until_complete(self.init_schedule_api())
 
