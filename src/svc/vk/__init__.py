@@ -25,7 +25,7 @@ async def has_admin_rights(peer_id: int) -> bool:
         return False
 
 async def name_from_message(msg: Message) -> tuple[Optional[str], Optional[str], str]:
-    user = await msg.get_user()
+    user = (await defs.vk_bot.api.users.get([msg.from_id]))[0]
     return (user.first_name, user.last_name, user.nickname or str(user.id))
 
 async def name_from_raw(raw: RawEvent) -> tuple[Optional[str], Optional[str], str]:
@@ -154,6 +154,9 @@ def load(loop = None) -> Bot:
     # if there's no raw event handlers
     @bot.on.raw_event(GroupEventType.MESSAGE_EVENT, MessageEvent)
     async def event_dummy(*_): ...
+
+    @bot.on.message()
+    async def message_dummy(*_): ...
 
     bot.labeler.message_view.replace_mention = True
 

@@ -2,21 +2,12 @@
 ## Cross-platform handlers
 """
 
-if __name__ == "__main__":
-    import sys
-    sys.path.append('.')
-
-    from src.svc import common
-
 from loguru import logger
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Union, Literal
-from vkbottle import GroupEventType
 from vkbottle import BaseMiddleware
-from vkbottle.bot import MessageEvent, Message as VkMessage
-from aiogram import Dispatcher
+from vkbottle.bot import Message as VkMessage
 from aiogram.types import Update
-from pydantic import BaseModel
 import inspect
 
 from src import defs
@@ -55,6 +46,9 @@ class VkRawCatcher(BaseMiddleware[RawEvent]):
 
 class VkMessageCatcher(BaseMiddleware[VkMessage]):
     async def pre(self) -> None:
+        # pickling fails with this unprepared_ctx_api
+        self.event.unprepared_ctx_api = None
+
         message = CommonMessage.from_vk(self.event)
         everything = CommonEverything.from_message(message)
         
