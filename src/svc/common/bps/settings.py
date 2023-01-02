@@ -66,7 +66,7 @@ async def skip_add_zoom(everything: CommonEverything):
     ctx = everything.ctx
 
     # reset the container
-    ctx.settings.zoom = zoom_data.Container.default()
+    ctx.settings.zoom = zoom_data.Container()
 
     # remove back traced zoom browse state, 
     # since after container reset 
@@ -431,7 +431,7 @@ async def group(everything: CommonEverything):
     if ctx.navigator.current != SETTINGS.II_GROUP:
         ctx.navigator.jump_back_to_or_append(SETTINGS.II_GROUP)
     
-    answer_keyboard = Keyboard.default().assign_next(
+    answer_keyboard = Keyboard().assign_next(
         kb.NEXT_BUTTON.only_if(is_group_set and not is_from_hub)
     )
 

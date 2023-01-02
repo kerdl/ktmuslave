@@ -49,7 +49,7 @@ async def finish(everything: CommonEverything):
         messages.Builder()
                 .add(messages.format_finish())
     )
-    answer_keyboard = Keyboard.default().assign_next(FINISH_BUTTON)
+    answer_keyboard = Keyboard().assign_next(FINISH_BUTTON)
 
     await everything.edit_or_answer(
         text        = answer_text.make(),

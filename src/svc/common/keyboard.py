@@ -14,6 +14,7 @@ from aiogram.types import (
     ForceReply as TgForceReply
 )
 from dataclasses import dataclass
+from pydantic import BaseModel, Field as PydField
 
 from src.svc import common
 from src.data import Emojized, Repred, Translated, Field, Emoji, format as fmt, schedule
@@ -151,8 +152,7 @@ class Color:
         return mapping.get(color)
 
 
-@dataclass
-class Button:
+class Button(BaseModel):
     """ # Represents a common button """
     text: str
     """ ## Button text """
@@ -177,22 +177,21 @@ class Button:
 
         return copied_self
 
-@dataclass
-class Keyboard:
+class Keyboard(BaseModel):
     """
     ## Inline-only cross-platform keyboard
     """
-    schema: list[list[Optional[Button]]]
+    schematic: list[list[Optional[Button]]] = PydField(default_factory=list)
     """ ## Keyboard itself, the 2D array of buttons """
     add_back: bool = True
     """ ## If we should automatically add back to the bottom """
     next_button: Optional[Button] = None
     """ ## `Next` button, will be placed to the right of `Back` """
-
-    @classmethod
-    def default(cls: type[Keyboard]) -> Keyboard:
-        return cls(schema=[])
     
+    def __init__(__pydantic_self__, schematic: Optional[list[list[Optional[Button]]]] = None, **data: Any) -> None:
+        super().__init__(**data)
+        __pydantic_self__.schematic = schematic if schematic is not None else []
+
     @classmethod
     def from_dataclass(
         cls: type[Keyboard],
@@ -252,7 +251,7 @@ class Keyboard:
             schema.append(row)
 
         return cls(
-            schema      = schema,
+            schematic      = schema,
             add_back    = add_back,
             next_button = next_button
         )
@@ -260,7 +259,7 @@ class Keyboard:
     @classmethod
     def without_back(cls: type[Keyboard]):
         """ ## Shortcut to create `Keyboard` without `Back` button """
-        return cls(schema=[], add_back=False)
+        return cls(schematic=[], add_back=False)
 
     def assign_next(self, button: Optional[Button]):
         """ ## Add `Next` button and return `self` """
@@ -274,7 +273,7 @@ class Keyboard:
             self.next_button
         ]
 
-        schema = deepcopy(self.schema)
+        schema = deepcopy(self.schematic)
         schema.append(footer)
 
         return schema

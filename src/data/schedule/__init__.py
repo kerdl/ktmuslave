@@ -2,7 +2,7 @@ from __future__ import annotations
 import datetime
 from typing import Literal, Optional, TypeVar
 from dataclasses import dataclass
-from pydantic import BaseModel
+from pydantic import BaseModel, Field as PydField
 from time import time
 
 from src.data import RepredBaseModel
@@ -32,17 +32,9 @@ class Format:
 FORMAT_LITERAL = Literal["fulltime", "remote"]
 
 
-@dataclass
-class Message:
-    type: TYPE_LITERAL
-    is_folded: bool
-
-    @classmethod
-    def default(cls: type[Message]) -> Message:
-        return cls(
-            type      = Type.WEEKLY,
-            is_folded = False
-        )
+class Message(BaseModel):
+    type: TYPE_LITERAL = Type.WEEKLY
+    is_folded: bool = False
     
     def switch_to_weekly(self):
         self.type = Type.WEEKLY
@@ -59,17 +51,10 @@ class Message:
         return self.type == Type.DAILY
 
 
-@dataclass
-class Schedule:
-    message: Message
-    last_update: Optional[float]
+class Schedule(BaseModel):
+    message: Message = PydField(default_factory=Message)
+    last_update: Optional[float] = 0.0
 
-    @classmethod
-    def default(cls: type[Schedule]) -> Schedule:
-        return cls(
-            message     = Message.default(),
-            last_update = 0
-        )
     
     @property
     def can_update(self):

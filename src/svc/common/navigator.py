@@ -1,11 +1,29 @@
 from __future__ import annotations
 from typing import Optional, Union
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pydantic import BaseModel
 
 from src.svc import common
 from src.svc.common import error
+from src.svc.common import states
 from src.svc.common.states import State, SPACE_LITERAL, tree
 
+
+class DbNavigator(BaseModel):
+    trace: list[str]
+    back_trace: list[str]
+    ignored: list[str]
+
+    @classmethod
+    def from_runtime(cls: type[DbNavigator], navigator: Navigator) -> DbNavigator:
+        return cls(
+            trace=[str(state) for state in navigator.trace],
+            back_trace=[str(state) for state in navigator.back_trace],
+            ignored=[str(state) for state in navigator.ignored]
+        )
+    
+    def to_runtime(self, everything: Optional[common.CommonEverything] = None) -> Navigator:
+        return Navigator.from_db(self, everything)
 
 @dataclass
 class Navigator:
@@ -14,7 +32,7 @@ class Navigator:
     So he can use `← Back` button
     """
 
-    trace: list[State]
+    trace: list[State] = field(default_factory=lambda: [tree.INIT.I_MAIN])
     """
     # Example:
     ```
@@ -23,32 +41,24 @@ class Navigator:
         where started                current state
     ```notpython
     """
-    back_trace: list[State]
+    back_trace: list[State] = field(default_factory=list)
     """
     # Current state moves here when you press `Back` button
     - so you can use "Next" button
     """
-    ignored: set[State]
+    ignored: set[State] = field(default_factory=set)
     """
     # States that user is not supposed to get to
     """
 
-    everything: Optional[common.CommonEverything]
+    everything: Optional[common.CommonEverything] = None
     """
-    # Last recieved event
+    # Last received event
 
     ## Used
     - to pass it to `on_enter`, `on_exit` methods of states
     """
 
-    @classmethod
-    def default(cls: type[Navigator]):
-        return cls(
-            trace      = [tree.INIT.I_MAIN],
-            back_trace = [],
-            ignored    = set(),
-            everything = None
-        )
 
     @property
     def current(self) -> Optional[State]:
@@ -249,6 +259,17 @@ class Navigator:
         self.back_trace = []
         self.ignored = set()
     
+    def set_everything(self, everything: common.CommonEverything):
+        should_auto_ignore = False
+
+        if self.everything is None:
+            should_auto_ignore = True
+        
+        self.everything = everything
+
+        if should_auto_ignore:
+            self.auto_ignored()
+
     def auto_ignored(self):
         if tree.INIT.I_MAIN in self.spaces:
             self.ignored.add(tree.SETTINGS.I_MAIN)
@@ -258,3 +279,15 @@ class Navigator:
         
         if not self.everything.is_group_chat:
             self.ignored.add(tree.SETTINGS.III_SHOULD_PIN)
+
+    @classmethod
+    def from_db(cls: type[Navigator], db: DbNavigator, everything: Optional[common.CommonEverything] = None) -> Navigator:
+        return cls(
+            trace=[states.from_encoded(state) for state in db.trace],
+            back_trace=[states.from_encoded(state) for state in db.back_trace],
+            ignored=[states.from_encoded(state) for state in db.ignored],
+            everything=everything
+        )
+    
+    def to_db(self) -> DbNavigator:
+        return DbNavigator.from_runtime(self)

@@ -2,33 +2,51 @@ from __future__ import annotations
 from loguru import logger
 import time
 import asyncio
-import random
-from typing import Any, Literal, Optional, Callable
+from typing import Literal, Optional, Callable, Any, TypeVar, Generic
 from copy import deepcopy
 from dataclasses import dataclass, field
+from pydantic import BaseModel
 from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
+from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
-from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
+from aiogram.exceptions import TelegramRetryAfter
 import pickle
 import aiofiles
-import datetime
 
 from src import defs
 from src.svc import vk, telegram as tg
 from src import text
 from src.svc.common.states import formatter as states_fmt, Values
 from src.svc.common.states.tree import HUB
-from src.svc.common.navigator import Navigator
-from src.svc.common import pagination, messages, error
+from src.svc.common.navigator import Navigator, DbNavigator
+from src.svc.common import pagination, messages
 from src.svc.vk.types_ import RawEvent
 from src.svc.common import keyboard as kb
-from src.data import zoom, RepredBaseModel
+from src.data import RepredBaseModel
 from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL
-from src.data.settings import Settings, Group
+from src.data.settings import Settings
 from src.api.schedule import Notify
-from .states.tree import INIT, Hub, Space
+from .states.tree import Space
+
+
+class Source:
+    """
+    ## Different sources of messengers, events
+    """
+    VK = "vk"
+    """ ## Message/event came from VK """
+    TG = "tg"
+    """ ## Message/event came from Telegram """
+    MESSAGE = "message"
+    """ ## Event came from incoming message """
+    EVENT = "event"
+    """ ## Event came from pressing keyboard buttons inside message """
+
+MESSENGER_SOURCE = Literal["vk", "tg"]
+MESSENGER_SOURCE_T = TypeVar("MESSENGER_SOURCE_T")
+EVENT_SOURCE = Literal["message", "event"]
 
 
 @dataclass
@@ -37,16 +55,51 @@ class BroadcastGroup:
     header: str
     sc_type: TYPE_LITERAL
 
+class DbBaseCtx(BaseModel):
+    chat_id: int
+    is_registered: bool
+
+    navigator: DbNavigator
+    settings: Settings
+    schedule: Schedule
+
+    pages: pagination.Container
+
+    last_call: float = 0.0
+    last_everything: Optional[CommonEverything]
+    last_bot_message: Optional[CommonBotMessage]
+    last_daily_message: Optional[CommonBotMessage]
+    last_weekly_message: Optional[CommonBotMessage]
+
+    @classmethod
+    def from_runtime(cls: type[DbBaseCtx], ctx: BaseCtx) -> DbBaseCtx:
+        return cls(
+            chat_id=ctx.chat_id,
+            is_registered=ctx.is_registered,
+            navigator=ctx.navigator.to_db(),
+            settings=ctx.settings,
+            schedule=ctx.schedule,
+            pages=ctx.pages,
+            last_call=ctx.last_call,
+            last_everything=ctx.last_everything,
+            last_bot_message=ctx.last_bot_message,
+            last_daily_message=ctx.last_daily_message,
+            last_weekly_message=ctx.last_weekly_message
+        )
+    
+    def to_runtime(self) -> BaseCtx:
+        return BaseCtx.from_db(self)
 
 @dataclass
 class BaseCtx:
+    chat_id: int
     is_registered: bool = False
 
-    navigator: Navigator = field(default_factory=Navigator.default)
+    navigator: Navigator = field(default_factory=Navigator)
     """ # `Back`, `next` buttons tracer """
-    settings: Settings = field(default_factory=Settings.default)
+    settings: Settings = field(default_factory=Settings)
     """ # Storage for settings and zoom data """
-    schedule: Schedule = field(default_factory=Schedule.default)
+    schedule: Schedule = field(default_factory=Schedule)
     """ # Schedule data """
     
     last_call: float = 0.0
@@ -58,7 +111,7 @@ class BaseCtx:
     click buttons too fast
     """
 
-    pages: pagination.Container = field(default_factory=pagination.Container.default)
+    pages: pagination.Container = field(default_factory=pagination.Container)
     """
     # Page storage for big data
 
@@ -86,9 +139,25 @@ class BaseCtx:
     last_daily_message: Optional[CommonBotMessage] = None
     last_weekly_message: Optional[CommonBotMessage] = None
 
-    @property
-    def id(self) -> int:
-        raise NotImplemented
+
+    @classmethod
+    def from_db(cls: type[BaseCtx], db: DbBaseCtx) -> BaseCtx:
+        return cls(
+            chat_id=db.chat_id,
+            is_registered=db.is_registered,
+            navigator=db.navigator.to_runtime(db.last_everything),
+            settings=db.settings,
+            schedule=db.schedule,
+            last_call=db.last_call,
+            pages=db.pages,
+            last_everything=db.last_everything,
+            last_bot_message=db.last_bot_message,
+            last_daily_message=db.last_daily_message,
+            last_weekly_message=db.last_weekly_message
+        )
+    
+    def to_db(self) -> DbBaseCtx:
+        return DbBaseCtx.from_runtime(self)
 
     def register(self) -> None:
         self.is_registered = True
@@ -111,59 +180,65 @@ class BaseCtx:
     
     def set_everything(self, everything: CommonEverything) -> None:
         self.last_everything = everything
-        self.navigator.everything = everything
+        self.navigator.set_everything(everything)
 
 @dataclass
-class VkCtx(BaseCtx):
-    """ ## Context specific to VK """
-    peer_id: Optional[int] = None
+class DbIterator(Generic[MESSENGER_SOURCE_T]):
+    ...
 
-    @property
-    def id(self) -> int:
-        return self.peer_id
-
-@dataclass
-class TgCtx(BaseCtx):
-    """ ## Context specific to Telegram """
-    chat: Optional[TgChat] = None
-
-    @property
-    def id(self) -> int:
-        return self.chat.id
 
 @dataclass
 class Ctx:
     """ ## Global context storage"""
-    vk: dict[int, VkCtx]
+    vk: dict[int, BaseCtx]
     """
     ## VK chats
     - stored in a dict of `{peer_id: ctx}`
     """
-    tg: dict[int, TgCtx]
+    tg: dict[int, BaseCtx]
     """
     ## Telegram chats
     - stored in a dict of `{chat_id: ctx}`
     """
 
-    def add_vk(self, peer_id: int) -> VkCtx:
-        self.vk[peer_id] = VkCtx(
-            last_call           = time.time(),
-            peer_id             = peer_id
+    def is_added(self, everything: CommonEverything) -> bool:
+        if everything.is_from_vk:
+            return everything.chat_id in self.vk.keys()
+        if everything.is_from_tg:
+            return everything.chat_id in self.tg.keys()
+    
+    def add_from_everything(self, everything: CommonEverything) -> BaseCtx:
+        if everything.is_from_vk:
+            ctx = self.add_vk(everything.chat_id)
+        elif everything.is_from_tg:
+            if everything.is_from_event:
+                ctx = self.add_tg(everything.event.tg.message.chat.id)
+            elif everything.is_from_message:
+                ctx = self.add_tg(everything.message.tg.chat.id)
+        
+        ctx.set_everything(everything)
+
+        return ctx
+
+    def add_vk(self, peer_id: int) -> BaseCtx:
+        self.vk[peer_id] = BaseCtx(
+            chat_id=peer_id,
+            last_call=time.time(),
         )
 
         logger.info("created ctx for vk {}", peer_id)
 
         return self.vk[peer_id]
 
-    def add_tg(self, chat: TgChat) -> TgCtx:
-        self.tg[chat.id] = TgCtx(
-            last_call           = time.time(),
-            chat                = chat
+    def add_tg(self, chat_id: int) -> BaseCtx:
+        self.tg[chat_id] = BaseCtx(
+            chat_id=chat_id,
+            last_call=time.time(),
         )
 
-        logger.info("created ctx for tg {}", chat.id)
+        logger.info("created ctx for tg {}", chat_id)
 
-        return self.tg[chat.id]
+        return self.tg[chat_id]
 
     async def broadcast_mappings(
         self,
@@ -189,7 +264,7 @@ class Ctx:
                 user_group = ctx.settings.group.confirmed
                 should_broadcast = (
                     ctx.settings.broadcast
-                    if invoker is None or ctx.id != invoker.id else True
+                    if invoker is None or ctx.chat_id != invoker.chat_id else True
                 )
 
                 if not should_broadcast:
@@ -269,14 +344,14 @@ class Ctx:
                     if no_message_to_reply_to:
                         message.text = whole_text_no_reply_hint
 
-                    logger.info(f"broadcasting {mapping.sc_type} to {ctx.id}")
+                    logger.info(f"broadcasting {mapping.sc_type} to {ctx.chat_id}")
 
                     try:
                         ctx.last_bot_message = await message.send()
                     except VKAPIError[913]:
                         logger.warning(
                             f"(broadcasting {mapping.sc_type}) "
-                            f"{ctx.id} has too many fwd messages, "
+                            f"{ctx.chat_id} has too many fwd messages, "
                             f"proceeding without forwarding"
                         )
 
@@ -286,7 +361,7 @@ class Ctx:
                         ctx.last_bot_message = await message.send()
                     except Exception as e:
                         logger.error(
-                            f"cannot broadcast {mapping.sc_type} to {ctx.id}: {e}"
+                            f"cannot broadcast {mapping.sc_type} to {ctx.chat_id}: {e}"
                         )
                     
                     ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
@@ -356,9 +431,6 @@ class Ctx:
         await self.broadcast_mappings(mappings, invoker)
     
     async def save(self):
-        """
-        i dont care about nigger databases rn, shut up
-        """
         async with aiofiles.open(defs.data_dir.joinpath("ctx.bin"), mode="wb") as f:
             dump = pickle.dumps(self)
             await f.write(dump)
@@ -402,25 +474,8 @@ class Ctx:
         else:
             return cls.load()
 
-class Source:
-    """
-    ## Different sources of messengers, events
-    """
-    VK = "vk"
-    """ ## Message/event came from VK """
-    TG = "tg"
-    """ ## Message/event came from Telegram """
-    MESSAGE = "message"
-    """ ## Event came from incoming message """
-    EVENT = "event"
-    """ ## Event came from pressing keyboard buttons inside message """
 
-MESSENGER_SOURCE = Literal["vk", "tg"]
-EVENT_SOURCE = Literal["message", "event"]
-
-
-@dataclass
-class BaseCommonEvent:
+class BaseCommonEvent(BaseModel):
     src: Optional[MESSENGER_SOURCE] = None
     chat_id: Optional[int] = None
 
@@ -431,21 +486,13 @@ class BaseCommonEvent:
     @property
     def is_from_tg(self):
         return self.src == Source.TG
-    
-    @property
-    def vk_ctx(self) -> VkCtx:
-        return defs.ctx.vk.get(self.chat_id)
-    
-    @property
-    def tg_ctx(self) -> TgCtx:
-        return defs.ctx.tg.get(self.chat_id)
 
     @property
     def ctx(self) -> BaseCtx:
         if self.is_from_vk:
-            return self.vk_ctx
+            return defs.ctx.vk.get(self.chat_id)
         if self.is_from_tg:
-            return self.tg_ctx
+            return defs.ctx.tg.get(self.chat_id)
     
     @property
     def navigator(self) -> Navigator:
@@ -481,17 +528,16 @@ class BaseCommonEvent:
         return text
 
 
-@dataclass
 class CommonMessage(BaseCommonEvent):
     """
-    ## Container for only one source of recieved event
-    - in example, if we recieved a message from VK,
+    ## Container for only one source of received event
+    - in example, if we received a message from VK,
     we'll pass it to `vk` field, leaving others as `None`
     """
     vk: Optional[VkMessage] = None
-    """ ## Info about recieved VK message """
+    """ ## Info about received VK message """
     tg: Optional[TgMessage] = None
-    """ ## Info about recieved Telegram message """
+    """ ## Info about received Telegram message """
 
 
     @classmethod
@@ -565,6 +611,112 @@ class CommonMessage(BaseCommonEvent):
             return vk.text_from_forwards(self.vk.fwd_messages)
         
         return None
+
+    @property
+    def corresponding(self) -> Any:
+        if self.is_from_vk:
+            return self.vk
+        if self.is_from_tg:
+            return self.tg
+    
+    def _tg_is_for_bot(self) -> bool:
+        if not self.is_from_tg:
+            return False
+
+        event = self.tg
+        is_group_chat = tg.is_group_chat(event.chat.type)
+
+        def is_invite() -> bool:
+            if event.content_type != "new_chat_members":
+                return False
+            
+            for new in event.new_chat_members:
+                if new.id == defs.tg_bot_info.id:
+                    return True
+            
+            return False
+
+        def did_user_used_bot_command() -> bool:
+            if event.text is None:
+                return False
+            
+            if event.text == "/":
+                return False
+            elif any(cmd in event.text for cmd in defs.tg_bot_commands):
+                return True
+            
+            return False
+
+        def did_user_mentioned_bot() -> bool:
+            if event.entities is None:
+                return False
+
+            mentions = tg.extract_mentions(event.entities, event.text)
+
+            # if our bot not in mentions
+            if defs.tg_bot_mention not in mentions:
+                return False
+
+            return True
+
+        def did_user_replied_to_bot_message() -> bool:
+            if event.reply_to_message is None:
+                return False
+
+            return event.reply_to_message.from_user.id == defs.tg_bot_info.id
+
+        if not is_invite() and (is_group_chat and not (
+            did_user_used_bot_command() or
+            did_user_mentioned_bot() or
+            did_user_replied_to_bot_message()
+        )):
+            return False
+        
+        return True
+    
+    def _vk_is_for_bot(self) -> bool:
+        if not self.is_from_vk:
+            return False
+
+        event = self.vk
+        is_group_chat = event.peer_id != event.from_id
+        bot_id = defs.vk_bot_info.id
+        negative_bot_id = -bot_id
+        
+        def is_invite() -> bool:
+            if event.action is None:
+                return False
+
+            return (
+                event.action.member_id == -defs.vk_bot_info.id
+                and event.action.type.value == MessagesMessageActionStatus.CHAT_INVITE_USER.value
+            )
+
+        def did_user_mentioned_bot() -> bool:
+            """ 
+            ## @<bot id> <message> 
+            ### `@<bot id>` is a mention
+            """
+            return event.is_mentioned
+
+        if not is_invite() and (is_group_chat and not (
+            did_user_mentioned_bot()
+        )):
+            return False
+        
+        return True
+    
+    def is_for_bot(self) -> bool:
+        if self.is_from_vk:
+            return self._vk_is_for_bot()
+        if self.is_from_tg:
+            return self._tg_is_for_bot()
+
+    async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
+        if self.is_from_vk:
+            return await vk.name_from_message(self.vk)
+        if self.is_from_tg:
+            return tg.name_from_message(self.tg)
 
     async def vk_has_admin_rights(self) -> bool:
         if not self.is_from_vk:
@@ -645,19 +797,7 @@ class CommonMessage(BaseCommonEvent):
 
         self.ctx.last_bot_message = bot_message
 
-@dataclass
-class CommonBotTemplate:
-    """
-    ## Container of message to send later
-    - unlike `CommonBotMessage`, this may not
-    be already sent, it's just a template
-    - used to construct pages from massive data
-    """
-    text: str
-    keyboard: kb.Keyboard
-
-@dataclass
-class CommonBotMessage:
+class CommonBotMessage(BaseModel):
     """
     ## Already sent message
     - unlike `CommonBotTemplate`, this message
@@ -782,12 +922,11 @@ class CommonBotMessage:
 
         return attrs_str
 
-@dataclass
 class CommonEvent(BaseCommonEvent):
     vk: Optional[RawEvent] = None
-    """ ## Info about recieved VK callback button click """
+    """ ## Info about received VK callback button click """
     tg: Optional[CallbackQuery] = None
-    """ ## Info about recieved Telegram callback button click """
+    """ ## Info about received Telegram callback button click """
 
     force_send: Optional[bool] = None
     """ ## Even if we can edit the message, we may want to send a new one instead """
@@ -799,10 +938,10 @@ class CommonEvent(BaseCommonEvent):
         peer_id = event_object["peer_id"]
 
         self = cls(
-            src        = Source.VK,
-            chat_id    = peer_id,
-            vk         = event,
-            force_send = False
+            src=Source.VK,
+            chat_id=peer_id,
+            vk=event,
+            force_send=False
         )
 
         return self
@@ -810,10 +949,10 @@ class CommonEvent(BaseCommonEvent):
     @classmethod
     def from_tg(cls: type[CommonEvent], callback_query: CallbackQuery):
         self = cls(
-            src        = Source.TG,
-            chat_id    = callback_query.message.chat.id,
-            tg         = callback_query,
-            force_send = False,
+            src=Source.TG,
+            chat_id=callback_query.message.chat.id,
+            tg=callback_query,
+            force_send=False,
         )
 
         return self
@@ -883,6 +1022,19 @@ class CommonEvent(BaseCommonEvent):
             return self.vk["object"]["conversation_message_id"]
         if self.is_from_tg:
             return self.tg.message.message_id
+    
+    @property
+    def corresponding(self) -> Any:
+        if self.is_from_vk:
+            return self.vk
+        if self.is_from_tg:
+            return self.tg
+    
+    async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
+        if self.is_from_vk:
+            return await vk.name_from_raw(self.vk)
+        if self.is_from_tg:
+            return tg.name_from_callback(self.tg)
 
     async def vk_has_admin_rights(self) -> bool:
         if not self.is_from_vk:
@@ -1115,7 +1267,6 @@ class CommonEvent(BaseCommonEvent):
 
         self.ctx.last_bot_message = bot_message
 
-@dataclass
 class CommonEverything(BaseCommonEvent):
     """
     ## Stores only one type of event inside
@@ -1127,9 +1278,9 @@ class CommonEverything(BaseCommonEvent):
     """ ## Point what to look for: `message` or `event` """
 
     message: Optional[CommonMessage] = None
-    """ ## Info about recieved message """
+    """ ## Info about received message """
     event: Optional[CommonEvent] = None
-    """ ## Info about recieved callback button press """
+    """ ## Info about received callback button press """
 
     force_send: Optional[bool] = None
     """ ## Even if we can edit the message, we may want to send a new one instead """
@@ -1198,28 +1349,33 @@ class CommonEverything(BaseCommonEvent):
             return self.message.navigator
         if self.is_from_event:
             return self.event.navigator
-    
-    @property
-    def vk_ctx(self) -> VkCtx:
-        if self.is_from_message:
-            return self.message.vk_ctx
-        if self.is_from_event:
-            return self.event.vk_ctx
-    
-    @property
-    def tg_ctx(self) -> TgCtx:
-        if self.is_from_message:
-            return self.message.tg_ctx
-        if self.is_from_event:
-            return self.event.tg_ctx
 
     @property
     def ctx(self) -> BaseCtx:
-        if self.is_from_vk:
-            return self.vk_ctx
-        if self.is_from_tg:
-            return self.tg_ctx
-    
+        if self.is_from_event:
+            return self.event.ctx
+        if self.is_from_message:
+            return self.message.ctx
+
+    @property
+    def corresponding(self) -> Any:
+        if self.is_from_event:
+            return self.event.corresponding
+        if self.is_from_message:
+            return self.message.corresponding
+
+    def is_for_bot(self) -> bool:
+        if self.is_from_event:
+            return True
+        if self.is_from_message:
+            return self.message.is_for_bot()
+
+    async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
+        if self.is_from_event:
+            return await self.event.sender_name()
+        if self.is_from_message:
+            return await self.message.sender_name()
+
     async def vk_has_admin_rights(self) -> bool:
         if self.is_from_event:
             return await self.event.vk_has_admin_rights()
@@ -1241,7 +1397,7 @@ class CommonEverything(BaseCommonEvent):
     ):
         """
         - if we received a `message`, we SEND our response `(answer)`
-        - if we recieved an `event`, we EDIT the message with response
+        - if we received an `event`, we EDIT the message with response
         """
 
         if self.is_from_event:

@@ -230,10 +230,10 @@ async def notes(everything: CommonEverything):
         return everything.ctx.settings.zoom.focused.selected.notes.value
 
     def setter(value: Any):
-        everything.ctx.settings.zoom.focused.selected.notes = Field(value)
+        everything.ctx.settings.zoom.focused.selected.notes = Field(value=value)
 
     def nuller():
-        everything.ctx.settings.zoom.focused.selected.notes = Field(None)
+        everything.ctx.settings.zoom.focused.selected.notes = Field(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -255,10 +255,10 @@ async def pwd(everything: CommonEverything):
         return everything.ctx.settings.zoom.focused.selected.pwd.value
 
     def setter(value: Any):
-        everything.ctx.settings.zoom.focused.selected.pwd = Field(value)
+        everything.ctx.settings.zoom.focused.selected.pwd = Field(value=value)
 
     def nuller():
-        everything.ctx.settings.zoom.focused.selected.pwd = Field(None)
+        everything.ctx.settings.zoom.focused.selected.pwd = Field(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -281,10 +281,10 @@ async def id_(everything: CommonEverything):
         return everything.ctx.settings.zoom.focused.selected.id.value
 
     def setter(value: Any):
-        everything.ctx.settings.zoom.focused.selected.id = Field(value)
+        everything.ctx.settings.zoom.focused.selected.id = Field(value=value)
 
     def nuller():
-        everything.ctx.settings.zoom.focused.selected.id = Field(None)
+        everything.ctx.settings.zoom.focused.selected.id = Field(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -307,10 +307,10 @@ async def url(everything: CommonEverything):
         return everything.ctx.settings.zoom.focused.selected.url.value
 
     def setter(value: Any):
-        everything.ctx.settings.zoom.focused.selected.url = Field(value)
+        everything.ctx.settings.zoom.focused.selected.url = Field(value=value)
 
     def nuller():
-        everything.ctx.settings.zoom.focused.selected.url = Field(None)
+        everything.ctx.settings.zoom.focused.selected.url = Field(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -500,7 +500,7 @@ async def mass(everything: CommonEverything):
                     .add(messages.format_mass_zoom_data_explain())
                     .add(footer_addition)
         )
-        answer_keyboard = kb.Keyboard.default().assign_next(
+        answer_keyboard = kb.Keyboard().assign_next(
             kb.CONTINUE_BUTTON.only_if(has_new_entries)
         )
 
@@ -549,7 +549,7 @@ async def mass(everything: CommonEverything):
                         .add(messages.format_doesnt_contain_zoom())
                         .add(footer_addition)
             )
-            answer_keyboard = kb.Keyboard.default()
+            answer_keyboard = kb.Keyboard()
 
             return await message.answer(
                 text     = answer_text.make(),

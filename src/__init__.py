@@ -162,7 +162,7 @@ class Defs:
         self.vk_bot = vk.load(self.loop)
         self.tg_bot = telegram.load_bot(self.loop)
         self.tg_router = telegram.load_router()
-        self.tg_dispatch = telegram.load_dispatch(self.tg_router, init_middlewares)
+        self.tg_dispatch = telegram.load_dispatch(self.tg_router)
 
         self.loop.run_until_complete(self.init_http())
 
@@ -170,12 +170,11 @@ class Defs:
         self.loop.run_until_complete(self.get_tg_bot_info())
 
         if init_middlewares:
-            from src.svc.telegram import middlewares
+            from src.svc.common import middlewares
+            middlewares.r.assign()
         
         if init_handlers:
             from src.svc.common.bps import settings, init, zoom, hub
-            from src.svc.common.router import r
-            r.assign()
         
         from src.svc.common import Ctx
 

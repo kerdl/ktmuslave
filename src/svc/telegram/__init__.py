@@ -2,7 +2,7 @@ import asyncio
 from typing import Literal, Optional, Callable
 from dotenv import get_key
 from aiogram import Bot, Router, Dispatcher
-from aiogram.types import MessageEntity, ForceReply, InlineKeyboardMarkup, Message
+from aiogram.types import MessageEntity, ForceReply, InlineKeyboardMarkup, Message, CallbackQuery
 
 from src import defs, text as text_utils
 
@@ -19,6 +19,12 @@ def is_group_chat(
     chat_type: CHAT_TYPE
 ) -> bool:
     return chat_type in [ChatType.GROUP, ChatType.SUPERGROUP, ChatType.CHANNEL]
+
+def name_from_message(msg: Message) -> tuple[str, Optional[str], Optional[str]]:
+    return (msg.from_user.first_name, msg.from_user.last_name, msg.from_user.username)
+
+def name_from_callback(cb: CallbackQuery) -> tuple[str, Optional[str], Optional[str]]:
+    return (cb.from_user.first_name, cb.from_user.last_name, cb.from_user.username)
 
 
 async def chunked_send(
@@ -141,53 +147,11 @@ def load_router() -> Router:
 
     return r
 
-def load_dispatch(router: Router, init_middlewares: bool = True) -> Dispatcher:
+def load_dispatch(router: Router) -> Dispatcher:
     """
     ## Init dispatcher
     """
-
     dp = Dispatcher()
     dp.include_router(router)
-
-    if init_middlewares:
-        from .middlewares import (
-            Log,
-            Throttling,
-            BotMentionFilter,
-            CtxCheck,
-            CommonMessageMaker,
-            CommonEventMaker,
-            OldMessagesBlock
-        )
-
-        update_outer_middlewares = [
-            Log(),
-            CtxCheck(),
-            Throttling(),
-        ]
-
-        message_outer_middlewares = [
-            BotMentionFilter(),
-            CommonMessageMaker()
-        ]
-
-        callback_query_outer_middlewares = [
-            CommonEventMaker(),
-            OldMessagesBlock()
-        ]
-
-    else:
-        update_outer_middlewares = []
-        message_outer_middlewares = []
-        callback_query_outer_middlewares = []
-
-    for mw in update_outer_middlewares:
-        dp.update.outer_middleware(mw)
-    
-    for mw in message_outer_middlewares:
-        dp.message.outer_middleware(mw)
-
-    for mw in callback_query_outer_middlewares:
-        dp.callback_query.outer_middleware(mw)
 
     return dp

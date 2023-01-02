@@ -1,5 +1,6 @@
 from typing import Optional, Callable
-from vkbottle import Bot, VKAPIError
+from vkbottle import Bot, VKAPIError, GroupEventType
+from vkbottle.bot import Message, MessageEvent
 from vkbottle.tools.dev.mini_types.bot.foreign_message import ForeignMessageMin
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.objects import MessagesForward
@@ -9,6 +10,7 @@ from io import StringIO
 import random
 
 from src import defs, text
+from src.svc.vk.types_ import RawEvent
 
 
 async def has_admin_rights(peer_id: int) -> bool:
@@ -21,6 +23,15 @@ async def has_admin_rights(peer_id: int) -> bool:
     # You don't have access to this chat
     except VKAPIError[917]:
         return False
+
+async def name_from_message(msg: Message) -> tuple[Optional[str], Optional[str], str]:
+    user = (await defs.vk_bot.api.users.get([msg.from_id]))[0]
+    return (user.first_name, user.last_name, user.nickname or str(user.id))
+
+async def name_from_raw(raw: RawEvent) -> tuple[Optional[str], Optional[str], str]:
+    user = (await defs.vk_bot.api.users.get([raw["object"]["user_id"]]))[0]
+    return (user.first_name, user.last_name, user.nickname or str(user.id))
+
 
 async def chunked_send(
     peer_id: int,
@@ -137,46 +148,16 @@ def load(loop = None) -> Bot:
     """
     ## Set token, load blueprints and return a `Bot`
     """
-
     bot = Bot(token=get_key(".env", "VK_TOKEN"), loop=loop)
 
-    from .middlewares import (
-        LogRaw,
-        LogMessage,
-        BotMentionFilter,
-        CtxCheckRaw,
-        CtxCheckMessage,
-        ThrottleRaw,
-        ThrottleMessage,
-        CommonMessageMaker,
-        CommonEventMaker,
-        OldMessagesBlock
-    )
+    # vkbottle does not call raw event middlewares
+    # if there's no raw event handlers
+    @bot.on.raw_event(GroupEventType.MESSAGE_EVENT, MessageEvent)
+    async def event_dummy(*_): ...
 
-    message_view_middlewares = [
-        LogMessage,
-        BotMentionFilter,
-        CtxCheckMessage,
-        ThrottleMessage,
-        CommonMessageMaker,
-    ]
+    @bot.on.message()
+    async def message_dummy(*_): ...
 
-    raw_event_view_middlewares = [
-        LogRaw,
-        CtxCheckRaw,
-        ThrottleRaw,
-        CommonEventMaker,
-        OldMessagesBlock
-    ]
-    
-    # mw - MiddleWare
-    for mw in message_view_middlewares:
-        bot.labeler.message_view.middlewares.append(mw)
-    
-    # mw - MiddleWare
-    for mw in raw_event_view_middlewares:
-        bot.labeler.raw_event_view.middlewares.append(mw)
-    
     bot.labeler.message_view.replace_mention = True
 
     return bot

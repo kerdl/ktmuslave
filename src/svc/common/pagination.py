@@ -6,9 +6,11 @@ if __name__ == "__main__":
 
 from typing import Generator, Union, TypeVar, Optional
 from dataclasses import dataclass
+from pydantic import BaseModel, Field as PydField
 
 from src.svc.common.keyboard import BACK_BUTTON, Keyboard, Button, Color, Payload
-from src.svc import common
+from src.svc.common.template import CommonBotTemplate
+from src.svc.common import error, messages
 from src.data import zoom
 
 T = TypeVar("T")
@@ -22,16 +24,12 @@ def chunks(lst: list[T], n: int) -> Generator[list[T], None, None]:
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
-@dataclass
-class Container:
-    list: list[common.CommonBotTemplate]
+class Container(BaseModel):
+    list: list[CommonBotTemplate] = PydField(default_factory=list)
     """ ## List of pages, containing messsage templates """
-    current_num: int
+    current_num: int = 0
     """ ## On which page number user is currently on """
 
-    @classmethod
-    def default(cls: type[Container]):
-        return cls([], 0)
 
     def keep_num_in_range(self) -> None:
         last_page_index = len(self.list) - 1
@@ -43,7 +41,7 @@ class Container:
     def current(self):
         """ ## Current page """
         if len(self.list) < 1:
-            raise common.error.NoPages(
+            raise error.NoPages(
                 "no pages in container, can't return current page"
             )
 
@@ -58,7 +56,7 @@ def from_zoom(
     keyboard_width: int = 2,
     keyboard_header: list[list[Button]] = [[]],
     keyboard_footer: list[list[Button]] = [[BACK_BUTTON]]
-) -> list[common.CommonBotTemplate]:
+) -> list[CommonBotTemplate]:
 
     if isinstance(data, set):
         data = list(data)
@@ -82,11 +80,11 @@ def from_zoom(
             # call `format()` on each zoom data and separate them with "\n\n"
             text = "\n\n".join([section.format() for section in page])
         else:
-            text = common.messages.format_empty_page()
+            text = messages.format_empty_page()
 
         # add page number at the bottom
         text += "\n\n"
-        text += common.messages.format_page_num(
+        text += messages.format_page_num(
             current = page_num + 1, 
             last = len(pages)
         )
@@ -156,7 +154,7 @@ def from_zoom(
 
             kb_schema.append(row)
 
-        message = common.CommonBotTemplate(
+        message = CommonBotTemplate(
             text     = text,
             keyboard = Keyboard(kb_schema, add_back=False)
         )

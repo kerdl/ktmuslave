@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from pydantic import BaseModel
 from typing import Callable, ClassVar, Optional, Literal, Iterable
 
 from src.data import zoom
@@ -9,11 +10,11 @@ from src.svc.common import error
 
 class Space:
     """ ## In what space the user currently in """
-    INIT        = "init"
+    INIT     = "init"
     """
     Where user gets first time with welcome message
     """
-    SETTINGS    = "settings"
+    SETTINGS = "settings"
     """
     Common area, where user can specify:
         - his group
@@ -21,14 +22,14 @@ class Space:
         - if the bot should pin the broadcast
         - if he wants to add zoom data
     """
-    HUB         = "hub"
+    HUB      = "hub"
     """
     The main user area, where he can 
         - view schedule, 
         - view links,
         - can change settings
     """
-    ZOOM        = "zoom"
+    ZOOM     = "zoom"
     """
     Where user can:
         - add multiple zoom entries from one message
@@ -39,7 +40,7 @@ class Space:
 SPACE_LITERAL = Literal["init", "settings", "hub", "zoom"]
 
 
-class Values:
+class Values(BaseModel):
     def get_from_state(self, state: State): ...
 
 def default_action(everything: common.CommonEverything) -> None: ...
@@ -128,6 +129,9 @@ class State:
     from trace, no matter where it was
     """
 
+    def __str__(self) -> str:
+        return f"{self.space}:{self.name}"
+
     def __hash__(self) -> int:
         return hash(f"{self.tree}:{self.anchor}")
     
@@ -150,10 +154,7 @@ class Tree:
         
         self.__states__ = []
 
-        filtered_states: filter[tuple[str, State]] = (
-            # filter by condition              for trees
-            filter(self.__filter_states__, type(self).__dict__.items())
-        )
+        filtered_states = self.__filter_states__()
 
         parent_trace: list[State] = []
 
@@ -199,11 +200,19 @@ class Tree:
                     stateB.child.append(stateA)
                     break
 
+    def from_str(self, state: str) -> Optional[State]:
+        for tree_state in self.__filter_states__():
+            name = tree_state[0]
+            state_data = tree_state[1]
+
+            if tree_state[0] == state:
+                return state_data
+
     def __iter__(self) -> Iterable[State]:
         return iter(self.__states__)
 
     @staticmethod
-    def __filter_states__(attr: tuple[str, State]):
+    def __states_filter__(attr: tuple[str, State]):
         """
         ## Called by `filter` as a condition check
         - `attr` - a tuple of `( KEY, VALUE )`
@@ -215,6 +224,11 @@ class Tree:
         value = attr[1]
 
         return key.startswith("I")
+    
+    def __filter_states__(self) -> filter[tuple[str, State]]:
+                      # filter by condition              for trees
+        return filter(self.__states_filter__, type(self).__dict__.items())
+
 
     @staticmethod
     def __level__(name: str) -> int:
@@ -225,6 +239,14 @@ class Tree:
         """
 
         return len(name.split("_")[0])
+
+def from_encoded(encoded: str) -> Optional[State]:
+    from .tree import from_str
+
+    (str_tree, str_state) = encoded.split(":")
+    class_tree = from_str(str_tree)
+
+    return class_tree.from_str(str_state)
 
 INIT_MAIN = {
     "name": "Категорически приветствую",
@@ -289,3 +311,28 @@ ZOOM_EDIT_NOTES = {
 ZOOM_DUMP = {
     "name": "Дамп",
 }
+
+__all__ = (
+    "INIT_MAIN",
+    "HUB_MAIN",
+    "SETTINGS_MAIN",
+    "GROUP",
+    "UNKNOWN_GROUP",
+    "BROADCAST",
+    "SHOULD_PIN",
+    "INIT_ZOOM",
+    "INIT_FINISH",
+    "ZOOM_MASS",
+    "ZOOM_MASS_CHECK",
+    "ZOOM_BROWSE",
+    "ZOOM_ENTRY",
+    "ZOOM_EDIT_NAME",
+    "ZOOM_EDIT_URL",
+    "ZOOM_EDIT_ID",
+    "ZOOM_EDIT_PWD",
+    "ZOOM_EDIT_NOTES",
+    "ZOOM_DUMP",
+    "Tree",
+    "State",
+    "Space"
+)
