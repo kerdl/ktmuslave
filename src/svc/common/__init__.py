@@ -159,10 +159,6 @@ class BaseCtx:
     def to_db(self) -> DbBaseCtx:
         return DbBaseCtx.from_runtime(self)
 
-    @property
-    def id(self) -> int:
-        raise NotImplemented
-
     def register(self) -> None:
         self.is_registered = True
 
@@ -216,9 +212,9 @@ class Ctx:
             ctx = self.add_vk(everything.chat_id)
         elif everything.is_from_tg:
             if everything.is_from_event:
-                ctx = self.add_tg(everything.event.tg.message.chat)
+                ctx = self.add_tg(everything.event.tg.message.chat.id)
             elif everything.is_from_message:
-                ctx = self.add_tg(everything.message.tg.chat)
+                ctx = self.add_tg(everything.message.tg.chat.id)
         
         ctx.set_everything(everything)
 
@@ -234,7 +230,7 @@ class Ctx:
 
         return self.vk[peer_id]
 
-    def add_tg(self, chat_id: TgChat) -> BaseCtx:
+    def add_tg(self, chat_id: int) -> BaseCtx:
         self.tg[chat_id] = BaseCtx(
             chat_id=chat_id,
             last_call=time.time(),
@@ -268,7 +264,7 @@ class Ctx:
                 user_group = ctx.settings.group.confirmed
                 should_broadcast = (
                     ctx.settings.broadcast
-                    if invoker is None or ctx.id != invoker.id else True
+                    if invoker is None or ctx.chat_id != invoker.chat_id else True
                 )
 
                 if not should_broadcast:
@@ -348,14 +344,14 @@ class Ctx:
                     if no_message_to_reply_to:
                         message.text = whole_text_no_reply_hint
 
-                    logger.info(f"broadcasting {mapping.sc_type} to {ctx.id}")
+                    logger.info(f"broadcasting {mapping.sc_type} to {ctx.chat_id}")
 
                     try:
                         ctx.last_bot_message = await message.send()
                     except VKAPIError[913]:
                         logger.warning(
                             f"(broadcasting {mapping.sc_type}) "
-                            f"{ctx.id} has too many fwd messages, "
+                            f"{ctx.chat_id} has too many fwd messages, "
                             f"proceeding without forwarding"
                         )
 
@@ -365,7 +361,7 @@ class Ctx:
                         ctx.last_bot_message = await message.send()
                     except Exception as e:
                         logger.error(
-                            f"cannot broadcast {mapping.sc_type} to {ctx.id}: {e}"
+                            f"cannot broadcast {mapping.sc_type} to {ctx.chat_id}: {e}"
                         )
                     
                     ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
@@ -480,7 +476,6 @@ class Ctx:
 
 
 class BaseCommonEvent(BaseModel):
-    _ctx: Optional[BaseCtx] = None
     src: Optional[MESSENGER_SOURCE] = None
     chat_id: Optional[int] = None
 
@@ -494,7 +489,10 @@ class BaseCommonEvent(BaseModel):
 
     @property
     def ctx(self) -> BaseCtx:
-        return self._ctx
+        if self.is_from_vk:
+            return defs.ctx.vk.get(self.chat_id)
+        if self.is_from_tg:
+            return defs.ctx.tg.get(self.chat_id)
     
     @property
     def navigator(self) -> Navigator:
@@ -543,9 +541,8 @@ class CommonMessage(BaseCommonEvent):
 
 
     @classmethod
-    def from_vk(cls: type[CommonMessage], message: VkMessage, ctx: BaseCtx):
+    def from_vk(cls: type[CommonMessage], message: VkMessage):
         self = cls(
-            _ctx=ctx,
             src=Source.VK,
             chat_id=message.peer_id,
             vk=message,
@@ -554,9 +551,8 @@ class CommonMessage(BaseCommonEvent):
         return self
     
     @classmethod
-    def from_tg(cls, message: TgMessage, ctx: BaseCtx):
+    def from_tg(cls, message: TgMessage):
         self = cls(
-            _ctx=ctx,
             src=Source.TG,
             chat_id=message.chat.id,
             tg=message,
@@ -937,12 +933,11 @@ class CommonEvent(BaseCommonEvent):
 
 
     @classmethod
-    def from_vk(cls: type[CommonEvent], event: RawEvent, ctx: BaseCtx):
+    def from_vk(cls: type[CommonEvent], event: RawEvent):
         event_object = event["object"]
         peer_id = event_object["peer_id"]
 
         self = cls(
-            _ctx=ctx,
             src=Source.VK,
             chat_id=peer_id,
             vk=event,
@@ -952,9 +947,8 @@ class CommonEvent(BaseCommonEvent):
         return self
     
     @classmethod
-    def from_tg(cls: type[CommonEvent], callback_query: CallbackQuery, ctx: BaseCtx):
+    def from_tg(cls: type[CommonEvent], callback_query: CallbackQuery):
         self = cls(
-            _ctx=ctx,
             src=Source.TG,
             chat_id=callback_query.message.chat.id,
             tg=callback_query,
