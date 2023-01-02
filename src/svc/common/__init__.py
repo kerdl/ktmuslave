@@ -6,7 +6,6 @@ from typing import Literal, Optional, Callable, Any, TypeVar, Generic
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pydantic import BaseModel
-from redis_om import JsonModel
 from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
@@ -56,7 +55,8 @@ class BroadcastGroup:
     header: str
     sc_type: TYPE_LITERAL
 
-class DbBaseCtx(JsonModel):
+class DbBaseCtx(BaseModel):
+    chat_id: int
     is_registered: bool
 
     navigator: DbNavigator
@@ -74,6 +74,7 @@ class DbBaseCtx(JsonModel):
     @classmethod
     def from_runtime(cls: type[DbBaseCtx], ctx: BaseCtx) -> DbBaseCtx:
         return cls(
+            chat_id=ctx.chat_id,
             is_registered=ctx.is_registered,
             navigator=ctx.navigator.to_db(),
             settings=ctx.settings,
@@ -91,6 +92,7 @@ class DbBaseCtx(JsonModel):
 
 @dataclass
 class BaseCtx:
+    chat_id: int
     is_registered: bool = False
 
     navigator: Navigator = field(default_factory=Navigator)
@@ -141,6 +143,7 @@ class BaseCtx:
     @classmethod
     def from_db(cls: type[BaseCtx], db: DbBaseCtx) -> BaseCtx:
         return cls(
+            chat_id=db.chat_id,
             is_registered=db.is_registered,
             navigator=db.navigator.to_runtime(db.last_everything),
             settings=db.settings,
@@ -183,26 +186,6 @@ class BaseCtx:
         self.last_everything = everything
         self.navigator.set_everything(everything)
 
-
-@dataclass
-class VkCtx(BaseCtx):
-    """ ## Context specific to VK """
-    peer_id: Optional[int] = None
-
-    @property
-    def id(self) -> int:
-        return self.peer_id
-
-@dataclass
-class TgCtx(BaseCtx):
-    """ ## Context specific to Telegram """
-    chat: Optional[TgChat] = None
-
-    @property
-    def id(self) -> int:
-        return self.chat.id
-
-
 @dataclass
 class DbIterator(Generic[MESSENGER_SOURCE_T]):
     ...
@@ -211,12 +194,12 @@ class DbIterator(Generic[MESSENGER_SOURCE_T]):
 @dataclass
 class Ctx:
     """ ## Global context storage"""
-    vk: dict[int, VkCtx]
+    vk: dict[int, BaseCtx]
     """
     ## VK chats
     - stored in a dict of `{peer_id: ctx}`
     """
-    tg: dict[int, TgCtx]
+    tg: dict[int, BaseCtx]
     """
     ## Telegram chats
     - stored in a dict of `{chat_id: ctx}`
@@ -241,25 +224,25 @@ class Ctx:
 
         return ctx
 
-    def add_vk(self, peer_id: int) -> VkCtx:
-        self.vk[peer_id] = VkCtx(
-            last_call = time.time(),
-            peer_id   = peer_id
+    def add_vk(self, peer_id: int) -> BaseCtx:
+        self.vk[peer_id] = BaseCtx(
+            chat_id=peer_id,
+            last_call=time.time(),
         )
 
         logger.info("created ctx for vk {}", peer_id)
 
         return self.vk[peer_id]
 
-    def add_tg(self, chat: TgChat) -> TgCtx:
-        self.tg[chat.id] = TgCtx(
-            last_call = time.time(),
-            chat      = chat
+    def add_tg(self, chat_id: TgChat) -> BaseCtx:
+        self.tg[chat_id] = BaseCtx(
+            chat_id=chat_id,
+            last_call=time.time(),
         )
 
-        logger.info("created ctx for tg {}", chat.id)
+        logger.info("created ctx for tg {}", chat_id)
 
-        return self.tg[chat.id]
+        return self.tg[chat_id]
 
     async def broadcast_mappings(
         self,
