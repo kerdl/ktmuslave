@@ -497,6 +497,7 @@ class Ctx:
 
 
 class BaseCommonEvent(BaseModel):
+    _ctx: Optional[BaseCtx] = None
     src: Optional[MESSENGER_SOURCE] = None
     chat_id: Optional[int] = None
 
@@ -507,21 +508,10 @@ class BaseCommonEvent(BaseModel):
     @property
     def is_from_tg(self):
         return self.src == Source.TG
-    
-    @property
-    def vk_ctx(self) -> VkCtx:
-        return defs.ctx.vk.get(self.chat_id)
-    
-    @property
-    def tg_ctx(self) -> TgCtx:
-        return defs.ctx.tg.get(self.chat_id)
 
     @property
     def ctx(self) -> BaseCtx:
-        if self.is_from_vk:
-            return self.vk_ctx
-        if self.is_from_tg:
-            return self.tg_ctx
+        return self._ctx
     
     @property
     def navigator(self) -> Navigator:
@@ -570,8 +560,9 @@ class CommonMessage(BaseCommonEvent):
 
 
     @classmethod
-    def from_vk(cls: type[CommonMessage], message: VkMessage):
+    def from_vk(cls: type[CommonMessage], message: VkMessage, ctx: BaseCtx):
         self = cls(
+            _ctx=ctx,
             src=Source.VK,
             chat_id=message.peer_id,
             vk=message,
@@ -580,8 +571,9 @@ class CommonMessage(BaseCommonEvent):
         return self
     
     @classmethod
-    def from_tg(cls, message: TgMessage):
+    def from_tg(cls, message: TgMessage, ctx: BaseCtx):
         self = cls(
+            _ctx=ctx,
             src=Source.TG,
             chat_id=message.chat.id,
             tg=message,
@@ -962,26 +954,28 @@ class CommonEvent(BaseCommonEvent):
 
 
     @classmethod
-    def from_vk(cls: type[CommonEvent], event: RawEvent):
+    def from_vk(cls: type[CommonEvent], event: RawEvent, ctx: BaseCtx):
         event_object = event["object"]
         peer_id = event_object["peer_id"]
 
         self = cls(
-            src        = Source.VK,
-            chat_id    = peer_id,
-            vk         = event,
-            force_send = False
+            _ctx=ctx,
+            src=Source.VK,
+            chat_id=peer_id,
+            vk=event,
+            force_send=False
         )
 
         return self
     
     @classmethod
-    def from_tg(cls: type[CommonEvent], callback_query: CallbackQuery):
+    def from_tg(cls: type[CommonEvent], callback_query: CallbackQuery, ctx: BaseCtx):
         self = cls(
-            src        = Source.TG,
-            chat_id    = callback_query.message.chat.id,
-            tg         = callback_query,
-            force_send = False,
+            _ctx=ctx,
+            src=Source.TG,
+            chat_id=callback_query.message.chat.id,
+            tg=callback_query,
+            force_send=False,
         )
 
         return self
@@ -1378,27 +1372,13 @@ class CommonEverything(BaseCommonEvent):
             return self.message.navigator
         if self.is_from_event:
             return self.event.navigator
-    
-    @property
-    def vk_ctx(self) -> VkCtx:
-        if self.is_from_message:
-            return self.message.vk_ctx
-        if self.is_from_event:
-            return self.event.vk_ctx
-    
-    @property
-    def tg_ctx(self) -> TgCtx:
-        if self.is_from_message:
-            return self.message.tg_ctx
-        if self.is_from_event:
-            return self.event.tg_ctx
 
     @property
     def ctx(self) -> BaseCtx:
-        if self.is_from_vk:
-            return self.vk_ctx
-        if self.is_from_tg:
-            return self.tg_ctx
+        if self.is_from_event:
+            return self.event.ctx
+        if self.is_from_message:
+            return self.message.ctx
 
     @property
     def corresponding(self) -> Any:
