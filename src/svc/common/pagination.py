@@ -29,6 +29,12 @@ class Container:
     current_num: int
     """ ## On which page number user is currently on """
 
+    def to_dict(self) -> dict:
+        return {
+           "current_num": self.current_num,
+           "list": [template.to_dict() for template in self.list],
+        }
+
     @classmethod
     def default(cls: type[Container]):
         return cls([], 0)

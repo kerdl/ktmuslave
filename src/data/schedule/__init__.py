@@ -37,6 +37,12 @@ class Message:
     type: TYPE_LITERAL
     is_folded: bool
 
+    def to_dict(self) -> dict:
+        return {
+            "type": self.type,
+            "is_folded": self.is_folded
+        }
+
     @classmethod
     def default(cls: type[Message]) -> Message:
         return cls(
@@ -63,6 +69,12 @@ class Message:
 class Schedule:
     message: Message
     last_update: Optional[float]
+
+    def to_dict(self) -> dict:
+        return {
+            "message": self.message.to_dict(),
+            "last_update": self.last_update
+        }
 
     @classmethod
     def default(cls: type[Schedule]) -> Schedule:

@@ -86,6 +86,20 @@ class BaseCtx:
     last_daily_message: Optional[CommonBotMessage] = None
     last_weekly_message: Optional[CommonBotMessage] = None
 
+    def to_dict(self) -> dict:
+        return {
+            "is_registered": self.is_registered,
+            "navigator": self.navigator.to_dict() if self.navigator is not None else None,
+            "settings": self.settings.to_dict() if self.settings is not None else None,
+            "schedule": self.schedule.to_dict() if self.schedule is not None else None,
+            "pages": self.pages.to_dict() if self.pages is not None else None,
+            "last_call": self.last_call,
+            "last_everything": self.last_everything.to_dict() if self.last_everything is not None else None,
+            "last_bot_message": self.last_bot_message.to_dict() if self.last_bot_message is not None else None,
+            "last_daily_message": self.last_daily_message.to_dict() if self.last_daily_message is not None else None,
+            "last_weekly_message": self.last_weekly_message.to_dict() if self.last_weekly_message is not None else None,
+        }
+
     @property
     def id(self) -> int:
         raise NotImplemented
@@ -144,6 +158,18 @@ class Ctx:
     ## Telegram chats
     - stored in a dict of `{chat_id: ctx}`
     """
+
+    def to_dict(self) -> dict:
+        ctx_dict = {}
+
+        CTXS_TYPES: list[dict[str, dict[int, BaseCtx]]] = [{"VK": self.vk}, {"TG": self.tg}]
+
+        for ctx in CTXS_TYPES:
+            for ctx_type, chats in ctx.items():
+                for chat_id, chat in chats.items():
+                    ctx_dict.update({f"{ctx_type}_{chat_id}": chat.to_dict()})
+
+        return ctx_dict
 
     def add_vk(self, peer_id: int) -> VkCtx:
         self.vk[peer_id] = VkCtx(
@@ -373,34 +399,25 @@ class Ctx:
 
     @classmethod
     def load(cls) -> Ctx:
-        path = defs.data_dir.joinpath("ctx.bin")
+        bin_path = defs.data_dir.joinpath("ctx.bin")
+        json_path = defs.data_dir.joinpath("ctx.json")
 
-        with open(path, mode="rb") as f:
+        with open(bin_path, mode="rb") as f:
             self: Ctx = pickle.load(f)
 
-            for messenger in [self.vk, self.tg]:
-                messenger: dict[int, BaseCtx]
+            ctx_dict = self.to_dict()
 
-                for (id, ctx) in messenger.items():
-                    for tchr in ctx.settings.zoom.entries.set:
-                        tchr.i_promise_i_will_get_rid_of_this_thing_but_not_now()
-                    
-                    for tchr in ctx.settings.zoom.new_entries.set:
-                        tchr.i_promise_i_will_get_rid_of_this_thing_but_not_now()
-
-            return self
+            logger.info(f"context dumped to json at {json_path}")
+            exit(0)
 
     @classmethod
     def load_or_init(cls: type[Ctx]) -> Ctx:
         path = defs.data_dir.joinpath("ctx.bin")
 
-        if not path.exists():
-            self = cls(vk={}, tg={})
-            self.poll_save()
-
-            return self
-        else:
+        if path.exists():
             return cls.load()
+        else:
+            raise FileExistsError(f"copy ctx.bin to {path} first")
 
 class Source:
     """
@@ -493,6 +510,13 @@ class CommonMessage(BaseCommonEvent):
     tg: Optional[TgMessage] = None
     """ ## Info about recieved Telegram message """
 
+    def to_dict(self) -> dict:
+        return {
+            "messenger_src": self.src,
+            "chat_id": self.chat_id,
+            "vk": self.vk.dict() if self.vk is not None else None,
+            "tg": self.tg.dict() if self.tg is not None else None
+        }
 
     @classmethod
     def from_vk(cls: type[CommonMessage], message: VkMessage):
@@ -656,6 +680,12 @@ class CommonBotTemplate:
     text: str
     keyboard: kb.Keyboard
 
+    def to_dict(self) -> dict:
+        return {
+            "text": self.text,
+            "keyboard": self.keyboard.to_dict()
+        }
+
 @dataclass
 class CommonBotMessage:
     """
@@ -687,6 +717,18 @@ class CommonBotMessage:
     was_split: Optional[bool] = None
     timestamp: Optional[float] = None
 
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "text": self.text,
+            "keyboard": self.keyboard.to_dict(),
+            "reply_to": self.reply_to,
+            "was_split": self.was_split,
+            "can_edit": self.can_edit,
+            "add_tree": self.add_tree,
+            "timestamp": self.timestamp
+        }
+    
     @property
     def is_from_vk(self):
         return self.src == Source.VK
@@ -792,6 +834,13 @@ class CommonEvent(BaseCommonEvent):
     force_send: Optional[bool] = None
     """ ## Even if we can edit the message, we may want to send a new one instead """
 
+    def to_dict(self) -> dict:
+        return {
+            "messenger_src": self.src,
+            "chat_id": self.chat_id,
+            "vk": self.vk,
+            "tg": self.tg
+        }
 
     @classmethod
     def from_vk(cls: type[CommonEvent], event: RawEvent):
@@ -1133,6 +1182,14 @@ class CommonEverything(BaseCommonEvent):
 
     force_send: Optional[bool] = None
     """ ## Even if we can edit the message, we may want to send a new one instead """
+
+    def to_dict(self):
+        return {
+            "event_src": self.event_src,
+            "do_force_send": self.force_send,
+            "message": self.message.to_dict() if self.message is not None else None,
+            "event": self.event.to_dict() if self.event is not None else None,
+        }
 
     @classmethod
     def from_message(cls: type[CommonEverything], message: CommonMessage):

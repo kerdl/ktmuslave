@@ -161,7 +161,15 @@ class Button:
     url: Optional[str] = None
     color: Optional[COLOR_LITERAL] = None
     """ ## Controls tilt angle on `Messerschmitt Me 262` """
-
+    
+    def to_dict(self) -> dict:
+        return {
+            "text": self.text,
+            "callback": self.callback,
+            "url": self.url,
+            "color": self.color
+        }
+    
     def only_if(self, condition: bool) -> Optional[Button]:
         """ ## Return `Button` if `condition` is `True`, else return `None` """
         if condition is True:
@@ -188,6 +196,22 @@ class Keyboard:
     """ ## If we should automatically add back to the bottom """
     next_button: Optional[Button] = None
     """ ## `Next` button, will be placed to the right of `Back` """
+
+    def to_dict(self) -> dict:
+        schema = []
+        for row in self.schema:
+            dict_row = []
+            for button in row:
+                if button is None:
+                    continue
+                dict_row.append(button.to_dict())
+            schema.append(dict_row)
+
+        return {
+            "schema": schema,
+            "add_back": self.add_back,
+            "next_button": self.next_button.to_dict() if self.next_button else None
+        }
 
     @classmethod
     def default(cls: type[Keyboard]) -> Keyboard:

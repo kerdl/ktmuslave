@@ -14,12 +14,27 @@ class Group:
     valid: Optional[str] = None
     confirmed: Optional[str] = None
 
+    def to_dict(self) -> dict:
+        return {
+            "typed": self.typed,
+            "valid": self.valid,
+            "confirmed": self.confirmed
+        }
+
 @dataclass
 class Settings(Values):
     group: Group
     zoom: zoom.Container
     broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "group": self.group.to_dict(),
+            "zoom": self.zoom.to_dict(),
+            "broadcast": self.broadcast,
+            "should_pin": self.should_pin
+        }
 
     @classmethod
     def default(cls: type[Settings]):

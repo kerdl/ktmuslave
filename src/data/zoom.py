@@ -85,6 +85,15 @@ class Data(Translated, Emojized):
         "notes": zoom.Key.NOTES
     }
 
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name.value, 
+            "url": self.url.value,
+            "id": self.id.value,
+            "pwd": self.pwd.value,
+            "notes": self.notes.value
+        }
+
     def i_promise_i_will_get_rid_of_this_thing_but_not_now(self):
         """
         put new trash added to the dataclass here
@@ -299,6 +308,12 @@ class Entries:
     so we know what is being edited right now
     """
 
+    def to_dict(self) -> dict:
+        return {
+            "set": [data.to_dict() for data in self.set],
+            "selected_name": self.selected_name
+        }
+
     @classmethod
     def default(cls: type[Entries]):
         return cls(set = set())
@@ -497,6 +512,14 @@ class Container:
     """
     focused_at: Optional[STORAGE]
     """ ## Tells which container to use """
+
+    def to_dict(self) -> dict:
+        return {
+            "is_finished": self.is_finished,
+            "focused_at": self.focused_at,
+            "entries": self.entries.to_dict(),
+            "new_entries": self.new_entries.to_dict(),
+        }
 
     @classmethod
     def default(cls: type[Container]) -> Container:

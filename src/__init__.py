@@ -220,6 +220,8 @@ class Defs:
             level="INFO"
         )
 
+        logger.warning("this version is intended only for context migration (PICKLE -> JSON)")
+
         self.log_dir
     
     def create_task(self, coro, *, name=None):

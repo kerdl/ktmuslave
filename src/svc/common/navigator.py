@@ -41,6 +41,13 @@ class Navigator:
     - to pass it to `on_enter`, `on_exit` methods of states
     """
 
+    def to_dict(self) -> dict:
+        return {
+            "trace": [str(state) for state in self.trace],
+            "back_trace": [str(state) for state in self.back_trace],
+            "ignored": [str(state) for state in self.ignored],
+        }
+
     @classmethod
     def default(cls: type[Navigator]):
         return cls(

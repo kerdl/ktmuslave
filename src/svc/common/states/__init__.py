@@ -128,6 +128,9 @@ class State:
     from trace, no matter where it was
     """
 
+    def __str__(self) -> str:
+        return f"{self.tree}:{self.anchor}"
+
     def __hash__(self) -> int:
         return hash(f"{self.tree}:{self.anchor}")
     
