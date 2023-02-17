@@ -2,7 +2,7 @@ from __future__ import annotations
 from loguru import logger
 import time
 import asyncio
-import random
+import json
 from typing import Any, Literal, Optional, Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -406,6 +406,9 @@ class Ctx:
             self: Ctx = pickle.load(f)
 
             ctx_dict = self.to_dict()
+
+            with open(json_path, "w", encoding="utf8") as f:
+                json.dump(ctx_dict, f, ensure_ascii=False, indent=2, default=str)
 
             logger.info(f"context dumped to json at {json_path}")
             exit(0)
@@ -839,7 +842,7 @@ class CommonEvent(BaseCommonEvent):
             "messenger_src": self.src,
             "chat_id": self.chat_id,
             "vk": self.vk,
-            "tg": self.tg
+            "tg": self.tg.dict() if self.tg else None
         }
 
     @classmethod
