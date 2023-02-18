@@ -1,9 +1,8 @@
-import sys
-import os
 import asyncio
 import datetime
 import re
 import aiofiles
+from redis.asyncio import Redis
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from aiofiles import ospath
 from typing import Optional, TYPE_CHECKING
@@ -22,6 +21,7 @@ from dotenv import get_key
 if TYPE_CHECKING:
     from src.svc.common import Ctx
 
+ENV_PATH = ".env"
 COLOR_ESCAPE_REGEX = re.compile(r"\x1b[[]\d{1,}m")
 
 
@@ -29,9 +29,7 @@ def sink(message: Message):
     is_error = False
     record = message.record
 
-    if record["exception"]:
-        is_error = True
-    elif record["level"].name == "ERROR":
+    if record["exception"] or record["level"].name == "ERROR":
         is_error = True
 
     async def write_out():
@@ -62,7 +60,7 @@ def sink(message: Message):
         from src.svc import vk
         
         async def send_error():
-            admin_id = get_key(".env", "VK_ADMIN")
+            admin_id = get_key(ENV_PATH, "VK_ADMIN")
 
             try:
                 await vk.chunked_send(
@@ -97,6 +95,7 @@ class Defs:
 
     http: Optional[ClientSession] = None
     ctx: Optional["Ctx"] = None
+    redis: Optional[Redis] = None
 
     data_dir: Optional[Path] = None
     log_dir: Optional[Path] = None
@@ -180,6 +179,7 @@ class Defs:
 
         self.ctx = Ctx.load_or_init()
         self.create_task(self.ctx.save_forever())
+        self.redis = Redis(get_key())
 
         self.loop.run_until_complete(self.init_schedule_api())
 
@@ -218,8 +218,6 @@ class Defs:
             catch=True,
             level="INFO"
         )
-
-        self.log_dir
     
     def create_task(self, coro, *, name=None):
         task = self.loop.create_task(coro, name=name)

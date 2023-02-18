@@ -9,7 +9,7 @@ from dotenv import get_key
 from io import StringIO
 import random
 
-from src import defs, text
+from src import defs, text, ENV_PATH
 from src.svc.vk.types_ import RawEvent
 
 
@@ -148,7 +148,7 @@ def load(loop = None) -> Bot:
     """
     ## Set token, load blueprints and return a `Bot`
     """
-    bot = Bot(token=get_key(".env", "VK_TOKEN"), loop=loop)
+    bot = Bot(token=get_key(ENV_PATH, "VK_TOKEN"), loop=loop)
 
     # vkbottle does not call raw event middlewares
     # if there's no raw event handlers
