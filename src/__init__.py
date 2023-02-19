@@ -3,6 +3,7 @@ import datetime
 import re
 import aiofiles
 from redis.asyncio import Redis
+from redis import exceptions as rexeptions
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from aiofiles import ospath
 from typing import Optional, TYPE_CHECKING
@@ -148,6 +149,42 @@ class Defs:
         self.tg_bot_mention = "/nigga"
         self.tg_bot_commands = ["/nigga"]
 
+    async def wait_for_redis(self):
+        retry = 5
+        logged = False
+
+        host = self.redis.connection_pool.connection_kwargs["host"]
+        port = self.redis.connection_pool.connection_kwargs["port"]
+
+        while True:
+            try:
+                await self.redis.ping()
+                logger.info(f"redis connected on {host}:{port}")
+                break
+            except rexeptions.ConnectionError:
+                if not logged:
+                    logger.opt(colors=True).error(f"run redis instance on {host}:{port} first, will keep trying reconnecting every {retry} secs")
+                    logged = True
+                
+                await asyncio.sleep(retry)
+
+    def init_redis(self):
+        no_addr_error = ValueError("put redis connection details to the .env file like this: REDIS = \"127.0.0.1:6379\"")
+        invalid_addr_error = ValueError("invalid addr for redis, make sure there is a \":\" in it like this: 127.0.0.1:6379")
+
+        redis_uri = get_key(ENV_PATH, "REDIS")
+        if redis_uri is None:
+            raise no_addr_error
+        
+        host_port = redis_uri.split(":")
+        if not host_port or len(host_port) < 2:
+            raise invalid_addr_error
+
+        host, port = host_port
+
+        self.redis = Redis(host=host, port=port)
+        self.loop.run_until_complete(self.wait_for_redis())
+
     def init_vars(
         self, 
         init_handlers: bool = True,
@@ -179,7 +216,7 @@ class Defs:
 
         self.ctx = Ctx.load_or_init()
         self.create_task(self.ctx.save_forever())
-        self.redis = Redis(get_key())
+        self.init_redis()
 
         self.loop.run_until_complete(self.init_schedule_api())
 
