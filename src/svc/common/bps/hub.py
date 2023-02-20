@@ -100,7 +100,7 @@ async def hub(
 
     schedule_text = await sc_format.group(
         users_group,
-        ctx.settings.zoom.entries.set
+        ctx.settings.zoom.entries.list
     )
 
     answer_text = (

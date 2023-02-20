@@ -2,6 +2,7 @@ from __future__ import annotations
 from loguru import logger
 import time
 import asyncio
+from json.encoder import JSONEncoder
 from typing import Literal, Optional, Callable, Any, TypeVar, Generic
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -12,8 +13,7 @@ from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
 from aiogram.exceptions import TelegramRetryAfter
-import pickle
-import aiofiles
+from redis.commands.json.path import Path
 
 from src import defs
 from src.svc import vk, telegram as tg
@@ -73,6 +73,8 @@ class DbBaseCtx(BaseModel):
 
     @classmethod
     def from_runtime(cls: type[DbBaseCtx], ctx: BaseCtx) -> DbBaseCtx:
+        DbBaseCtx.update_forward_refs()
+        
         return cls(
             chat_id=ctx.chat_id,
             is_registered=ctx.is_registered,
@@ -93,7 +95,7 @@ class DbBaseCtx(BaseModel):
 @dataclass
 class BaseCtx:
     chat_id: int
-    is_registered: bool = False
+    is_registered: bool = field(default_factory=lambda: False)
 
     navigator: Navigator = field(default_factory=Navigator)
     """ # `Back`, `next` buttons tracer """
@@ -102,7 +104,7 @@ class BaseCtx:
     schedule: Schedule = field(default_factory=Schedule)
     """ # Schedule data """
     
-    last_call: float = 0.0
+    last_call: float = field(default_factory=lambda: .0)
     """
     # Last UNIX time when user interacted with bot
 
@@ -189,56 +191,58 @@ class DbIterator(Generic[MESSENGER_SOURCE_T]):
 
 @dataclass
 class Ctx:
-    """ ## Global context storage"""
-    vk: dict[int, BaseCtx]
-    """
-    ## VK chats
-    - stored in a dict of `{peer_id: ctx}`
-    """
-    tg: dict[int, BaseCtx]
-    """
-    ## Telegram chats
-    - stored in a dict of `{chat_id: ctx}`
-    """
-
-    def is_added(self, everything: CommonEverything) -> bool:
+    async def is_added(self, everything: CommonEverything) -> bool:
         if everything.is_from_vk:
-            return everything.chat_id in self.vk.keys()
+            return bool(await defs.redis.exists(f"VK_{everything.chat_id}"))
         if everything.is_from_tg:
-            return everything.chat_id in self.tg.keys()
+            return bool(await defs.redis.exists(f"TG_{everything.chat_id}"))
     
-    def add_from_everything(self, everything: CommonEverything) -> BaseCtx:
+    async def add_from_everything(self, everything: CommonEverything) -> BaseCtx:
         if everything.is_from_vk:
-            ctx = self.add_vk(everything.chat_id)
+            ctx = await self.add_vk(everything.chat_id, everything)
         elif everything.is_from_tg:
             if everything.is_from_event:
-                ctx = self.add_tg(everything.event.tg.message.chat.id)
+                ctx = await self.add_tg(everything.event.tg.message.chat.id, everything)
             elif everything.is_from_message:
-                ctx = self.add_tg(everything.message.tg.chat.id)
+                ctx = await self.add_tg(everything.message.tg.chat.id, everything)
         
         ctx.set_everything(everything)
 
         return ctx
 
-    def add_vk(self, peer_id: int) -> BaseCtx:
-        self.vk[peer_id] = BaseCtx(
+    async def add_vk(self, peer_id: int, everything: Optional[CommonEverything] = None) -> BaseCtx:
+        ctx = BaseCtx(
             chat_id=peer_id,
             last_call=time.time(),
+        )
+        ctx.set_everything(everything)
+        db_ctx = ctx.to_db()
+
+        await (
+            defs.redis.json(encoder=JSONEncoder(default=str))
+            .set(f"VK_{peer_id}", Path.root_path(), db_ctx.dict(), decode_keys=True)
         )
 
         logger.info("created ctx for vk {}", peer_id)
 
-        return self.vk[peer_id]
+        return ctx
 
-    def add_tg(self, chat_id: int) -> BaseCtx:
-        self.tg[chat_id] = BaseCtx(
+    async def add_tg(self, chat_id: int, everything: Optional[CommonEverything] = None) -> BaseCtx:
+        ctx = BaseCtx(
             chat_id=chat_id,
             last_call=time.time(),
+        )
+        ctx.set_everything(everything)
+        db_ctx = ctx.to_db()
+
+        await (
+            defs.redis.json(encoder=JSONEncoder(default=str))
+            .set(f"TG_{chat_id}", Path.root_path(), db_ctx.dict(), decode_keys=True)
         )
 
         logger.info("created ctx for tg {}", chat_id)
 
-        return self.tg[chat_id]
+        return ctx
 
     async def broadcast_mappings(
         self,
@@ -302,7 +306,7 @@ class Ctx:
 
                     fmt_schedule: str = await sc_format.group(
                         page.get_group(mapping.name),
-                        ctx.settings.zoom.entries.set
+                        ctx.settings.zoom.entries.list
                     )
 
                     reply_hint = messages.format_replied_to_schedule_message(
@@ -429,50 +433,6 @@ class Ctx:
                     mappings.append(BroadcastGroup(name, header, sc_type))
         
         await self.broadcast_mappings(mappings, invoker)
-    
-    async def save(self):
-        async with aiofiles.open(defs.data_dir.joinpath("ctx.bin"), mode="wb") as f:
-            dump = pickle.dumps(self)
-            await f.write(dump)
-    
-    def poll_save(self):
-        defs.create_task(self.save())
-
-    async def save_forever(self):
-        while True:
-            await asyncio.sleep(10 * 60)
-            await self.save()
-
-    @classmethod
-    def load(cls) -> Ctx:
-        path = defs.data_dir.joinpath("ctx.bin")
-
-        with open(path, mode="rb") as f:
-            self: Ctx = pickle.load(f)
-
-            for messenger in [self.vk, self.tg]:
-                messenger: dict[int, BaseCtx]
-
-                for (id, ctx) in messenger.items():
-                    for tchr in ctx.settings.zoom.entries.set:
-                        tchr.i_promise_i_will_get_rid_of_this_thing_but_not_now()
-                    
-                    for tchr in ctx.settings.zoom.new_entries.set:
-                        tchr.i_promise_i_will_get_rid_of_this_thing_but_not_now()
-
-            return self
-
-    @classmethod
-    def load_or_init(cls: type[Ctx]) -> Ctx:
-        path = defs.data_dir.joinpath("ctx.bin")
-
-        if not path.exists():
-            self = cls(vk={}, tg={})
-            self.poll_save()
-
-            return self
-        else:
-            return cls.load()
 
 
 class BaseCommonEvent(BaseModel):
@@ -487,13 +447,30 @@ class BaseCommonEvent(BaseModel):
     def is_from_tg(self):
         return self.src == Source.TG
 
-    @property
-    def ctx(self) -> BaseCtx:
+    async def load_ctx(self) -> BaseCtx:
+        if self.ctx is not None:
+            return self.ctx
+        
         if self.is_from_vk:
-            return defs.ctx.vk.get(self.chat_id)
-        if self.is_from_tg:
-            return defs.ctx.tg.get(self.chat_id)
-    
+            db_ctx = await defs.redis.json().get(f"VK_{self.chat_id}")
+        elif self.is_from_tg:
+            db_ctx = await defs.redis.json().get(f"TG_{self.chat_id}")
+        
+        db_ctx_parsed = DbBaseCtx.parse_obj(db_ctx)
+        self.set_ctx(db_ctx_parsed.to_runtime())
+        
+        return self.ctx
+
+    @property
+    def ctx(self) -> Optional[BaseCtx]:
+        try:
+            return self.__dict__["_ctx"]
+        except KeyError:
+            return None
+
+    def set_ctx(self, value: Any):
+        self.__dict__["_ctx"] = value
+
     @property
     def navigator(self) -> Navigator:
         return self.ctx.navigator
@@ -1357,6 +1334,12 @@ class CommonEverything(BaseCommonEvent):
         if self.is_from_message:
             return self.message.ctx
 
+    def set_ctx(self, value: Any):
+        if self.is_from_event:
+            self.event.set_ctx(value)
+        elif self.is_from_message:
+            self.message.set_ctx(value)
+
     @property
     def corresponding(self) -> Any:
         if self.is_from_event:
@@ -1510,8 +1493,6 @@ def run_forever():
     try:
         loop.run_forever()
     except (KeyboardInterrupt, SystemExit):
-        logger.info("shutdown, saving ctx and closing log file")
-
-        loop.run_until_complete(defs.ctx.save())
+        logger.info("shutdown, closing log file")
         defs.log_file.close()
     

@@ -287,7 +287,7 @@ class Data(BaseModel, Translated, Emojized):
 
 
 class Entries(BaseModel):
-    set: set[Data] = PydField(default_factory=set)
+    list: list[Data] = PydField(default_factory=list)
     """
     # The collection of data itself
     """
@@ -299,20 +299,20 @@ class Entries(BaseModel):
     """
 
     @classmethod
-    def from_set(cls: type[Entries], set: set[Data]):
-        return cls(set = set)
+    def from_set(cls: type[Entries], list: list[Data]):
+        return cls(list = list)
     
     @property
     def selected(self) -> Data:
         return self.get(self.selected_name)
 
     def change_name(self, old: str, new: str) -> None:
-        if old not in self.set:
+        if old not in self.list:
             raise error.ZoomNameNotInDatabase(
                 "you're trying to change inexistent name"
             )
         
-        if new in self.set:
+        if new in self.list:
             raise error.ZoomNameInDatabase(
                 "new name is already in database"
             )
@@ -354,16 +354,16 @@ class Entries(BaseModel):
     ):
         if isinstance(data, (set, list)):
             for data_obj in data:
-                if data_obj in self.set and overwrite:
-                    self.set.remove(data_obj)
+                if data_obj in self.list and overwrite:
+                    self.list.remove(data_obj)
 
-                self.set.add(data_obj)
+                self.list.add(data_obj)
         
         elif isinstance(data, Data):
-            if data in self.set and overwrite:
-                self.set.remove(data)
+            if data in self.list and overwrite:
+                self.list.remove(data)
 
-            self.set.add(data)
+            self.list.add(data)
 
     def add_from_name(self, name: str):
         data = Data(name=Field(value=name))
@@ -371,7 +371,7 @@ class Entries(BaseModel):
         self.add(data)
 
     def get(self, name: str) -> Optional[Data]:
-        for entry in self.set:
+        for entry in self.list:
             if entry.name == name:
                 return entry
 
@@ -379,29 +379,29 @@ class Entries(BaseModel):
 
     def has(self, name: str) -> bool:
         """ ## If `name` in this container """
-        return name in self.set
+        return name in self.list
 
     @property
     def has_something(self) -> bool:
         """ ## If this container has something """
-        return len(self.set) > 0
+        return len(self.list) > 0
 
     def remove(self, name: Union[str, set[str]]):
         if isinstance(name, set):
             for n in name:
-                self.set.remove(n)
+                self.list.remove(n)
             
             return None
 
         if isinstance(name, str):
-            self.set.remove(name)
+            self.list.remove(name)
 
             return None
     
     def format_compact(self) -> str:
         names: list[str] = []
 
-        for entry in self.set:
+        for entry in self.list:
             warns_text: Optional[str] = None
 
             if not entry.all_fields_without_warns():
@@ -418,19 +418,19 @@ class Entries(BaseModel):
         return "\n".join(names)
 
     def clear(self):
-        self.set = set()
+        self.list = set()
     
     def dump(self) -> str:
         entries_dumps: list[str] = []
 
-        for entry in self.set:
+        for entry in self.list:
             dump = entry.dump_str()
             entries_dumps.append(dump)
         
         return "\n\n".join(entries_dumps)
 
     def __len__(self):
-        return len(self.set)
+        return len(self.list)
 
 
 class Storage:
@@ -510,9 +510,9 @@ class Container(BaseModel):
 
     def confirm_new_entries(self) -> None:
         # add data from `new_entries` to `entries`
-        self.entries.add(self.new_entries.set, overwrite = True)
+        self.entries.add(self.new_entries.list, overwrite = True)
         # clear new entries
-        self.new_entries.set.clear()
+        self.new_entries.list.clear()
 
         self.finish()
 
@@ -544,13 +544,13 @@ class Container(BaseModel):
     @property
     def adding(self) -> Entries:
         return Entries.from_set(
-            self.new_entries.set.difference(self.entries.set)
+            self.new_entries.list.difference(self.entries.list)
         )
 
     @property
     def overwriting(self) -> Entries:
         return Entries.from_set(
-            self.entries.set.intersection(self.new_entries.set)
+            self.entries.list.intersection(self.new_entries.list)
         )
 
     def finish(self) -> None:

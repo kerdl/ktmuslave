@@ -214,8 +214,7 @@ class Defs:
         
         from src.svc.common import Ctx
 
-        self.ctx = Ctx.load_or_init()
-        self.create_task(self.ctx.save_forever())
+        self.ctx = Ctx()
         self.init_redis()
 
         self.loop.run_until_complete(self.init_schedule_api())

@@ -431,7 +431,7 @@ async def browse(
     if ctx.settings.zoom.is_focused_on_new_entries:
         # user came here from adding mass zoom data
         ctx.pages.list = pagination.from_zoom(
-            data = ctx.settings.zoom.new_entries.set,
+            data = ctx.settings.zoom.new_entries.list,
             text_footer = text_footer,
             keyboard_footer = [
                 [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
@@ -441,7 +441,7 @@ async def browse(
     elif ctx.settings.zoom.is_focused_on_entries:
         # user came here to view current active entries
         ctx.pages.list = pagination.from_zoom(
-            data = ctx.settings.zoom.entries.set,
+            data = ctx.settings.zoom.entries.list,
             text_footer = text_footer,
             keyboard_footer = [
                 [

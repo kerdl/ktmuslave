@@ -31,8 +31,10 @@ class BotMentionFilter(MessageMiddleware):
 @r.middleware()
 class CtxCheck(Middleware):
     async def pre(self, everything: CommonEverything):
-        if not defs.ctx.is_added(everything):
-            defs.ctx.add_from_everything(everything)
+        if not await defs.ctx.is_added(everything):
+            everything.set_ctx(await defs.ctx.add_from_everything(everything))
+        else:
+            await everything.load_ctx()
 
 @r.middleware()
 class Throttling(Middleware):

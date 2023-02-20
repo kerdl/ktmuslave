@@ -130,7 +130,7 @@ class State:
     """
 
     def __str__(self) -> str:
-        return f"{self.space}:{self.name}"
+        return f"{self.tree}:{self.anchor}"
 
     def __hash__(self) -> int:
         return hash(f"{self.tree}:{self.anchor}")

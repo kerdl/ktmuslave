@@ -20,7 +20,6 @@ class Settings(Values):
     broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None
 
-
     def get_from_state(self, state: State) -> Any:
         VALUES = {
             SettingsTree.II_GROUP:       self.group.confirmed,
