@@ -7,7 +7,7 @@ class RawEventObject(TypedDict):
     event_id: str
     payload: dict[Any, Any]
     """
-    ## Any deserializable type can be here
+    ## Any serializable type can be here
     - but we always use `str`
     """
     conversation_message_id: int
