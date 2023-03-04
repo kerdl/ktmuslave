@@ -36,7 +36,6 @@ async def to_hub(everything: CommonEverything):
     ctx = everything.ctx
 
     ctx.register()
-    defs.ctx.poll_save()
 
     return await hub_bp.to_hub(everything)
 

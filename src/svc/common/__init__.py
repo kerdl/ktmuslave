@@ -14,8 +14,9 @@ from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
 from aiogram.exceptions import TelegramRetryAfter
 from redis.commands.json.path import Path
+from redis.commands.search.query import Query
 
-from src import defs
+from src import defs, RedisName
 from src.svc import vk, telegram as tg
 from src import text
 from src.svc.common.states import formatter as states_fmt, Values
@@ -48,6 +49,8 @@ MESSENGER_SOURCE = Literal["vk", "tg"]
 MESSENGER_SOURCE_T = TypeVar("MESSENGER_SOURCE_T")
 EVENT_SOURCE = Literal["message", "event"]
 
+DB_BASE_CTX_UPDATED_FORWARD_REFS = False
+
 
 @dataclass
 class BroadcastGroup:
@@ -72,8 +75,16 @@ class DbBaseCtx(BaseModel):
     last_weekly_message: Optional[CommonBotMessage]
 
     @classmethod
+    def upd_forward_refs(cls):
+        global DB_BASE_CTX_UPDATED_FORWARD_REFS
+
+        if not DB_BASE_CTX_UPDATED_FORWARD_REFS:
+            cls.update_forward_refs()
+            DB_BASE_CTX_UPDATED_FORWARD_REFS = True
+
+    @classmethod
     def from_runtime(cls: type[DbBaseCtx], ctx: BaseCtx) -> DbBaseCtx:
-        DbBaseCtx.update_forward_refs()
+        DbBaseCtx.upd_forward_refs()
         
         return cls(
             chat_id=ctx.chat_id,
@@ -91,6 +102,7 @@ class DbBaseCtx(BaseModel):
     
     def to_runtime(self) -> BaseCtx:
         return BaseCtx.from_db(self)
+
 
 @dataclass
 class BaseCtx:
@@ -161,6 +173,23 @@ class BaseCtx:
     def to_db(self) -> DbBaseCtx:
         return DbBaseCtx.from_runtime(self)
 
+    async def set_last_bot_message(self, message: CommonBotMessage):
+        self.last_bot_message = message
+        await self.save()
+    
+    async def save(self):
+        prefix = self.last_everything.src.upper()
+        self_db = self.to_db()
+    
+        await defs.redis.json(
+            encoder=JSONEncoder(default=str)
+        ).set(
+            f"{prefix}_{self.chat_id}",
+            Path.root_path(),
+            self_db.dict(),
+            decode_keys=True
+        )
+
     def register(self) -> None:
         self.is_registered = True
 
@@ -192,10 +221,7 @@ class DbIterator(Generic[MESSENGER_SOURCE_T]):
 @dataclass
 class Ctx:
     async def is_added(self, everything: CommonEverything) -> bool:
-        if everything.is_from_vk:
-            return bool(await defs.redis.exists(f"VK_{everything.chat_id}"))
-        if everything.is_from_tg:
-            return bool(await defs.redis.exists(f"TG_{everything.chat_id}"))
+        return bool(await defs.redis.exists(f"{everything.src.upper()}_{everything.chat_id}"))
     
     async def add_from_everything(self, everything: CommonEverything) -> BaseCtx:
         if everything.is_from_vk:
@@ -216,12 +242,7 @@ class Ctx:
             last_call=time.time(),
         )
         ctx.set_everything(everything)
-        db_ctx = ctx.to_db()
-
-        await (
-            defs.redis.json(encoder=JSONEncoder(default=str))
-            .set(f"VK_{peer_id}", Path.root_path(), db_ctx.dict(), decode_keys=True)
-        )
+        await ctx.save()
 
         logger.info("created ctx for vk {}", peer_id)
 
@@ -233,16 +254,28 @@ class Ctx:
             last_call=time.time(),
         )
         ctx.set_everything(everything)
-        db_ctx = ctx.to_db()
-
-        await (
-            defs.redis.json(encoder=JSONEncoder(default=str))
-            .set(f"TG_{chat_id}", Path.root_path(), db_ctx.dict(), decode_keys=True)
-        )
+        await ctx.save()
 
         logger.info("created ctx for tg {}", chat_id)
 
         return ctx
+
+    async def get_who_needs_broadcast(
+        self,
+        groups: list[str]
+    ) -> list:
+        if not groups:
+            return []
+
+        affected_groups_query = "|".join(groups)
+
+        query = Query(
+            f"@{RedisName.IS_REGISTERED}:(1) "
+            f"@{RedisName.BROADCAST}:(1) "
+            #f"@{RedisName.GROUP}:({affected_groups_query})"
+        )
+
+        return await defs.redis.ft(RedisName.BROADCAST).search(query)
 
     async def broadcast_mappings(
         self,
@@ -251,132 +284,130 @@ class Ctx:
     ):
         from src.api.schedule import SCHEDULE_API
 
-        groups = [group.name for group in mappings]
+        affected_groups = [group.name for group in mappings]
+        chats_that_need_broadcast = await self.get_who_needs_broadcast(affected_groups)
+        
+        print(chats_that_need_broadcast)
+        return
 
-        CTX_TYPES = {
-            Source.VK: self.vk,
-            Source.TG: self.tg
-        }
+        for (chat_id, ctx) in storage.items():
+            if not ctx.is_registered:
+                continue
 
-        for (src, storage) in CTX_TYPES.items():
-            storage: dict[int, BaseCtx]
+            user_group = ctx.settings.group.confirmed
+            should_broadcast = (
+                ctx.settings.broadcast
+                if invoker is None or ctx.chat_id != invoker.chat_id else True
+            )
 
-            for (chat_id, ctx) in storage.items():
-                if not ctx.is_registered:
-                    continue
+            if not should_broadcast:
+                continue
 
-                user_group = ctx.settings.group.confirmed
-                should_broadcast = (
-                    ctx.settings.broadcast
-                    if invoker is None or ctx.chat_id != invoker.chat_id else True
+            if user_group not in groups:
+                continue
+
+            mappings_to_send = [
+                mapping for mapping in mappings if mapping.name == user_group
+            ]
+            
+            for mapping in mappings_to_send:
+                opposite_type: TYPE_LITERAL
+                no_message_to_reply_to = False
+                reply_to = None
+
+                if mapping.sc_type == Type.DAILY:
+                    opposite_type = Type.WEEKLY
+                    page = await SCHEDULE_API.daily()
+
+                    if ctx.last_weekly_message is not None:
+                        reply_to = ctx.last_weekly_message.id
+                    else:
+                        no_message_to_reply_to = True
+
+                elif mapping.sc_type == Type.WEEKLY:
+                    opposite_type = Type.DAILY
+                    page = await SCHEDULE_API.weekly()
+
+                    if ctx.last_daily_message is not None:
+                        reply_to = ctx.last_daily_message.id
+                    else:
+                        no_message_to_reply_to = True
+
+                fmt_schedule: str = await sc_format.group(
+                    page.get_group(mapping.name),
+                    ctx.settings.zoom.entries.list
                 )
 
-                if not should_broadcast:
-                    continue
+                reply_hint = messages.format_replied_to_schedule_message(
+                    opposite_type
+                )
+                failed_reply_hint = messages.format_failed_reply_to_schedule_message(
+                    opposite_type
+                )
 
-                if user_group not in groups:
-                    continue
+                whole_text_no_reply_hint = (
+                    f"{mapping.header}\n\n{fmt_schedule}"
+                )
+                whole_text_with_reply = (
+                    f"{reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
+                )
+                whole_text_failed_reply = (
+                    f"{failed_reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
+                )
 
-                mappings_to_send = [
-                    mapping for mapping in mappings if mapping.name == user_group
-                ]
+                message = CommonBotMessage(
+                    can_edit = False,
+                    text     = whole_text_with_reply,
+                    keyboard = kb.Keyboard([
+                        [kb.UPDATE_BUTTON],
+                        [kb.RESEND_BUTTON],
+                        [kb.SETTINGS_BUTTON],
+                        [
+                            SCHEDULE_API.ft_daily_url_button(),
+                            SCHEDULE_API.ft_weekly_url_button()
+                        ],
+                        [SCHEDULE_API.r_weekly_url_button()],
+                        [kb.MATERIALS_BUTTON, kb.JOURNALS_BUTTON],
+                    ], add_back = False),
+                    src      = src,
+                    chat_id  = chat_id,
+                    reply_to = reply_to,
+                )
+
+                if no_message_to_reply_to:
+                    message.text = whole_text_no_reply_hint
+
+                logger.info(f"broadcasting {mapping.sc_type} to {ctx.chat_id}")
+
+                try:
+                    message = await message.send()
+                    await ctx.set_last_bot_message(message)
+                except VKAPIError[913]:
+                    logger.warning(
+                        f"(broadcasting {mapping.sc_type}) "
+                        f"{ctx.chat_id} has too many fwd messages, "
+                        f"proceeding without forwarding"
+                    )
+
+                    message.text = whole_text_failed_reply
+                    message.reply_to = None
+
+                    msg = await message.send()
+                    await ctx.set_last_bot_message(msg)
+                except Exception as e:
+                    logger.error(
+                        f"cannot broadcast {mapping.sc_type} to {ctx.chat_id}: {e}"
+                    )
                 
-                for mapping in mappings_to_send:
-                    opposite_type: TYPE_LITERAL
-                    no_message_to_reply_to = False
-                    reply_to = None
+                ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
 
-                    if mapping.sc_type == Type.DAILY:
-                        opposite_type = Type.WEEKLY
-                        page = await SCHEDULE_API.daily()
+                if mapping.sc_type == Type.DAILY:
+                    ctx.last_daily_message = ctx.last_bot_message
+                elif mapping.sc_type == Type.WEEKLY:
+                    ctx.last_weekly_message = ctx.last_bot_message
 
-                        if ctx.last_weekly_message is not None:
-                            reply_to = ctx.last_weekly_message.id
-                        else:
-                            no_message_to_reply_to = True
-
-                    elif mapping.sc_type == Type.WEEKLY:
-                        opposite_type = Type.DAILY
-                        page = await SCHEDULE_API.weekly()
-
-                        if ctx.last_daily_message is not None:
-                            reply_to = ctx.last_daily_message.id
-                        else:
-                            no_message_to_reply_to = True
-
-                    fmt_schedule: str = await sc_format.group(
-                        page.get_group(mapping.name),
-                        ctx.settings.zoom.entries.list
-                    )
-
-                    reply_hint = messages.format_replied_to_schedule_message(
-                        opposite_type
-                    )
-                    failed_reply_hint = messages.format_failed_reply_to_schedule_message(
-                        opposite_type
-                    )
-
-                    whole_text_no_reply_hint = (
-                        f"{mapping.header}\n\n{fmt_schedule}"
-                    )
-                    whole_text_with_reply = (
-                        f"{reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
-                    )
-                    whole_text_failed_reply = (
-                        f"{failed_reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
-                    )
-
-                    message = CommonBotMessage(
-                        can_edit = False,
-                        text     = whole_text_with_reply,
-                        keyboard = kb.Keyboard([
-                            [kb.UPDATE_BUTTON],
-                            [kb.RESEND_BUTTON],
-                            [kb.SETTINGS_BUTTON],
-                            [
-                                SCHEDULE_API.ft_daily_url_button(),
-                                SCHEDULE_API.ft_weekly_url_button()
-                            ],
-                            [SCHEDULE_API.r_weekly_url_button()],
-                            [kb.MATERIALS_BUTTON, kb.JOURNALS_BUTTON],
-                        ], add_back = False),
-                        src      = src,
-                        chat_id  = chat_id,
-                        reply_to = reply_to,
-                    )
-
-                    if no_message_to_reply_to:
-                        message.text = whole_text_no_reply_hint
-
-                    logger.info(f"broadcasting {mapping.sc_type} to {ctx.chat_id}")
-
-                    try:
-                        ctx.last_bot_message = await message.send()
-                    except VKAPIError[913]:
-                        logger.warning(
-                            f"(broadcasting {mapping.sc_type}) "
-                            f"{ctx.chat_id} has too many fwd messages, "
-                            f"proceeding without forwarding"
-                        )
-
-                        message.text = whole_text_failed_reply
-                        message.reply_to = None
-
-                        ctx.last_bot_message = await message.send()
-                    except Exception as e:
-                        logger.error(
-                            f"cannot broadcast {mapping.sc_type} to {ctx.chat_id}: {e}"
-                        )
-                    
-                    ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
-
-                    if mapping.sc_type == Type.DAILY:
-                        ctx.last_daily_message = ctx.last_bot_message
-                    elif mapping.sc_type == Type.WEEKLY:
-                        ctx.last_weekly_message = ctx.last_bot_message
-
-                    if ctx.settings.should_pin:
-                        await ctx.last_bot_message.safe_pin()
+                if ctx.settings.should_pin:
+                    await ctx.last_bot_message.safe_pin()
 
     async def broadcast(self, notify: Notify, invoker: Optional[BaseCtx] = None):
         from src.data.schedule.compare import ChangeType
@@ -451,12 +482,11 @@ class BaseCommonEvent(BaseModel):
         if self.ctx is not None:
             return self.ctx
         
-        if self.is_from_vk:
-            db_ctx = await defs.redis.json().get(f"VK_{self.chat_id}")
-        elif self.is_from_tg:
-            db_ctx = await defs.redis.json().get(f"TG_{self.chat_id}")
-        
+        DbBaseCtx.upd_forward_refs()
+
+        db_ctx = await defs.redis.json().get(f"{self.src.upper()}_{self.chat_id}")
         db_ctx_parsed = DbBaseCtx.parse_obj(db_ctx)
+
         self.set_ctx(db_ctx_parsed.to_runtime())
         
         return self.ctx
@@ -772,7 +802,7 @@ class CommonMessage(BaseCommonEvent):
             tree_values = tree_values
         )
 
-        self.ctx.last_bot_message = bot_message
+        await self.ctx.set_last_bot_message(bot_message)
 
 class CommonBotMessage(BaseModel):
     """
@@ -1177,7 +1207,7 @@ class CommonEvent(BaseCommonEvent):
             tree_values = tree_values
         )
 
-        self.ctx.last_bot_message = bot_message
+        await self.ctx.set_last_bot_message(bot_message)
 
     async def send_message(
         self,
@@ -1242,7 +1272,7 @@ class CommonEvent(BaseCommonEvent):
             tree_values = tree_values
         )
 
-        self.ctx.last_bot_message = bot_message
+        await self.ctx.set_last_bot_message(bot_message)
 
 class CommonEverything(BaseCommonEvent):
     """

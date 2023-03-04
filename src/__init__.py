@@ -3,6 +3,7 @@ import datetime
 import re
 import aiofiles
 from redis.asyncio import Redis
+from redis.commands.search.field import TextField, TagField
 from redis import exceptions as rexeptions
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from aiofiles import ospath
@@ -24,6 +25,12 @@ if TYPE_CHECKING:
 
 ENV_PATH = ".env"
 COLOR_ESCAPE_REGEX = re.compile(r"\x1b[[]\d{1,}m")
+
+
+class RedisName:
+    IS_REGISTERED = "is_registered"
+    BROADCAST = "broadcast"
+    GROUP = "group"
 
 
 def sink(message: Message):
@@ -168,6 +175,24 @@ class Defs:
                 
                 await asyncio.sleep(retry)
 
+    async def create_redisearch_index(self):
+        ...
+    
+    async def check_redisearch_index(self):
+        try:
+            # try getting info about broadcast index
+            info = await self.redis.ft(RedisName.BROADCAST).info()
+        except rexeptions.ResponseError:
+            # Unknown Index name
+            # it doesn't exist, create this index
+            await self.redis.ft(RedisName.BROADCAST).create_index([
+                TextField("$.settings.group.confirmed", as_name="group"),
+                TagField("$.settings.broadcast", as_name="broadcast"),
+                TagField("$.is_registered", as_name="is_registered")
+            ])
+            info = await self.redis.ft(RedisName.BROADCAST).info()
+            logger.info("created redis \"broadcast\" index")
+
     def init_redis(self):
         no_addr_error = ValueError("put redis connection details to the .env file like this: REDIS = \"127.0.0.1:6379\"")
         invalid_addr_error = ValueError("invalid addr for redis, make sure there is a \":\" in it like this: 127.0.0.1:6379")
@@ -184,6 +209,7 @@ class Defs:
 
         self.redis = Redis(host=host, port=port)
         self.loop.run_until_complete(self.wait_for_redis())
+        self.loop.run_until_complete(self.check_redisearch_index())
 
     def init_vars(
         self, 

@@ -87,6 +87,7 @@ class OldMessagesBlock(EventMiddleware):
             )
 
             # send last bot message again
-            user_ctx.last_bot_message = await user_ctx.last_bot_message.send()
+            msg = await user_ctx.last_bot_message.send()
+            await user_ctx.set_last_bot_message(msg)
 
             return
