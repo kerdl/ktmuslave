@@ -36,7 +36,7 @@ class Notify(BaseModel):
     weekly: Optional[compare.PageCompare]
 
     def has_any_updates(self):
-        self.daily is not None and self.weekly is not None
+        return self.daily is not None and self.weekly is not None
     
     def has_updates_for_group(self, name: str):
         for page_compare in [self.daily, self.weekly]:
