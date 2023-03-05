@@ -176,21 +176,28 @@ class Defs:
                 await asyncio.sleep(retry)
 
     async def create_redisearch_index(self):
-        ...
-    
+        # i couldn't figure out how to generate
+        # this exact command with redis-py built-in
+        # instruments
+        await self.redis.execute_command(
+            "FT.CREATE",
+            RedisName.BROADCAST,
+            "ON",
+            "JSON",
+            "SCHEMA",
+            "$.settings.group.confirmed", "AS", "group", "TEXT",
+            "$.settings.broadcast", "AS", "broadcast", "TAG",
+            "$.is_registered", "AS", "is_registered", "TAG",
+        )
+
     async def check_redisearch_index(self):
         try:
             # try getting info about broadcast index
-            info = await self.redis.ft(RedisName.BROADCAST).info()
+            await self.redis.ft(RedisName.BROADCAST).info()
         except rexeptions.ResponseError:
             # Unknown Index name
             # it doesn't exist, create this index
-            await self.redis.ft(RedisName.BROADCAST).create_index([
-                TextField("$.settings.group.confirmed", as_name="group"),
-                TagField("$.settings.broadcast", as_name="broadcast"),
-                TagField("$.is_registered", as_name="is_registered")
-            ])
-            info = await self.redis.ft(RedisName.BROADCAST).info()
+            await self.create_redisearch_index()
             logger.info("created redis \"broadcast\" index")
 
     def init_redis(self):

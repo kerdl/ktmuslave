@@ -179,12 +179,14 @@ class BaseCtx:
     
     async def save(self):
         prefix = self.last_everything.src.upper()
+        key = f"{prefix}_{self.chat_id}"
+
         self_db = self.to_db()
-    
+
         await defs.redis.json(
             encoder=JSONEncoder(default=str)
         ).set(
-            f"{prefix}_{self.chat_id}",
+            key,
             Path.root_path(),
             self_db.dict(),
             decode_keys=True
@@ -270,9 +272,9 @@ class Ctx:
         affected_groups_query = "|".join(groups)
 
         query = Query(
-            f"@{RedisName.IS_REGISTERED}:(1) "
-            f"@{RedisName.BROADCAST}:(1) "
-            #f"@{RedisName.GROUP}:({affected_groups_query})"
+            f"@{RedisName.IS_REGISTERED}:""{true} "
+            f"@{RedisName.BROADCAST}:""{true} "
+            f"@{RedisName.GROUP}:({affected_groups_query})"
         )
 
         return await defs.redis.ft(RedisName.BROADCAST).search(query)
