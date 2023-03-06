@@ -207,7 +207,7 @@ def days(
 
 async def group(
     group: Optional[Group],
-    entries: set[zoom.Data]
+    entries: list[zoom.Data]
 ) -> str:
     from src.api.schedule import SCHEDULE_API
 

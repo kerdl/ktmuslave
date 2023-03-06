@@ -11,10 +11,11 @@ from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.codegen.objects import MessagesMessageActionStatus
-from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
+from aiogram.types import Message as TgMessage, CallbackQuery
 from aiogram.exceptions import TelegramRetryAfter
 from redis.commands.json.path import Path
 from redis.commands.search.query import Query
+from redis.commands.search.result import Result
 
 from src import defs, RedisName
 from src.svc import vk, telegram as tg
@@ -26,7 +27,7 @@ from src.svc.common import pagination, messages
 from src.svc.vk.types_ import RawEvent
 from src.svc.common import keyboard as kb
 from src.data import RepredBaseModel
-from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL
+from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL, Page
 from src.data.settings import Settings
 from src.api.schedule import Notify
 from .states.tree import Space
@@ -54,9 +55,34 @@ DB_BASE_CTX_UPDATED_FORWARD_REFS = False
 
 @dataclass
 class BroadcastGroup:
-    name: str
+    group: str
     header: str
     sc_type: TYPE_LITERAL
+
+    @property
+    def is_daily(self) -> bool:
+        return self.sc_type == Type.DAILY
+    
+    @property
+    def is_weekly(self) -> bool:
+        return self.sc_type == Type.WEEKLY
+
+    def add_header_to(self, fmt_schedule: str) -> str:
+        return f"{self.header}\n\n{fmt_schedule}"
+
+    @staticmethod
+    def filter_for_group(
+        group: str,
+        mappings: list[BroadcastGroup]
+    ) -> list[BroadcastGroup]:
+        relatives = []
+
+        """ # Search for relative mapping """
+        for mapping in mappings:
+            if mapping.group == group:
+                relatives.append(mapping)
+
+        return relatives
 
 class DbBaseCtx(BaseModel):
     chat_id: int
@@ -75,7 +101,7 @@ class DbBaseCtx(BaseModel):
     last_weekly_message: Optional[CommonBotMessage]
 
     @classmethod
-    def upd_forward_refs(cls):
+    def ensure_update_forward_refs(cls):
         global DB_BASE_CTX_UPDATED_FORWARD_REFS
 
         if not DB_BASE_CTX_UPDATED_FORWARD_REFS:
@@ -84,7 +110,7 @@ class DbBaseCtx(BaseModel):
 
     @classmethod
     def from_runtime(cls: type[DbBaseCtx], ctx: BaseCtx) -> DbBaseCtx:
-        DbBaseCtx.upd_forward_refs()
+        DbBaseCtx.ensure_update_forward_refs()
         
         return cls(
             chat_id=ctx.chat_id,
@@ -153,6 +179,9 @@ class BaseCtx:
     last_daily_message: Optional[CommonBotMessage] = None
     last_weekly_message: Optional[CommonBotMessage] = None
 
+    @property
+    def db_key(self) -> str:
+        return f"{self.last_everything.src.upper()}_{self.chat_id}"
 
     @classmethod
     def from_db(cls: type[BaseCtx], db: DbBaseCtx) -> BaseCtx:
@@ -178,15 +207,12 @@ class BaseCtx:
         await self.save()
     
     async def save(self):
-        prefix = self.last_everything.src.upper()
-        key = f"{prefix}_{self.chat_id}"
-
-        self_db = self.to_db()
+        self_db = await defs.loop.run_in_executor(None, self.to_db)
 
         await defs.redis.json(
             encoder=JSONEncoder(default=str)
         ).set(
-            key,
+            self.db_key,
             Path.root_path(),
             self_db.dict(),
             decode_keys=True
@@ -215,6 +241,165 @@ class BaseCtx:
         self.last_everything = everything
         self.navigator.set_everything(everything)
 
+    async def schedule_for_confirmed_group(
+        self,
+        sc_type: TYPE_LITERAL
+    ) -> Page:
+        from src.api.schedule import SCHEDULE_API
+
+        if sc_type == Type.DAILY:
+            return await SCHEDULE_API.daily(self.settings.group.confirmed)
+        if sc_type == Type.WEEKLY:
+            return await SCHEDULE_API.weekly(self.settings.group.confirmed)
+    
+    async def fmt_schedule_for_confirmed_group(
+        self,
+        sc_type: TYPE_LITERAL
+    ) -> str:
+        page = await self.schedule_for_confirmed_group(sc_type)
+
+        try: group = page.groups[0]
+        except IndexError: group = None
+
+        return await sc_format.group(
+            group,
+            self.settings.zoom.entries.list
+        )
+
+    async def send_custom_broadcast(
+        self,
+        message: CommonBotMessage,
+        sc_type: TYPE_LITERAL
+    ):
+        new_message = await message.send()
+
+        # we do that after 'cause of the sending delay,
+        # and going back to hub state before the message
+        # is sent causes bugs if used was actively
+        # interacting with the bot
+        self.navigator.jump_back_to_or_append(HUB.I_MAIN)
+
+        if sc_type == Type.DAILY:
+            self.last_daily_message = new_message
+        elif sc_type == Type.WEEKLY:
+            self.last_weekly_message = new_message
+        
+        self.last_bot_message = new_message
+
+        await self.save()
+
+        if self.settings.should_pin:
+            await new_message.safe_pin()
+    
+    async def retry_send_custom_broadcast(
+        self,
+        message: CommonBotMessage,
+        sc_type: TYPE_LITERAL,
+        max_tries: int = 3,
+        interval: int = 60 # in secs
+    ):
+        tries = 0
+        errors = []
+        successful = False
+
+        while tries < max_tries:
+            try:
+                await self.send_custom_broadcast(message, sc_type)
+                successful = True
+                break
+            except Exception as e:
+                tries += 1
+                errors.append(f"{type(e).__name__}({e})")
+                await asyncio.sleep(interval)
+        
+        if successful:
+            logger.opt(colors=True).success(
+                f"<G><k><d>BROADCASTING {sc_type.upper()} {self.db_key}</></></> "
+                f"succeeded after {tries} times"
+            )
+        else:
+            logger.opt(colors=True).error(
+                f"<R><k><d>BROADCASTING {sc_type.upper()} {self.db_key}</></></> "
+                f"failed all {max_tries} times with errors: {' | '.join(errors)}"
+            )
+        
+    async def send_broadcast(self, mappings: list[BroadcastGroup]):
+        for mapping in mappings:
+            reply_to = None
+            fmt_schedule = await self.fmt_schedule_for_confirmed_group(mapping.sc_type)
+            bcast_text = mapping.add_header_to(fmt_schedule)
+            bcast_text_with_reply_hint = (
+                f"{messages.format_replied_to_schedule_message(mapping.sc_type)}\n\n"
+                f"{bcast_text}"
+            )
+            bcast_text_failed_reply_hint = (
+                f"{messages.format_failed_reply_to_schedule_message(mapping.sc_type)}\n\n"
+                f"{bcast_text}"
+            )
+
+            if mapping.is_daily:
+                if not self.last_weekly_message:
+                    bcast_text_with_reply_hint = bcast_text
+                else:
+                    reply_to = self.last_weekly_message.id if self.last_weekly_message else None
+            elif mapping.is_weekly:
+                if not self.last_daily_message:
+                    bcast_text_with_reply_hint = bcast_text
+                else:
+                    reply_to = self.last_daily_message.id if self.last_daily_message else None
+
+            bcast_message = CommonBotMessage(
+                text=bcast_text_with_reply_hint,
+                keyboard=await kb.Keyboard.hub_broadcast_default(),
+                can_edit=False,
+                src=self.last_everything.src,
+                chat_id=self.chat_id,
+                reply_to=reply_to,
+            )
+
+            logger.opt(colors=True).info(
+                f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key}</></></> "
+                f"{mapping.header}"
+            )
+
+            try:
+                await self.send_custom_broadcast(
+                    message=bcast_message,
+                    sc_type=mapping.sc_type
+                )
+            except VKAPIError[913]: # too many fwd messages
+                logger.opt(colors=True).warning(
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key}</></></> "
+                    f"too many forwarded messages, "
+                    f"proceeding without forwarding"
+                )
+
+                bcast_message.reply_to = None
+                bcast_message.text = bcast_text_failed_reply_hint
+
+                await self.send_custom_broadcast(
+                    message=bcast_message,
+                    sc_type=mapping.sc_type
+                )
+            except Exception as e:
+                max_tries = 3
+                interval = 60 # in secs
+
+                logger.opt(colors=True).warning(
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key}</></></> "
+                    f"unknown exception: {type(e).__name__}({e}), will retry {max_tries} times every {interval} s"
+                )
+
+                defs.loop.create_task(
+                    self.retry_send_custom_broadcast(
+                        message=bcast_message,
+                        sc_type=mapping.sc_type,
+                        max_tries=max_tries,
+                        interval=interval
+                    )
+                )
+
+
 @dataclass
 class DbIterator(Generic[MESSENGER_SOURCE_T]):
     ...
@@ -227,47 +412,43 @@ class Ctx:
     
     async def add_from_everything(self, everything: CommonEverything) -> BaseCtx:
         if everything.is_from_vk:
-            ctx = await self.add_vk(everything.chat_id, everything)
+            ctx = await self.add_vk(everything)
         elif everything.is_from_tg:
-            if everything.is_from_event:
-                ctx = await self.add_tg(everything.event.tg.message.chat.id, everything)
-            elif everything.is_from_message:
-                ctx = await self.add_tg(everything.message.tg.chat.id, everything)
-        
-        ctx.set_everything(everything)
+            ctx = await self.add_tg(everything)
 
         return ctx
 
-    async def add_vk(self, peer_id: int, everything: Optional[CommonEverything] = None) -> BaseCtx:
+    async def add(
+        self,
+        everything: Optional[CommonEverything] = None
+    ) -> BaseCtx:
         ctx = BaseCtx(
-            chat_id=peer_id,
+            chat_id=everything.chat_id,
             last_call=time.time(),
         )
         ctx.set_everything(everything)
         await ctx.save()
 
-        logger.info("created ctx for vk {}", peer_id)
+        return ctx
+
+    async def add_vk(self, everything: Optional[CommonEverything] = None) -> BaseCtx:
+        ctx = self.add(everything)
+        logger.info("created ctx for vk {}", everything.chat_id)
 
         return ctx
 
-    async def add_tg(self, chat_id: int, everything: Optional[CommonEverything] = None) -> BaseCtx:
-        ctx = BaseCtx(
-            chat_id=chat_id,
-            last_call=time.time(),
-        )
-        ctx.set_everything(everything)
-        await ctx.save()
-
-        logger.info("created ctx for tg {}", chat_id)
+    async def add_tg(self, everything: Optional[CommonEverything] = None) -> BaseCtx:
+        ctx = self.add(everything)
+        logger.info("created ctx for tg {}", everything.chat_id)
 
         return ctx
 
     async def get_who_needs_broadcast(
         self,
         groups: list[str]
-    ) -> list:
+    ) -> Optional[Result]:
         if not groups:
-            return []
+            return None
 
         affected_groups_query = "|".join(groups)
 
@@ -277,7 +458,46 @@ class Ctx:
             f"@{RedisName.GROUP}:({affected_groups_query})"
         )
 
-        return await defs.redis.ft(RedisName.BROADCAST).search(query)
+        response: Result = await defs.redis.ft(RedisName.BROADCAST).search(query)
+
+        return response
+
+    async def parse_redis_result(self, result: Result) -> list[BaseCtx]:
+        ctxs: list[BaseCtx] = []
+
+        for document in result.docs:
+            document.id: str # key, looks like "TG_133769696"
+            #                         messenger ^      ^ chat id
+            document.json: str # value, the ctx json
+
+            # run_in_executor means regular function
+            # being executed as async function
+
+            # convert ['{"string json": "ctx"}' -> DbBaseCtx]
+            # in executor
+            db_ctx = await defs.loop.run_in_executor(
+                None,
+                DbBaseCtx.parse_raw,
+                document.json
+            )
+            # convert [DbBaseCtx -> BaseCtx]
+            # in executor
+            ctx = await defs.loop.run_in_executor(
+                None,
+                db_ctx.to_runtime
+            )
+
+            ctxs.append(ctx)
+
+        return ctxs
+
+    async def get_who_needs_broadcast_parsed(self, groups: list[str]) -> list[BaseCtx]:
+        raw_result = await self.get_who_needs_broadcast(groups)
+
+        if raw_result is None:
+            return []
+
+        return await self.parse_redis_result(raw_result)
 
     async def broadcast_mappings(
         self,
@@ -286,10 +506,15 @@ class Ctx:
     ):
         from src.api.schedule import SCHEDULE_API
 
-        affected_groups = [group.name for group in mappings]
-        chats_that_need_broadcast = await self.get_who_needs_broadcast(affected_groups)
-        
-        print(chats_that_need_broadcast)
+        affected_groups = [mapping.group for mapping in mappings]
+        chats_that_need_broadcast = await self.get_who_needs_broadcast_parsed(affected_groups)
+
+        for chat in chats_that_need_broadcast:
+            chat_group = chat.settings.group.confirmed
+            chat_relative_mappings = BroadcastGroup.filter_for_group(chat_group, mappings)
+            
+            await chat.send_broadcast(chat_relative_mappings)
+
         return
 
         for (chat_id, ctx) in storage.items():
@@ -484,7 +709,7 @@ class BaseCommonEvent(BaseModel):
         if self.ctx is not None:
             return self.ctx
         
-        DbBaseCtx.upd_forward_refs()
+        DbBaseCtx.ensure_update_forward_refs()
 
         db_ctx = await defs.redis.json().get(f"{self.src.upper()}_{self.chat_id}")
         db_ctx_parsed = DbBaseCtx.parse_obj(db_ctx)

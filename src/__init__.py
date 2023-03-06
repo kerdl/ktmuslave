@@ -217,6 +217,9 @@ class Defs:
         self.redis = Redis(host=host, port=port)
         self.loop.run_until_complete(self.wait_for_redis())
         self.loop.run_until_complete(self.check_redisearch_index())
+        
+        from src.svc.common import DbBaseCtx
+        DbBaseCtx.ensure_update_forward_refs()
 
     def init_vars(
         self, 

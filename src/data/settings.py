@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Optional, Any
-from dataclasses import dataclass
 from pydantic import BaseModel, Field as PydField
 
 from src.data import zoom

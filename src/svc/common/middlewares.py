@@ -91,3 +91,8 @@ class OldMessagesBlock(EventMiddleware):
             await user_ctx.set_last_bot_message(msg)
 
             return
+
+#@r.middleware()
+#class SaveCtxToDb(Middleware):
+#    async def post(self, everything: CommonEverything):
+#        await everything.ctx.save()

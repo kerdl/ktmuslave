@@ -193,6 +193,47 @@ class Keyboard(BaseModel):
         __pydantic_self__.schematic = schematic if schematic is not None else []
 
     @classmethod
+    def hub_default(cls: Keyboard, sc_type: schedule.TYPE_LITERAL) -> Keyboard:
+        from src.api.schedule import SCHEDULE_API
+
+        is_daily = sc_type == schedule.Type.DAILY
+        is_weekly = sc_type == schedule.Type.WEEKLY
+
+        return cls([
+            [
+                WEEKLY_BUTTON.only_if(is_daily),
+                DAILY_BUTTON.only_if(is_weekly),
+                UPDATE_BUTTON
+            ],
+            #[kb.FOLD_BUTTON.only_if(is_unfolded)],
+            #[kb.UNFOLD_BUTTON.only_if(is_folded)],
+            [RESEND_BUTTON],
+            [SETTINGS_BUTTON],
+            [
+                SCHEDULE_API.ft_daily_url_button(),
+                SCHEDULE_API.ft_weekly_url_button()
+            ],
+            [SCHEDULE_API.r_weekly_url_button()],
+            [MATERIALS_BUTTON, JOURNALS_BUTTON],
+        ], add_back=False)
+
+    @classmethod
+    async def hub_broadcast_default(cls: Keyboard) -> Keyboard:
+        from src.api.schedule import SCHEDULE_API
+
+        return cls([
+            [UPDATE_BUTTON],
+            [RESEND_BUTTON],
+            [SETTINGS_BUTTON],
+            [
+                SCHEDULE_API.ft_daily_url_button(),
+                SCHEDULE_API.ft_weekly_url_button()
+            ],
+            [SCHEDULE_API.r_weekly_url_button()],
+            [MATERIALS_BUTTON, JOURNALS_BUTTON],
+        ], add_back=False)
+
+    @classmethod
     def from_dataclass(
         cls: type[Keyboard],
         dataclass: Union[Translated, Emojized, Repred], 
