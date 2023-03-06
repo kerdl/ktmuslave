@@ -27,10 +27,14 @@ async def update(everything: CommonEverything):
         )
         return await everything.event.show_notification(message)
 
+    defs.add_update_waiter(everything.ctx)
+
     try:
         async with async_timeout.timeout(10):
             notify = await ctx.schedule.update()
     except asyncio.TimeoutError:
+        defs.del_update_waiter(everything.ctx.db_key)
+
         message = messages.format_updates_timeout()
         return await everything.event.show_notification(message)
 
@@ -107,23 +111,7 @@ async def hub(
         messages.Builder()
                 .add(schedule_text)
     )
-    answer_keyboard = kb.Keyboard([
-        [
-            kb.WEEKLY_BUTTON.only_if(is_daily),
-            kb.DAILY_BUTTON.only_if(is_weekly),
-            kb.UPDATE_BUTTON
-        ],
-        #[kb.FOLD_BUTTON.only_if(is_unfolded)],
-        #[kb.UNFOLD_BUTTON.only_if(is_folded)],
-        [kb.RESEND_BUTTON],
-        [kb.SETTINGS_BUTTON],
-        [
-            SCHEDULE_API.ft_daily_url_button(),
-            SCHEDULE_API.ft_weekly_url_button()
-        ],
-        [SCHEDULE_API.r_weekly_url_button()],
-        [kb.MATERIALS_BUTTON, kb.JOURNALS_BUTTON],
-    ], add_back = False)
+    answer_keyboard = kb.Keyboard.hub_default(ctx.schedule.message.type)
 
     if (
         everything.is_from_event and (

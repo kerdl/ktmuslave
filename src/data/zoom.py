@@ -147,13 +147,16 @@ class Data(BaseModel, Translated, Emojized):
         return warns
     
     def check(self):
-        self.name.warnings = self.check_name(self.name.value)
+        for warn in self.check_name(self.name.value):
+            self.name.warnings.add(warn)
 
         if hasattr(self, "url") and self.url.value is not None:
-            self.url.warnings = self.check_url(self.url.value)
+            for warn in self.check_url(self.url.value):
+                self.url.warnings.add(warn)
         
         if hasattr(self, "id") and self.id.value is not None:
-            self.id.warnings = self.check_id(self.id.value)
+            for warn in self.check_id(self.id.value):
+                self.id.warnings.add(warn)
 
     def fields(
         self, 
@@ -299,7 +302,7 @@ class Entries(BaseModel):
     """
 
     @classmethod
-    def from_set(cls: type[Entries], list: list[Data]):
+    def from_list(cls: type[Entries], list: list[Data]):
         return cls(list = list)
     
     @property
@@ -349,7 +352,7 @@ class Entries(BaseModel):
 
     def add(
         self, 
-        data: Union[Data, set[Data], list[Data]], 
+        data: Union[Data, list[Data]], 
         overwrite: bool = False
     ):
         if isinstance(data, (set, list)):
@@ -357,13 +360,13 @@ class Entries(BaseModel):
                 if data_obj in self.list and overwrite:
                     self.list.remove(data_obj)
 
-                self.list.add(data_obj)
+                self.list.append(data_obj)
         
         elif isinstance(data, Data):
             if data in self.list and overwrite:
                 self.list.remove(data)
 
-            self.list.add(data)
+            self.list.append(data)
 
     def add_from_name(self, name: str):
         data = Data(name=Field(value=name))
@@ -543,14 +546,14 @@ class Container(BaseModel):
 
     @property
     def adding(self) -> Entries:
-        return Entries.from_set(
-            self.new_entries.list.difference(self.entries.list)
+        return Entries.from_list(
+            list(set(self.new_entries.list).difference(set(self.entries.list)))
         )
 
     @property
     def overwriting(self) -> Entries:
-        return Entries.from_set(
-            self.entries.list.intersection(self.new_entries.list)
+        return Entries.from_list(
+            list(set(self.entries.list).intersection(set(self.new_entries.list)))
         )
 
     def finish(self) -> None:

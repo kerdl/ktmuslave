@@ -32,9 +32,11 @@ class BotMentionFilter(MessageMiddleware):
 class CtxCheck(Middleware):
     async def pre(self, everything: CommonEverything):
         if not await defs.ctx.is_added(everything):
-            everything.set_ctx(await defs.ctx.add_from_everything(everything))
+            added_ctx = await defs.ctx.add_from_everything(everything)
+            everything.set_ctx(added_ctx)
         else:
             await everything.load_ctx()
+            everything.ctx.last_everything = everything
 
 @r.middleware()
 class Throttling(Middleware):
@@ -92,7 +94,8 @@ class OldMessagesBlock(EventMiddleware):
 
             return
 
-#@r.middleware()
-#class SaveCtxToDb(Middleware):
-#    async def post(self, everything: CommonEverything):
-#        await everything.ctx.save()
+@r.middleware()
+class SaveCtxToDb(Middleware):
+    async def post(self, everything: CommonEverything):
+        await everything.ctx.save()
+        everything.del_ctx()

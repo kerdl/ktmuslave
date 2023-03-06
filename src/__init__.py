@@ -21,7 +21,7 @@ from dotenv import get_key
 
 
 if TYPE_CHECKING:
-    from src.svc.common import Ctx
+    from src.svc.common import Ctx, BaseCtx
 
 ENV_PATH = ".env"
 COLOR_ESCAPE_REGEX = re.compile(r"\x1b[[]\d{1,}m")
@@ -109,6 +109,8 @@ class Defs:
     log_dir: Optional[Path] = None
     log_path: Optional[Path] = None
     log_file: Optional[AsyncTextIOWrapper] = None
+
+    update_waiters: Optional[list["BaseCtx"]] = None
 
     def init_all(
         self, 
@@ -255,6 +257,8 @@ class Defs:
 
         self.loop.run_until_complete(self.init_schedule_api())
 
+        self.update_waiters = []
+
     def init_fs(self) -> None:
         self.data_dir = Path(".", "data")
         self.data_dir.mkdir(exist_ok=True)
@@ -308,5 +312,28 @@ class Defs:
                 fn = "unknown"
 
             logger.exception(f"task function <{fn}> raised {type(e).__name__}: {e}")
+
+    def add_update_waiter(self, waiter: "BaseCtx"):
+        self.update_waiters.append(waiter)
+    
+    def del_update_waiter(self, db_key: str):
+        for index, waiter in enumerate(self.update_waiters):
+            waiter: "BaseCtx"
+
+            if waiter.db_key == db_key:
+                self.update_waiters.pop(index)
+                break
+    
+    def clean_update_waiters(self):
+        self.update_waiters = []
+    
+    @property
+    def update_waiters_db_keys(self) -> list[str]:
+        waiters_db_keys: list[str] = []
+
+        for waiter in self.update_waiters:
+            waiters_db_keys.append(waiter.db_key)
+        
+        return waiters_db_keys
 
 defs = Defs()

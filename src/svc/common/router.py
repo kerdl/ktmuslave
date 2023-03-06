@@ -42,7 +42,10 @@ class VkRawCatcher(BaseMiddleware[RawEvent]):
         event = CommonEvent.from_vk(self.event)
         everything = CommonEverything.from_event(event)
 
-        await r.choose_handler(everything)
+        try:
+            await r.choose_handler(everything)
+        except Exception as e:
+            logger.exception(f"{type(e).__name__}({e})")
 
 class VkMessageCatcher(BaseMiddleware[VkMessage]):
     async def pre(self) -> None:
@@ -52,7 +55,10 @@ class VkMessageCatcher(BaseMiddleware[VkMessage]):
         message = CommonMessage.from_vk(self.event)
         everything = CommonEverything.from_message(message)
         
-        await r.choose_handler(everything)
+        try:
+            await r.choose_handler(everything)
+        except Exception as e:
+            logger.exception(f"{type(e).__name__}({e})")
 
 class TgUpdateCatcher:
     async def __call__(

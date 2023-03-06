@@ -2,6 +2,7 @@ from __future__ import annotations
 from loguru import logger
 import time
 import asyncio
+import json
 from json.encoder import JSONEncoder
 from typing import Literal, Optional, Callable, Any, TypeVar, Generic
 from copy import deepcopy
@@ -204,17 +205,25 @@ class BaseCtx:
 
     async def set_last_bot_message(self, message: CommonBotMessage):
         self.last_bot_message = message
-        await self.save()
     
     async def save(self):
         self_db = await defs.loop.run_in_executor(None, self.to_db)
+
+        # this is so retarded,
+        # i couldn't just do `self_db.dict()`,
+        # because vkbottle's `Message` BaseModel
+        # contains a bunch of shitty enums
+        # that are only properly serialized
+        # when calling `self_db.json()`, but not `self_db.dict()`
+        self_db_json = self_db.json()
+        self_db_dict = json.loads(self_db_json)
 
         await defs.redis.json(
             encoder=JSONEncoder(default=str)
         ).set(
             self.db_key,
             Path.root_path(),
-            self_db.dict(),
+            self_db_dict,
             decode_keys=True
         )
 
@@ -427,19 +436,22 @@ class Ctx:
             last_call=time.time(),
         )
         ctx.set_everything(everything)
-        await ctx.save()
 
         return ctx
 
     async def add_vk(self, everything: Optional[CommonEverything] = None) -> BaseCtx:
-        ctx = self.add(everything)
-        logger.info("created ctx for vk {}", everything.chat_id)
+        ctx = await self.add(everything)
+        logger.opt(colors=True).info(
+            "<G><k><d>+</></></> created ctx for vk {}", everything.chat_id
+        )
 
         return ctx
 
     async def add_tg(self, everything: Optional[CommonEverything] = None) -> BaseCtx:
-        ctx = self.add(everything)
-        logger.info("created ctx for tg {}", everything.chat_id)
+        ctx = await self.add(everything)
+        logger.opt(colors=True).info(
+            "<G><k><d>+</></></> created ctx for tg {}", everything.chat_id
+        )
 
         return ctx
 
@@ -499,142 +511,56 @@ class Ctx:
 
         return await self.parse_redis_result(raw_result)
 
+    @staticmethod
+    def sort_first_by_db_keys(keys: list[str], ctxs: list[BaseCtx]) -> list[BaseCtx]:
+        """
+        ## Put desired contexts in the list first
+        In the order of `keys` list
+
+        ## Example
+        ```
+        keys = ["TG_13376969", "VK_69696969"]
+        ctxs = [BaseCtx("VK_00000000"), BaseCtx("VK_69696969"), BaseCtx("TG_13376969")]
+        
+        result = Ctx().sort_first_by_db_keys(keys, ctxs)
+
+        assert result == [BaseCtx("TG_13376969"), BaseCtx("VK_69696969"), BaseCtx("VK_00000000")]
+        ```
+        """
+        new_list: list[BaseCtx] = []
+
+        for key in keys:
+            for index, ctx in enumerate(ctxs):
+                if ctx.db_key == key:
+                    new_list.append(ctx)
+                    ctxs.pop(index)
+                    break
+        
+        new_list += ctxs
+
+        return new_list
+
     async def broadcast_mappings(
         self,
         mappings: list[BroadcastGroup],
         invoker: Optional[BaseCtx] = None
     ):
-        from src.api.schedule import SCHEDULE_API
-
         affected_groups = [mapping.group for mapping in mappings]
         chats_that_need_broadcast = await self.get_who_needs_broadcast_parsed(affected_groups)
+        sorted_chats_that_need_broadcast = await defs.loop.run_in_executor(
+            None,
+            self.sort_first_by_db_keys,
+            defs.update_waiters_db_keys,
+            chats_that_need_broadcast
+        )
 
-        for chat in chats_that_need_broadcast:
+        defs.clean_update_waiters()
+
+        for chat in sorted_chats_that_need_broadcast:
             chat_group = chat.settings.group.confirmed
             chat_relative_mappings = BroadcastGroup.filter_for_group(chat_group, mappings)
             
             await chat.send_broadcast(chat_relative_mappings)
-
-        return
-
-        for (chat_id, ctx) in storage.items():
-            if not ctx.is_registered:
-                continue
-
-            user_group = ctx.settings.group.confirmed
-            should_broadcast = (
-                ctx.settings.broadcast
-                if invoker is None or ctx.chat_id != invoker.chat_id else True
-            )
-
-            if not should_broadcast:
-                continue
-
-            if user_group not in groups:
-                continue
-
-            mappings_to_send = [
-                mapping for mapping in mappings if mapping.name == user_group
-            ]
-            
-            for mapping in mappings_to_send:
-                opposite_type: TYPE_LITERAL
-                no_message_to_reply_to = False
-                reply_to = None
-
-                if mapping.sc_type == Type.DAILY:
-                    opposite_type = Type.WEEKLY
-                    page = await SCHEDULE_API.daily()
-
-                    if ctx.last_weekly_message is not None:
-                        reply_to = ctx.last_weekly_message.id
-                    else:
-                        no_message_to_reply_to = True
-
-                elif mapping.sc_type == Type.WEEKLY:
-                    opposite_type = Type.DAILY
-                    page = await SCHEDULE_API.weekly()
-
-                    if ctx.last_daily_message is not None:
-                        reply_to = ctx.last_daily_message.id
-                    else:
-                        no_message_to_reply_to = True
-
-                fmt_schedule: str = await sc_format.group(
-                    page.get_group(mapping.name),
-                    ctx.settings.zoom.entries.list
-                )
-
-                reply_hint = messages.format_replied_to_schedule_message(
-                    opposite_type
-                )
-                failed_reply_hint = messages.format_failed_reply_to_schedule_message(
-                    opposite_type
-                )
-
-                whole_text_no_reply_hint = (
-                    f"{mapping.header}\n\n{fmt_schedule}"
-                )
-                whole_text_with_reply = (
-                    f"{reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
-                )
-                whole_text_failed_reply = (
-                    f"{failed_reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
-                )
-
-                message = CommonBotMessage(
-                    can_edit = False,
-                    text     = whole_text_with_reply,
-                    keyboard = kb.Keyboard([
-                        [kb.UPDATE_BUTTON],
-                        [kb.RESEND_BUTTON],
-                        [kb.SETTINGS_BUTTON],
-                        [
-                            SCHEDULE_API.ft_daily_url_button(),
-                            SCHEDULE_API.ft_weekly_url_button()
-                        ],
-                        [SCHEDULE_API.r_weekly_url_button()],
-                        [kb.MATERIALS_BUTTON, kb.JOURNALS_BUTTON],
-                    ], add_back = False),
-                    src      = src,
-                    chat_id  = chat_id,
-                    reply_to = reply_to,
-                )
-
-                if no_message_to_reply_to:
-                    message.text = whole_text_no_reply_hint
-
-                logger.info(f"broadcasting {mapping.sc_type} to {ctx.chat_id}")
-
-                try:
-                    message = await message.send()
-                    await ctx.set_last_bot_message(message)
-                except VKAPIError[913]:
-                    logger.warning(
-                        f"(broadcasting {mapping.sc_type}) "
-                        f"{ctx.chat_id} has too many fwd messages, "
-                        f"proceeding without forwarding"
-                    )
-
-                    message.text = whole_text_failed_reply
-                    message.reply_to = None
-
-                    msg = await message.send()
-                    await ctx.set_last_bot_message(msg)
-                except Exception as e:
-                    logger.error(
-                        f"cannot broadcast {mapping.sc_type} to {ctx.chat_id}: {e}"
-                    )
-                
-                ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
-
-                if mapping.sc_type == Type.DAILY:
-                    ctx.last_daily_message = ctx.last_bot_message
-                elif mapping.sc_type == Type.WEEKLY:
-                    ctx.last_weekly_message = ctx.last_bot_message
-
-                if ctx.settings.should_pin:
-                    await ctx.last_bot_message.safe_pin()
 
     async def broadcast(self, notify: Notify, invoker: Optional[BaseCtx] = None):
         from src.data.schedule.compare import ChangeType
@@ -696,6 +622,7 @@ class Ctx:
 class BaseCommonEvent(BaseModel):
     src: Optional[MESSENGER_SOURCE] = None
     chat_id: Optional[int] = None
+    __hidden_vars__: dict[Any] = {}
 
     @property
     def is_from_vk(self):
@@ -721,12 +648,15 @@ class BaseCommonEvent(BaseModel):
     @property
     def ctx(self) -> Optional[BaseCtx]:
         try:
-            return self.__dict__["_ctx"]
+            return self.__hidden_vars__["_ctx"]
         except KeyError:
             return None
 
     def set_ctx(self, value: Any):
-        self.__dict__["_ctx"] = value
+        self.__hidden_vars__["_ctx"] = value
+    
+    def del_ctx(self):
+        del self.__hidden_vars__["_ctx"]
 
     @property
     def navigator(self) -> Navigator:
@@ -1519,6 +1449,7 @@ class CommonEverything(BaseCommonEvent):
     force_send: Optional[bool] = None
     """ ## Even if we can edit the message, we may want to send a new one instead """
 
+
     @classmethod
     def from_message(cls: type[CommonEverything], message: CommonMessage):
         self = cls(
@@ -1596,6 +1527,12 @@ class CommonEverything(BaseCommonEvent):
             self.event.set_ctx(value)
         elif self.is_from_message:
             self.message.set_ctx(value)
+    
+    def del_ctx(self):
+        if self.is_from_event:
+            self.event.del_ctx()
+        elif self.is_from_message:
+            self.message.del_ctx()
 
     @property
     def corresponding(self) -> Any:
