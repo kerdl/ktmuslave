@@ -632,10 +632,7 @@ class BaseCommonEvent(BaseModel):
     def is_from_tg(self):
         return self.src == Source.TG
 
-    async def load_ctx(self) -> BaseCtx:
-        if self.ctx is not None:
-            return self.ctx
-        
+    async def load_ctx(self) -> BaseCtx:        
         DbBaseCtx.ensure_update_forward_refs()
 
         db_ctx = await defs.redis.json().get(f"{self.src.upper()}_{self.chat_id}")
@@ -1533,6 +1530,12 @@ class CommonEverything(BaseCommonEvent):
             self.event.del_ctx()
         elif self.is_from_message:
             self.message.del_ctx()
+
+    async def load_ctx(self) -> BaseCtx:
+        if self.is_from_event:
+            return await self.event.load_ctx()
+        elif self.is_from_message:
+            return await self.message.load_ctx()
 
     @property
     def corresponding(self) -> Any:
