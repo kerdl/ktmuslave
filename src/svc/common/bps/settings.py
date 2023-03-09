@@ -538,7 +538,8 @@ async def main(everything: CommonEverything):
         [kb.PIN_BUTTON.with_value(ctx.settings.should_pin).only_if(
             SETTINGS.III_SHOULD_PIN not in ctx.navigator.ignored
         )],
-        [kb.ZOOM_BUTTON.with_value(len(ctx.settings.zoom.entries))]
+        [kb.ZOOM_BUTTON.with_value(len(ctx.settings.zoom.entries))],
+        [kb.RESET_BUTTON]
     ])
 
     return await everything.edit_or_answer(

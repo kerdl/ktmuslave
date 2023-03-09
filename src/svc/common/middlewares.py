@@ -1,7 +1,7 @@
 from loguru import logger
 
 from src import defs
-from src.svc.common import CommonEverything
+from src.svc.common import CommonEverything, messages
 from src.svc.common.router import r, Middleware, MessageMiddleware, EventMiddleware
 
 
@@ -89,6 +89,17 @@ class OldMessagesBlock(EventMiddleware):
             await user_ctx.set_last_bot_message(msg)
 
             self.stop_pre()
+
+@r.middleware()
+class ShowNotImplementedError(Middleware):
+    async def post(self, everything: CommonEverything):
+        try:
+            if not everything.was_processed and everything.is_from_event:
+                await everything.event.show_notification(
+                    messages.format_not_implemented_error()
+                )
+        except Exception:
+            ...
 
 @r.middleware()
 class SaveCtxToDb(Middleware):

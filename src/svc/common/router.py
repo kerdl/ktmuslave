@@ -193,6 +193,7 @@ class Router:
 
     async def choose_handler(self, everything: CommonEverything):
         do_handler_choose = True
+        handler_was_called = False
 
         try:
             await self.call_pre_middlewares(everything)
@@ -264,9 +265,12 @@ class Router:
                             kwargs[argument] = everything.event
 
                     await handler.func(**kwargs)
+                    handler_was_called = True
                     
                     if handler.is_blocking:
                         break
+
+        everything.set_was_processed(handler_was_called)
 
         await self.call_post_middlewares(everything)
 

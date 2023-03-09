@@ -213,7 +213,7 @@ def format_invalid_group():
 
 
 BROADCAST = (
-    "🔔 | Хочешь получать здесь рассылку расписания, когда у группы меняется расписание?"
+    "🔔 | Хочешь получать здесь рассылку, когда у группы меняется расписание?"
 )
 def format_broadcast():
     return BROADCAST
@@ -471,6 +471,9 @@ PIN_SETTING_EXPLAIN = (
 ZOOM_SETTING_EXPLAIN = (
     f"{Text.ZOOM} - настройки данных преподов: их имена, ссылки, ID, пароли и заметки, которые показываются в расписании"
 )
+RESET_SETTING_EXPLAIN = (
+    f"{Text.RESET} - сбросить все данные и начать первоначальную настройку"
+)
 def format_settings_main(is_group_chat: bool) -> str:
     text = ""
 
@@ -478,11 +481,32 @@ def format_settings_main(is_group_chat: bool) -> str:
     text += "\n"
     text += f"{BROADCAST_SETTING_EXPLAIN}\n"
     text += "\n"
-    text += f"{PIN_SETTING_EXPLAIN}\n" if is_group_chat else ""
-    text += "\n"
+    if is_group_chat:
+        text += f"{PIN_SETTING_EXPLAIN}\n"
+        text += "\n" 
     text += f"{ZOOM_SETTING_EXPLAIN}\n"
+    text += "\n"
+    text += f"{RESET_SETTING_EXPLAIN}\n"
 
     return text
+
+
+NO_SCHEDULE = (
+    f"🤔 Твоей группы нет в этом расписании"
+)
+def format_no_schedule() -> str:
+    return NO_SCHEDULE
+
+
+SCHEDULE_FOOTER = (
+    "⏱ Последнее обновление: {last_update}\n"
+    "✉ Период автообновления: {update_period} мин"
+)
+def format_schedule_footer(last_update: Any, update_period: Any) -> str:
+    return SCHEDULE_FOOTER.format(
+        last_update=last_update,
+        update_period=update_period
+    )
 
 
 NO_UPDATES = (
@@ -513,6 +537,13 @@ def format_too_fast_retry_after(secs: int):
     return TOO_FAST_RETRY_AFTER.format(
         secs = fmt_secs
     )
+
+
+NOT_IMPLEMENTED_ERROR = (
+    "🤔 Функция не реализована"
+)
+def format_not_implemented_error() -> str:
+    return NOT_IMPLEMENTED_ERROR
 
 
 GROUP_CHANGED_IN_SC_TYPE = (

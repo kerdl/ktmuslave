@@ -4,6 +4,7 @@ from typing import Optional, Any, Union
 from pydantic import BaseModel
 from dataclasses import dataclass
 
+from src.svc.common import messages
 from src.data.schedule.compare import GroupCompare, DetailedChanges, PrimitiveChange
 from src.data.schedule import Page, Group, Day, Subject, Format, FORMAT_LITERAL
 from src.data.range import Range
@@ -217,14 +218,14 @@ async def group(
 
     update_period        = await SCHEDULE_API.update_period()
 
-    update_params = (
-        f"⏱ Последнее обновление: {fmt_utc3_last_update}\n"
-        f"✉ Период автообновления: {update_period} мин"
+    update_params = messages.format_schedule_footer(
+        last_update=fmt_utc3_last_update,
+        update_period=update_period
     )
 
     if group is None:
         return (
-            f"твоей группы нет в этом расписании ёпта\n\n"
+            f"{messages.format_no_schedule()}\n\n"
             f"{update_params}"
         )
 

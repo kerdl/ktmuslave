@@ -661,6 +661,13 @@ class BaseCommonEvent(BaseModel):
         del self.__hidden_vars__["ctx"]
 
     @property
+    def was_processed(self) -> bool:
+        return self.__hidden_vars__["was_processed"]
+    
+    def set_was_processed(self, value: bool):
+        self.__hidden_vars__["was_processed"] = value
+
+    @property
     def is_from_vk(self):
         return self.src == Source.VK
 
@@ -1580,6 +1587,19 @@ class CommonEverything(BaseCommonEvent):
             return await self.event.load_ctx()
         elif self.is_from_message:
             return await self.message.load_ctx()
+
+    @property
+    def was_processed(self) -> bool:
+        if self.is_from_event:
+            return self.event.was_processed
+        if self.is_from_message:
+            return self.message.was_processed
+    
+    def set_was_processed(self, value: bool):
+        if self.is_from_event:
+            self.event.set_was_processed(value)
+        elif self.is_from_message:
+            self.message.set_was_processed(value)
 
     @property
     def corresponding(self) -> Any:

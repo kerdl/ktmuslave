@@ -42,6 +42,7 @@ class Payload:
     BROADCAST     = "broadcast"
     PIN           = "pin"
     ZOOM          = "zoom"
+    RESET         = "reset"
 
     # Zoom buttons
     FROM_TEXT     = "from_text"
@@ -93,6 +94,7 @@ class Text:
     BROADCAST  = "✉️ Рассылка"
     PIN        = "📌 Закрепление"
     ZOOM       = "🖥️ Zoom"
+    RESET      = "🗑️ Сбросить всё"
 
     # Zoom buttons
     FROM_TEXT  = "💬 Из сообщения"
@@ -469,6 +471,7 @@ GROUP_BUTTON         = Button(text = Text.GROUP,      callback = Payload.GROUP, 
 BROADCAST_BUTTON     = Button(text = Text.BROADCAST,  callback = Payload.BROADCAST,     color = Color.BLUE)
 PIN_BUTTON           = Button(text = Text.PIN,        callback = Payload.PIN,           color = Color.BLUE)
 ZOOM_BUTTON          = Button(text = Text.ZOOM,       callback = Payload.ZOOM,          color = Color.BLUE)
+RESET_BUTTON         = Button(text = Text.RESET,      callback = Payload.RESET,         color = Color.RED)
 
 MATERIALS_BUTTON     = Button(text = Text.MATERIALS,  url = schedule.MATERIALS_URL)
 JOURNALS_BUTTON      = Button(text = Text.JOURNALS,   url = schedule.JOURNALS_URL)
