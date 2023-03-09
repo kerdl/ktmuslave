@@ -35,27 +35,27 @@ EXEC_FILTER_LITERAL = Literal["always", "raw_event", "message"]
 
 
 class Stop(Exception): ...
+class StopPre(Exception): ...
 
 
 class VkRawCatcher(BaseMiddleware[RawEvent]):
     async def pre(self) -> None:
-        event = CommonEvent.from_vk(self.event)
-        everything = CommonEverything.from_event(event)
-
         try:
+            event = CommonEvent.from_vk(self.event)
+            everything = CommonEverything.from_event(event)
             await r.choose_handler(everything)
         except Exception as e:
             logger.exception(f"{type(e).__name__}({e})")
 
 class VkMessageCatcher(BaseMiddleware[VkMessage]):
     async def pre(self) -> None:
-        # pickling fails with this unprepared_ctx_api
-        self.event.unprepared_ctx_api = None
-
-        message = CommonMessage.from_vk(self.event)
-        everything = CommonEverything.from_message(message)
-        
         try:
+            # we're not using this
+            # and it fails to serialize 🖕🖕🖕
+            self.event.unprepared_ctx_api = None
+
+            message = CommonMessage.from_vk(self.event)
+            everything = CommonEverything.from_message(message)        
             await r.choose_handler(everything)
         except Exception as e:
             logger.exception(f"{type(e).__name__}({e})")
@@ -86,6 +86,7 @@ class Middleware:
     async def pre(self, everything: CommonEverything): ...
     async def post(self, everything: CommonEverything): ...
     def stop(self): raise Stop
+    def stop_pre(self): raise StopPre
 
 
 @dataclass
@@ -191,76 +192,81 @@ class Router:
                 await mw.post(everything)
 
     async def choose_handler(self, everything: CommonEverything):
+        do_handler_choose = True
+
         try:
             await self.call_pre_middlewares(everything)
         except Stop:
             return
+        except StopPre:
+            do_handler_choose = False
         except Exception as e:
             logger.exception(e)
             raise e
 
-        for handler in self.handlers:
+        if do_handler_choose:
+            for handler in self.handlers:
 
-            # if filter condition interrupted this
-            # handler from execution
-            filter_interrupt = True
-            filter_check_interrupt = False
+                # if filter condition interrupted this
+                # handler from execution
+                filter_interrupt = True
+                filter_check_interrupt = False
 
-            # if no filters, this handler
-            # should always be executed
-            if len(handler.filters) < 1:
-                filter_interrupt = False
-
-            else:
-                # but if we do have filters,
-                # check them
-                filter_results: list[bool] = []
-
-                for filter_ in handler.filters:
-                    try:
-                        call_fn = filter_.__call__
-                    except AttributeError:
-                        call_fn = filter_
-
-                    # call the filter
-                    if inspect.iscoroutinefunction(call_fn):
-                        result = await call_fn(everything)
-                    else:
-                        result = call_fn(everything)
-
-                    if result is False:
-                        filter_check_interrupt = True
-                        break
-
-                    filter_results.append(result)
-                
-                if filter_check_interrupt:
-                    continue
-
-                # if all filters were passed
-                if all(filter_results):
+                # if no filters, this handler
+                # should always be executed
+                if len(handler.filters) < 1:
                     filter_interrupt = False
-            
-            if filter_interrupt:
-                # continue to look for other
-                # handlers
-                continue
-            else:
-                kwargs = {}
 
-                # look for function arguments and their type hints
-                for (argument, annotation) in handler.func.__annotations__.items():
-                    if annotation == CommonEverything:
-                        kwargs[argument] = everything
-                    elif annotation == CommonMessage:
-                        kwargs[argument] = everything.message
-                    elif annotation == CommonEvent:
-                        kwargs[argument] = everything.event
+                else:
+                    # but if we do have filters,
+                    # check them
+                    filter_results: list[bool] = []
 
-                await handler.func(**kwargs)
+                    for filter_ in handler.filters:
+                        try:
+                            call_fn = filter_.__call__
+                        except AttributeError:
+                            call_fn = filter_
+
+                        # call the filter
+                        if inspect.iscoroutinefunction(call_fn):
+                            result = await call_fn(everything)
+                        else:
+                            result = call_fn(everything)
+
+                        if result is False:
+                            filter_check_interrupt = True
+                            break
+
+                        filter_results.append(result)
+                    
+                    if filter_check_interrupt:
+                        continue
+
+                    # if all filters were passed
+                    if all(filter_results):
+                        filter_interrupt = False
                 
-                if handler.is_blocking:
-                    break
+                if filter_interrupt:
+                    # continue to look for other
+                    # handlers
+                    continue
+                else:
+                    kwargs = {}
+
+                    # look for function arguments and their type hints
+                    for (argument, annotation) in handler.func.__annotations__.items():
+                        if annotation == CommonEverything:
+                            kwargs[argument] = everything
+                        elif annotation == CommonMessage:
+                            kwargs[argument] = everything.message
+                        elif annotation == CommonEvent:
+                            kwargs[argument] = everything.event
+
+                    await handler.func(**kwargs)
+                    
+                    if handler.is_blocking:
+                        break
 
         await self.call_post_middlewares(everything)
 

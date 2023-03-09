@@ -37,6 +37,7 @@ class CtxCheck(Middleware):
         else:
             await everything.load_ctx()
             everything.ctx.last_everything = everything
+            everything.ctx.navigator.set_everything(everything)
 
 @r.middleware()
 class Throttling(Middleware):
@@ -57,7 +58,6 @@ class OldMessagesBlock(EventMiddleware):
         last_message_id = common_event.ctx.last_bot_message.id
 
         if this_message_id != last_message_id:
-            
             if common_event.payload in [
                 kb.Payload.WEEKLY,
                 kb.Payload.DAILY,
@@ -70,10 +70,6 @@ class OldMessagesBlock(EventMiddleware):
                 user_ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
                 user_ctx.last_bot_message.can_edit = False
 
-                await common_event.show_notification(
-                    messages.format_sent_as_new_message()
-                )
-
                 return
 
             elif not user_ctx.last_bot_message.can_edit:
@@ -82,7 +78,7 @@ class OldMessagesBlock(EventMiddleware):
                     allow_edit = False
                 )
                 
-                self.stop()
+                self.stop_pre()
 
             await common_event.show_notification(
                 messages.format_cant_press_old_buttons()
@@ -92,10 +88,12 @@ class OldMessagesBlock(EventMiddleware):
             msg = await user_ctx.last_bot_message.send()
             await user_ctx.set_last_bot_message(msg)
 
-            return
+            self.stop_pre()
 
 @r.middleware()
 class SaveCtxToDb(Middleware):
     async def post(self, everything: CommonEverything):
+        logger.success(f"saving {everything.ctx.db_key} ctx")
         await everything.ctx.save()
+        logger.success(f"del {everything.ctx.db_key} ctx")
         everything.del_ctx()

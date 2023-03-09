@@ -3,11 +3,12 @@ from loguru import logger
 import time
 import asyncio
 import json
+from copy import deepcopy
 from json.encoder import JSONEncoder
 from typing import Literal, Optional, Callable, Any, TypeVar, Generic
 from copy import deepcopy
 from dataclasses import dataclass, field
-from pydantic import BaseModel
+from pydantic import BaseModel, utils
 from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
@@ -207,6 +208,9 @@ class BaseCtx:
         self.last_bot_message = message
     
     async def save(self):
+        # backup hidden vars and delete them from last_everything
+        hidden_vars = self.last_everything.take_hidden_vars()
+
         self_db = await defs.loop.run_in_executor(None, self.to_db)
 
         # this is so retarded,
@@ -217,6 +221,8 @@ class BaseCtx:
         # when calling `self_db.json()`, but not `self_db.dict()`
         self_db_json = self_db.json()
         self_db_dict = json.loads(self_db_json)
+
+        self.last_everything.set_hidden_vars(hidden_vars)
 
         await defs.redis.json(
             encoder=JSONEncoder(default=str)
@@ -376,37 +382,37 @@ class BaseCtx:
                     message=bcast_message,
                     sc_type=mapping.sc_type
                 )
-            except VKAPIError[913]: # too many fwd messages
+            except Exception:
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key}</></></> "
-                    f"too many forwarded messages, "
-                    f"proceeding without forwarding"
+                    f"failed, trying without replying"
                 )
 
                 bcast_message.reply_to = None
                 bcast_message.text = bcast_text_failed_reply_hint
 
-                await self.send_custom_broadcast(
-                    message=bcast_message,
-                    sc_type=mapping.sc_type
-                )
-            except Exception as e:
-                max_tries = 3
-                interval = 60 # in secs
-
-                logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key}</></></> "
-                    f"unknown exception: {type(e).__name__}({e}), will retry {max_tries} times every {interval} s"
-                )
-
-                defs.loop.create_task(
-                    self.retry_send_custom_broadcast(
+                try:
+                    await self.send_custom_broadcast(
                         message=bcast_message,
-                        sc_type=mapping.sc_type,
-                        max_tries=max_tries,
-                        interval=interval
+                        sc_type=mapping.sc_type
                     )
-                )
+                except Exception as e:
+                    max_tries = 3
+                    interval = 60 # in secs
+
+                    logger.opt(colors=True).warning(
+                        f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key}</></></> "
+                        f"unknown exception: {type(e).__name__}({e}), will retry {max_tries} times every {interval} s"
+                    )
+
+                    defs.loop.create_task(
+                        self.retry_send_custom_broadcast(
+                            message=bcast_message,
+                            sc_type=mapping.sc_type,
+                            max_tries=max_tries,
+                            interval=interval
+                        )
+                    )
 
 
 @dataclass
@@ -554,8 +560,6 @@ class Ctx:
             chats_that_need_broadcast
         )
 
-        defs.clean_update_waiters()
-
         for chat in sorted_chats_that_need_broadcast:
             chat_group = chat.settings.group.confirmed
             chat_relative_mappings = BroadcastGroup.filter_for_group(chat_group, mappings)
@@ -622,7 +626,39 @@ class Ctx:
 class BaseCommonEvent(BaseModel):
     src: Optional[MESSENGER_SOURCE] = None
     chat_id: Optional[int] = None
-    __hidden_vars__: dict[Any] = {}
+
+
+    def __init__(__pydantic_self__, **data: Any) -> None:
+        super().__init__(**data)
+        __pydantic_self__.set_hidden_vars(dict())
+
+    @property
+    def __hidden_vars__(self) -> dict[str, Any]:
+        return self.__dict__["__hidden_vars__"]
+    
+    def set_hidden_vars(self, value: dict[str, Any]):
+        self.__dict__["__hidden_vars__"] = value
+
+    def del_hidden_vars(self):
+        del self.__dict__["__hidden_vars__"]
+
+    def take_hidden_vars(self) -> dict[str, Any]:
+        hidden_vars = self.__hidden_vars__
+        self.del_hidden_vars()
+        return hidden_vars
+
+    @property
+    def ctx(self) -> Optional[BaseCtx]:
+        try:
+            return self.__hidden_vars__["ctx"]
+        except KeyError:
+            return None
+
+    def set_ctx(self, ctx: BaseCtx):
+        self.__hidden_vars__["ctx"] = ctx
+    
+    def del_ctx(self):
+        del self.__hidden_vars__["ctx"]
 
     @property
     def is_from_vk(self):
@@ -640,20 +676,9 @@ class BaseCommonEvent(BaseModel):
 
         self.set_ctx(db_ctx_parsed.to_runtime())
         
+        logger.success(f"ctx {self.ctx.db_key} loaded and set")
+
         return self.ctx
-
-    @property
-    def ctx(self) -> Optional[BaseCtx]:
-        try:
-            return self.__hidden_vars__["_ctx"]
-        except KeyError:
-            return None
-
-    def set_ctx(self, value: Any):
-        self.__hidden_vars__["_ctx"] = value
-    
-    def del_ctx(self):
-        del self.__hidden_vars__["_ctx"]
 
     @property
     def navigator(self) -> Navigator:
@@ -1265,11 +1290,6 @@ class CommonEvent(BaseCommonEvent):
 
         was_split = False
         was_sent_instead = False
-        sent_more_than_24_hr_ago = (
-            self.is_from_last_message and
-            self.ctx.last_bot_message.timestamp is not None
-            and (self.ctx.last_bot_message.timestamp + 24 * 3600) > time.time()
-        ) 
 
         if self.is_from_vk:
             chat_id = self.vk["object"]["peer_id"]
@@ -1294,7 +1314,6 @@ class CommonEvent(BaseCommonEvent):
             
             if (
                 self.force_send
-                or sent_more_than_24_hr_ago
                 or (self.is_from_last_message and self.ctx.last_bot_message.was_split)
             ):
                 await send()
@@ -1470,6 +1489,19 @@ class CommonEverything(BaseCommonEvent):
         return self
 
     @property
+    def __hidden_vars__(self) -> dict[str, Any]:
+        if self.is_from_event:
+            return self.event.__hidden_vars__
+        if self.is_from_message:
+            return self.message.__hidden_vars__
+    
+    def set_hidden_vars(self, value: dict[str, Any]):
+        if self.is_from_event:
+            self.event.set_hidden_vars(value)
+        elif self.is_from_message:
+            self.message.set_hidden_vars(value)
+
+    @property
     def is_from_message(self) -> bool:
         return self.event_src == Source.MESSAGE
     
@@ -1530,6 +1562,18 @@ class CommonEverything(BaseCommonEvent):
             self.event.del_ctx()
         elif self.is_from_message:
             self.message.del_ctx()
+    
+    def del_hidden_vars(self):
+        if self.is_from_event:
+            self.event.del_hidden_vars()
+        elif self.is_from_message:
+            self.message.del_hidden_vars()
+    
+    def take_hidden_vars(self) -> dict[str, Any]:
+        if self.is_from_event:
+            return self.event.take_hidden_vars()
+        if self.is_from_message:
+            return self.message.take_hidden_vars()
 
     async def load_ctx(self) -> BaseCtx:
         if self.is_from_event:
@@ -1579,28 +1623,51 @@ class CommonEverything(BaseCommonEvent):
         - if we received a `message`, we SEND our response `(answer)`
         - if we received an `event`, we EDIT the message with response
         """
-
-        if self.is_from_event:
-            event = self.event
+        event = self.event
+        if event is not None:
             event.force_send = self.force_send
+        message = self.message
 
+        edit = False
+        send = False
+        notify_about_resending = False
+
+        if self.is_from_event and self.ctx.last_bot_message.can_edit:
+            edit = True
+        elif self.is_from_event and not self.ctx.last_bot_message.can_edit:
+            send = True
+            notify_about_resending = True
+        else:
+            send = True
+
+        if edit:
             return await event.edit_message(
                 text        = text, 
                 keyboard    = keyboard,
                 add_tree    = add_tree,
                 tree_values = tree_values
             )
+        elif send:
+            if notify_about_resending:
+                await self.event.show_notification(
+                    messages.format_sent_as_new_message()
+                )
 
-        if self.is_from_message:
-            message = self.message
+            if message is not None:
+                return await message.answer(
+                    text        = text, 
+                    keyboard    = keyboard,
+                    add_tree    = add_tree,
+                    tree_values = tree_values
+                )
+            else:
+                return await event.send_message(
+                    text=text,
+                    keyboard=keyboard,
+                    add_tree=add_tree,
+                    tree_values=tree_values
+                )
 
-            return await message.answer(
-                text        = text, 
-                keyboard    = keyboard,
-                add_tree    = add_tree,
-                tree_values = tree_values
-            )
-    
     async def answer(
         self,
         text: str, 

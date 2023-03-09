@@ -1,6 +1,6 @@
 from __future__ import annotations
 from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, List
 from typing import Literal
 from vkbottle import (
     Keyboard as VkKeyboard, 
@@ -14,7 +14,7 @@ from aiogram.types import (
     ForceReply as TgForceReply
 )
 from dataclasses import dataclass
-from pydantic import BaseModel, Field as PydField
+from pydantic import BaseModel, Field as PydField, parse_obj_as
 
 from src.svc import common
 from src.data import Emojized, Repred, Translated, Field, Emoji, format as fmt, schedule
@@ -190,7 +190,39 @@ class Keyboard(BaseModel):
     
     def __init__(__pydantic_self__, schematic: Optional[list[list[Optional[Button]]]] = None, **data: Any) -> None:
         super().__init__(**data)
-        __pydantic_self__.schematic = schematic if schematic is not None else []
+        if schematic is None:
+            __pydantic_self__.schematic = []
+        elif Keyboard.is_dict_schema(schematic):
+            __pydantic_self__.schematic = Keyboard.parse_schema(schematic)
+        else:
+            __pydantic_self__.schematic = schematic
+
+    @staticmethod
+    def is_dict_schema(schematic: list[list[Any]]) -> bool:
+        for row in schematic:
+            for button in row:
+                if button is None: continue
+                if isinstance(button, dict): return True
+        
+        return False
+
+    @staticmethod
+    def parse_schema(schematic: list[list[Optional[dict]]]) -> list[list[Button]]:
+        parsed_schematic = []
+        parsed_row = []
+
+        for row in schematic:
+            for button in row:
+                if button is None: continue
+                btn = Button.parse_obj(button)
+                parsed_row.append(btn)
+            
+            if not parsed_row: continue
+
+            parsed_schematic.append(parsed_row)
+            parsed_row = []
+        
+        return parsed_schematic
 
     @classmethod
     def hub_default(cls: Keyboard, sc_type: schedule.TYPE_LITERAL) -> Keyboard:

@@ -530,7 +530,7 @@ async def main(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-                .add("i love niggers")
+                .add(messages.format_settings_main(is_group_chat=everything.is_group_chat))
     )
     answer_keyboard = Keyboard([
         [kb.GROUP_BUTTON.with_value(ctx.settings.group.confirmed)],
@@ -541,16 +541,10 @@ async def main(everything: CommonEverything):
         [kb.ZOOM_BUTTON.with_value(len(ctx.settings.zoom.entries))]
     ])
 
-    if ctx.last_bot_message.can_edit:
-        return await everything.edit_or_answer(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
-        )
-    else:
-        return await everything.answer(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
-        )
+    return await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard
+    )
 
 @r.on_callback(
     StateFilter(HUB.I_MAIN),

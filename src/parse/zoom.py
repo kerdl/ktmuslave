@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 from dataclasses import dataclass
 from urllib import parse
 import re
@@ -18,14 +18,14 @@ from .pattern import (
 )
 
 
-KEY_LITERAL = Literal["имя", "ссылка", "ид", "код", "заметки"]
+KEY_LITERAL = Literal["имя", "ссылка", "ид", "код", "пароль", "заметки"]
 
 
 class Key:
     NAME  = "имя"
     URL   = "ссылка"
     ID    = "ид"
-    PWD   = "код"
+    PWD   = ["код", "пароль"]
     NOTES = "заметки"
 
     @staticmethod
@@ -33,22 +33,36 @@ class Key:
         return f"{key}:"
 
     @classmethod
-    def is_relevant(cls, key: KEY_LITERAL, line: str) -> bool:
-        return line.lower().startswith(cls.with_semicolon(key))
+    def is_relevant(cls, key: Union[KEY_LITERAL, list[KEY_LITERAL]], line: str) -> bool:
+        if isinstance(key, str):
+            return line.lower().startswith(cls.with_semicolon(key))
+        if isinstance(key, list):
+            return any([line.lower().startswith(key_var) for key_var in key])
     
     @classmethod
     def find(cls, line: str) -> Optional[KEY_LITERAL]:
         for (_, key) in cls.__dict__.items():
-            if cls.is_relevant(key, line):
-                return key
+            key_vars = [key]
+            if isinstance(key, list):
+                key_vars = key
+
+            for key_var in key_vars:
+                if cls.is_relevant(key_var, line):
+                    return key
         
         return None
 
     @staticmethod
-    def remove(key: KEY_LITERAL, line: str) -> str:
-        return re.sub(Key.with_semicolon(key), "", line, flags=re.IGNORECASE).strip()
-
-
+    def remove(key: Union[KEY_LITERAL, list[KEY_LITERAL]], line: str) -> str:
+        def remove_str(key: KEY_LITERAL, line: str):
+            return re.sub(Key.with_semicolon(key), "", line, flags=re.IGNORECASE).strip()
+        
+        if isinstance(key, str):
+            return remove_str(key, line)
+        if isinstance(key, list):
+            for key_var in key:
+                if line.startswith(key_var):
+                    return remove_str(key_var, line)
 @dataclass
 class Parser:
     text: str

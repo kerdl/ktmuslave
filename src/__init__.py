@@ -84,6 +84,16 @@ def sink(message: Message):
 
 
 @dataclass
+class UpdateWaiter:
+    waiter: "BaseCtx"
+
+    def __enter__(self): 
+        defs.add_update_waiter(self.waiter)
+
+    def __exit__(self, type, value, traceback):
+        defs.del_update_waiter(self.waiter.db_key)
+
+@dataclass
 class Defs:
     """
     ## `Def`inition`s` of variables, constants, objects, etc.
@@ -315,6 +325,7 @@ class Defs:
 
     def add_update_waiter(self, waiter: "BaseCtx"):
         self.update_waiters.append(waiter)
+        logger.success(f"update waiter {waiter.db_key} has been added")
     
     def del_update_waiter(self, db_key: str):
         for index, waiter in enumerate(self.update_waiters):
@@ -322,6 +333,8 @@ class Defs:
 
             if waiter.db_key == db_key:
                 self.update_waiters.pop(index)
+                logger.success(f"update waiter {db_key} has been deleted")
+                logger.success(f"{self.update_waiters_db_keys=}")
                 break
     
     def clean_update_waiters(self):
