@@ -187,7 +187,7 @@ class BaseCtx:
 
     @classmethod
     def from_db(cls: type[BaseCtx], db: DbBaseCtx) -> BaseCtx:
-        return cls(
+        self = cls(
             chat_id=db.chat_id,
             is_registered=db.is_registered,
             navigator=db.navigator.to_runtime(db.last_everything),
@@ -200,6 +200,10 @@ class BaseCtx:
             last_daily_message=db.last_daily_message,
             last_weekly_message=db.last_weekly_message
         )
+
+        self.settings.zoom.check_all()
+
+        return self
     
     def to_db(self) -> DbBaseCtx:
         return DbBaseCtx.from_runtime(self)

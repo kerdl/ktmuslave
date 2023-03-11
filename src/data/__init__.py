@@ -78,14 +78,19 @@ class Warning:
 class Field(GenericModel, Generic[T], Repred):
     value: T
 
-    __hidden_vars__: dict[Any] = {}
-    #warnings: set[Warning] = PydField(default_factory=set)
-    """
-    # Warns if `value` is unusual
-    """
+    def __init__(self, value: T, **data):
+        super().__init__(value=value)
+        self.__dict__["__hidden_vars__"] = {}
+
+    @property
+    def __hidden_vars__(self) -> dict[str, Any]:
+        return self.__dict__["__hidden_vars__"]
 
     @property
     def warnings(self) -> set[Warning]:
+        """
+        # Warns if `value` is unusual
+        """
         try:
             return self.__hidden_vars__["_warnings"]
         except KeyError:

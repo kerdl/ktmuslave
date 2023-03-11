@@ -431,6 +431,10 @@ class Entries(BaseModel):
             entries_dumps.append(dump)
         
         return "\n\n".join(entries_dumps)
+    
+    def check_all(self):
+        for entry in self.list:
+            entry.check()
 
     def __len__(self):
         return len(self.list)
@@ -566,6 +570,10 @@ class Container(BaseModel):
     
     def unfocus(self) -> None:
         self.focused_at = None
+
+    def check_all(self):
+        self.entries.check_all()
+        self.new_entries.check_all()
 
 def focus_auto(everything: common.CommonEverything):
     from src.svc.common.states import tree
