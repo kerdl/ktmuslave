@@ -16,13 +16,14 @@ class SpaceType(ModuleType):
 
 
 def get_module_space(space: SPACE_LITERAL) -> Optional[SpaceType]:
-    from . import init, settings, hub, zoom
+    from . import init, settings, hub, zoom, reset
 
     MAP = {
         Space.INIT:     init,
         Space.SETTINGS: settings,
         Space.HUB:      hub,
         Space.ZOOM:     zoom,
+        Space.RESET:    reset
     }
 
     return MAP.get(space)

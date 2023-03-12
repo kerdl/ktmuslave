@@ -51,6 +51,12 @@ class Hub(Tree):
     I_MAIN = State(**HUB_MAIN)
 
 
+class Reset(Tree):
+    __space__ = Space.RESET
+
+    I_MAIN = State(**RESET_MAIN)
+
+
 class Zoom(Tree):
     __space__ = Space.ZOOM
 
@@ -70,12 +76,14 @@ INIT = Init()
 HUB = Hub()
 ZOOM = Zoom()
 SETTINGS = Settings()
+RESET = Reset()
 
 STR_MAP = {
     Init.__name__: INIT,
     Hub.__name__: HUB,
     Zoom.__name__: ZOOM,
     Settings.__name__: SETTINGS,
+    Reset.__name__: RESET
 }
 
 def from_str(tree: str) -> Optional[Tree]:

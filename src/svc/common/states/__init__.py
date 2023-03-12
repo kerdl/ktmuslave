@@ -10,7 +10,7 @@ from src.svc.common import error
 
 class Space:
     """ ## In what space the user currently in """
-    INIT     = "init"
+    INIT = "init"
     """
     Where user gets first time with welcome message
     """
@@ -22,22 +22,26 @@ class Space:
         - if the bot should pin the broadcast
         - if he wants to add zoom data
     """
-    HUB      = "hub"
+    HUB = "hub"
     """
     The main user area, where he can 
         - view schedule, 
         - view links,
         - can change settings
     """
-    ZOOM     = "zoom"
+    ZOOM = "zoom"
     """
     Where user can:
         - add multiple zoom entries from one message
         - edit every signle one of them manually
         - delete them
     """
+    RESET = "reset"
+    """
+    Where user can reset their settings
+    """
 
-SPACE_LITERAL = Literal["init", "settings", "hub", "zoom"]
+SPACE_LITERAL = Literal["init", "settings", "hub", "zoom", "reset"]
 
 
 class Values(BaseModel):
@@ -311,6 +315,9 @@ ZOOM_EDIT_NOTES = {
 ZOOM_DUMP = {
     "name": "Дамп",
 }
+RESET_MAIN = {
+    "name": "Сброс"
+}
 
 __all__ = (
     "INIT_MAIN",
@@ -332,6 +339,7 @@ __all__ = (
     "ZOOM_EDIT_PWD",
     "ZOOM_EDIT_NOTES",
     "ZOOM_DUMP",
+    "RESET_MAIN",
     "Tree",
     "State",
     "Space"

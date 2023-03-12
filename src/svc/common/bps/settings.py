@@ -8,7 +8,7 @@ from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
 from src.svc.common.states import formatter as states_fmt, Space
-from src.svc.common.states.tree import INIT, ZOOM, SETTINGS, HUB
+from src.svc.common.states.tree import INIT, ZOOM, SETTINGS, RESET, HUB
 from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import Keyboard, Payload
@@ -46,7 +46,6 @@ async def auto_route(everything: CommonEverything):
     if current_state in [SETTINGS.II_ZOOM]:
         from src.svc.common.bps import init
         return await init.to_finish(everything)
-
 
 
 """ ZOOM ACTIONS """
@@ -135,9 +134,9 @@ async def add_zoom(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-                .add_if(messages.format_recommend_adding_zoom(), is_from_init)
-                .add_if(messages.format_choose_adding_type(), is_from_hub)
-                .add(adding_types)
+            .add_if(messages.format_recommend_adding_zoom(), is_from_init)
+            .add_if(messages.format_choose_adding_type(), is_from_hub)
+            .add(adding_types)
     )
     answer_keyboard = Keyboard([
         [
