@@ -56,7 +56,7 @@ class OldMessagesBlock(EventMiddleware):
 
         this_message_id = common_event.message_id
         if common_event.ctx.last_bot_message is None:
-            last_message_id = 0
+            last_message_id = None
         else:
             last_message_id = common_event.ctx.last_bot_message.id
 
@@ -66,8 +66,10 @@ class OldMessagesBlock(EventMiddleware):
                 kb.Payload.DAILY,
                 kb.Payload.UPDATE,
                 kb.Payload.RESEND,
-                kb.Payload.RESET
             ]:
+                return
+
+            if common_event.payload == kb.Payload.RESET and last_message_id is None:
                 return
 
             elif common_event.payload == kb.Payload.SETTINGS:
