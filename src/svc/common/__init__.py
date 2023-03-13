@@ -465,6 +465,9 @@ class Ctx:
 
         return ctx
 
+    async def delete(self, key: str):
+        await defs.redis.json().delete(key)
+
     async def get_who_needs_broadcast(
         self,
         groups: list[str]
@@ -1656,9 +1659,9 @@ class CommonEverything(BaseCommonEvent):
         send = False
         notify_about_resending = False
 
-        if self.is_from_event and self.ctx.last_bot_message.can_edit:
+        if self.is_from_event and self.ctx.last_bot_message and self.ctx.last_bot_message.can_edit:
             edit = True
-        elif self.is_from_event and not self.ctx.last_bot_message.can_edit:
+        elif self.is_from_event and (not self.ctx.last_bot_message or not self.ctx.last_bot_message.can_edit):
             send = True
             notify_about_resending = True
         else:

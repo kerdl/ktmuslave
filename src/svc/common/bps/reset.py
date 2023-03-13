@@ -17,12 +17,14 @@ from src.svc.common import keyboard as kb
 
 """ RESET ACTIONS """
 
-#@r.on_callback(
-#    StateFilter(RESET.I_MAIN), 
-#    PayloadFilter(Payload.RESET)
-#)
-#async def confirm_reset(everything: CommonEverything):
-#    ...
+@r.on_callback(
+    StateFilter(RESET.I_MAIN), 
+    PayloadFilter(Payload.RESET)
+)
+async def confirm_reset(everything: CommonEverything):
+    await defs.ctx.delete(everything.ctx.db_key)
+    everything.del_ctx()
+    return await r.choose_handler(everything)
 
 """ RESET STATE """
 
