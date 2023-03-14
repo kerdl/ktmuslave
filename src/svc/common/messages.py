@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any
+from typing import Any, Optional
 from src.data.settings import Settings
 
 from src.svc import common
@@ -7,7 +7,7 @@ from src.data import zoom, format as fmt, schedule
 from src.data.schedule import compare
 from src.parse.zoom import Key
 from src.svc.common.states import State
-from src.svc.common.keyboard import Text
+from src.svc.common.keyboard import Text, Payload
 
 
 DEBUGGING = False
@@ -104,6 +104,13 @@ EMPTY_PAGE = (
 )
 def format_empty_page():
     return EMPTY_PAGE
+
+
+NO_MORE_PAGES = (
+    "■ Дальше ничего нет"
+)
+def format_no_more_pages() -> str:
+    return NO_MORE_PAGES
 
 
 PRESS_BEGIN = (

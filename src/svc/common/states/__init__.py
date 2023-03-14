@@ -291,14 +291,16 @@ ZOOM_MASS_CHECK = {
 ZOOM_BROWSE = {
     "name": "Выбор препода",
     "on_enter": zoom.focus_auto,
-    "on_traced_enter": zoom.unselect,
+    "on_traced_enter": zoom.focus_auto,
     "on_exit": zoom.unfocus,
 }
 ZOOM_ENTRY = {
     "name": "Редактирование",
+    "on_exit": zoom.unselect
 }
 ZOOM_EDIT_NAME = {
     "name": "Имя препода",
+    "on_enter": zoom.focus_auto,
 }
 ZOOM_EDIT_URL = {
     "name": "Ссылка",

@@ -14,7 +14,7 @@ from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 from aiogram.types import Message as TgMessage, CallbackQuery
-from aiogram.exceptions import TelegramRetryAfter
+from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError
 from redis.commands.json.path import Path
 from redis.commands.search.query import Query
 from redis.commands.search.result import Result
@@ -27,7 +27,7 @@ from src.svc.common.states.tree import HUB
 from src.svc.common.navigator import Navigator, DbNavigator
 from src.svc.common import pagination, messages
 from src.svc.vk.types_ import RawEvent
-from src.svc.common import keyboard as kb
+from src.svc.common import keyboard as kb, error
 from src.data import RepredBaseModel
 from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL, Page
 from src.data.settings import Settings
@@ -292,23 +292,26 @@ class BaseCtx:
     ):
         new_message = await message.send()
 
-        # we do that after 'cause of the sending delay,
-        # and going back to hub state before the message
-        # is sent causes bugs if used was actively
-        # interacting with the bot
-        self.navigator.jump_back_to_or_append(HUB.I_MAIN)
+        if new_message.id is not None:
+            # we do that after 'cause of the sending delay,
+            # and going back to hub state before the message
+            # is sent causes bugs if used was actively
+            # interacting with the bot
+            self.navigator.jump_back_to_or_append(HUB.I_MAIN)
 
-        if sc_type == Type.DAILY:
-            self.last_daily_message = new_message
-        elif sc_type == Type.WEEKLY:
-            self.last_weekly_message = new_message
-        
-        self.last_bot_message = new_message
+            if sc_type == Type.DAILY:
+                self.last_daily_message = new_message
+            elif sc_type == Type.WEEKLY:
+                self.last_weekly_message = new_message
 
-        await self.save()
+            self.last_bot_message = new_message
 
-        if self.settings.should_pin:
-            await new_message.safe_pin()
+            await self.save()
+
+            if self.settings.should_pin:
+                await new_message.safe_pin()
+        else:
+            raise error.BroadcastSendFail("sent message id is None")
     
     async def retry_send_custom_broadcast(
         self,
@@ -333,26 +336,27 @@ class BaseCtx:
         
         if successful:
             logger.opt(colors=True).success(
-                f"<G><k><d>BROADCASTING {sc_type.upper()} {self.db_key}</></></> "
+                f"<G><k><d>BROADCASTING {sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
                 f"succeeded after {tries} times"
             )
         else:
             logger.opt(colors=True).error(
-                f"<R><k><d>BROADCASTING {sc_type.upper()} {self.db_key}</></></> "
+                f"<R><k><d>BROADCASTING {sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
                 f"failed all {max_tries} times with errors: {' | '.join(errors)}"
             )
         
     async def send_broadcast(self, mappings: list[BroadcastGroup]):
         for mapping in mappings:
+            opposite_sc_type = Type.opposite(mapping.sc_type)
             reply_to = None
             fmt_schedule = await self.fmt_schedule_for_confirmed_group(mapping.sc_type)
             bcast_text = mapping.add_header_to(fmt_schedule)
             bcast_text_with_reply_hint = (
-                f"{messages.format_replied_to_schedule_message(mapping.sc_type)}\n\n"
+                f"{messages.format_replied_to_schedule_message(opposite_sc_type)}\n\n"
                 f"{bcast_text}"
             )
             bcast_text_failed_reply_hint = (
-                f"{messages.format_failed_reply_to_schedule_message(mapping.sc_type)}\n\n"
+                f"{messages.format_failed_reply_to_schedule_message(opposite_sc_type)}\n\n"
                 f"{bcast_text}"
             )
 
@@ -360,12 +364,12 @@ class BaseCtx:
                 if not self.last_weekly_message:
                     bcast_text_with_reply_hint = bcast_text
                 else:
-                    reply_to = self.last_weekly_message.id if self.last_weekly_message else None
+                    reply_to = self.last_weekly_message.id
             elif mapping.is_weekly:
                 if not self.last_daily_message:
                     bcast_text_with_reply_hint = bcast_text
                 else:
-                    reply_to = self.last_daily_message.id if self.last_daily_message else None
+                    reply_to = self.last_daily_message.id
 
             bcast_message = CommonBotMessage(
                 text=bcast_text_with_reply_hint,
@@ -377,7 +381,7 @@ class BaseCtx:
             )
 
             logger.opt(colors=True).info(
-                f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key}</></></> "
+                f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
                 f"{mapping.header}"
             )
 
@@ -386,10 +390,10 @@ class BaseCtx:
                     message=bcast_message,
                     sc_type=mapping.sc_type
                 )
-            except Exception:
+            except VKAPIError[913] as e:
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key}</></></> "
-                    f"failed, trying without replying"
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"failed with {type(e).__name__}({e}), trying without replying"
                 )
 
                 bcast_message.reply_to = None
@@ -401,22 +405,25 @@ class BaseCtx:
                         sc_type=mapping.sc_type
                     )
                 except Exception as e:
-                    max_tries = 3
-                    interval = 60 # in secs
-
                     logger.opt(colors=True).warning(
-                        f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key}</></></> "
-                        f"unknown exception: {type(e).__name__}({e}), will retry {max_tries} times every {interval} s"
+                        f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                        f"unknown exception: {type(e).__name__}({e})"
                     )
-
-                    defs.loop.create_task(
-                        self.retry_send_custom_broadcast(
-                            message=bcast_message,
-                            sc_type=mapping.sc_type,
-                            max_tries=max_tries,
-                            interval=interval
-                        )
-                    )
+            except TelegramForbiddenError:
+                logger.opt(colors=True).warning(
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"user had blocked the bot"
+                )
+            except error.BroadcastSendFail as e:
+                logger.opt(colors=True).warning(
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"sending the broadcast message had failed: {type(e).__name__}({e})"
+                )
+            except Exception as e:
+                logger.opt(colors=True).warning(
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"unknown exception: {type(e).__name__}({e})"
+                )
 
 
 @dataclass

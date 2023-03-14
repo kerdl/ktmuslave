@@ -2,7 +2,7 @@ from typing import Any, Awaitable, Callable, Coroutine, Optional, Union
 from types import ModuleType
 from aiogram.exceptions import TelegramBadRequest
 
-from src.svc.common import CommonEverything, Navigator
+from src.svc.common import CommonEverything, Navigator, messages
 from src.svc.common.filters import PayloadFilter
 from src.svc.common.keyboard import Payload
 from src.svc.common.states import SPACE_LITERAL, Space, State
@@ -46,6 +46,11 @@ async def page_back(everything: CommonEverything):
 
     if ctx.pages.current_num > 0:
         ctx.pages.current_num -= 1
+    else:
+        await everything.event.show_notification(
+            messages.format_no_more_pages()
+        )
+        return
 
     answer_text = ctx.pages.current.text
     answer_keyboard = ctx.pages.current.keyboard
@@ -66,6 +71,11 @@ async def page_next(everything: CommonEverything):
 
     if ctx.pages.current_num < len(ctx.pages.list) - 1:
         ctx.pages.current_num += 1
+    else:
+        await everything.event.show_notification(
+            messages.format_no_more_pages()
+        )
+        return
 
     answer_text = ctx.pages.current.text
     answer_keyboard = ctx.pages.current.keyboard

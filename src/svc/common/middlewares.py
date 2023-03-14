@@ -51,6 +51,15 @@ class OldMessagesBlock(EventMiddleware):
         from src.svc.common import messages, keyboard as kb
         from src.svc.common.states.tree import HUB
 
+        async def resend_last_bot_message():
+            await common_event.show_notification(
+                messages.format_cant_press_old_buttons()
+            )
+
+            # send last bot message again
+            msg = await user_ctx.last_bot_message.send()
+            await user_ctx.set_last_bot_message(msg)
+        
         common_event = everything.event
         user_ctx = common_event.ctx
 
@@ -61,40 +70,31 @@ class OldMessagesBlock(EventMiddleware):
             last_message_id = common_event.ctx.last_bot_message.id
 
         if this_message_id != last_message_id:
-            if common_event.payload in [
-                kb.Payload.WEEKLY,
-                kb.Payload.DAILY,
-                kb.Payload.UPDATE,
-                kb.Payload.RESEND,
-            ]:
-                return
+            if everything.ctx.is_registered:
+                if common_event.payload in [
+                    kb.Payload.WEEKLY,
+                    kb.Payload.DAILY,
+                    kb.Payload.UPDATE,
+                    kb.Payload.RESEND,
+                ]:
+                    return
 
-            if common_event.payload == kb.Payload.RESET and last_message_id is None:
-                return
+                elif common_event.payload == kb.Payload.SETTINGS:
+                    user_ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
+                    user_ctx.last_bot_message.can_edit = False
 
-            elif common_event.payload == kb.Payload.SETTINGS:
-                user_ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
-                user_ctx.last_bot_message.can_edit = False
+                    return
 
-                return
-
-            elif not user_ctx.last_bot_message.can_edit:
-                await hub.to_hub(
-                    user_ctx.last_everything,
-                    allow_edit = False
-                )
+                else:
+                    await resend_last_bot_message()
+                    self.stop_pre()
+            else:
+                if common_event.payload == kb.Payload.RESET and last_message_id is None:
+                    return
                 
+                await resend_last_bot_message()
                 self.stop_pre()
 
-            await common_event.show_notification(
-                messages.format_cant_press_old_buttons()
-            )
-
-            # send last bot message again
-            msg = await user_ctx.last_bot_message.send()
-            await user_ctx.set_last_bot_message(msg)
-
-            self.stop_pre()
 
 @r.middleware()
 class ShowNotImplementedError(Middleware):
