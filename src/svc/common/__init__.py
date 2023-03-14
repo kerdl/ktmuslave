@@ -86,9 +86,9 @@ class BaseCtx:
     last_daily_message: Optional[CommonBotMessage] = None
     last_weekly_message: Optional[CommonBotMessage] = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self, chat_id: int) -> dict:
         return {
-            "chat_id": self.last_everything.chat_id,
+            "chat_id": chat_id,
             "is_registered": self.is_registered,
             "navigator": self.navigator.to_dict() if self.navigator is not None else None,
             "settings": self.settings.to_dict() if self.settings is not None else None,
@@ -168,7 +168,7 @@ class Ctx:
         for ctx in CTXS_TYPES:
             for ctx_type, chats in ctx.items():
                 for chat_id, chat in chats.items():
-                    ctx_dict.update({f"{ctx_type}_{chat_id}": chat.to_dict()})
+                    ctx_dict.update({f"{ctx_type}_{chat_id}": chat.to_dict(chat_id)})
 
         return ctx_dict
 
