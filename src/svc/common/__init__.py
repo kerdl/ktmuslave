@@ -88,6 +88,7 @@ class BaseCtx:
 
     def to_dict(self) -> dict:
         return {
+            "chat_id": self.last_everything.chat_id,
             "is_registered": self.is_registered,
             "navigator": self.navigator.to_dict() if self.navigator is not None else None,
             "settings": self.settings.to_dict() if self.settings is not None else None,
@@ -515,7 +516,7 @@ class CommonMessage(BaseCommonEvent):
 
     def to_dict(self) -> dict:
         return {
-            "messenger_src": self.src,
+            "src": self.src,
             "chat_id": self.chat_id,
             "vk": self.vk.dict() if self.vk is not None else None,
             "tg": self.tg.dict() if self.tg is not None else None
@@ -722,13 +723,16 @@ class CommonBotMessage:
 
     def to_dict(self) -> dict:
         return {
-            "id": self.id,
             "text": self.text,
             "keyboard": self.keyboard.to_dict(),
-            "reply_to": self.reply_to,
-            "was_split": self.was_split,
             "can_edit": self.can_edit,
             "add_tree": self.add_tree,
+            "tree_values": self.tree_values,
+            "src": self.src,
+            "chat_id": self.chat_id,
+            "id": self.id,
+            "reply_to": self.reply_to,
+            "was_split": self.was_split,
             "timestamp": self.timestamp
         }
     
@@ -839,10 +843,11 @@ class CommonEvent(BaseCommonEvent):
 
     def to_dict(self) -> dict:
         return {
-            "messenger_src": self.src,
+            "src": self.src,
             "chat_id": self.chat_id,
             "vk": self.vk,
-            "tg": self.tg.dict() if self.tg else None
+            "tg": self.tg.dict() if self.tg else None,
+            "force_send": self.force_send
         }
 
     @classmethod
@@ -1188,10 +1193,12 @@ class CommonEverything(BaseCommonEvent):
 
     def to_dict(self):
         return {
+            "src": self.src,
+            "chat_id": self.chat_id,
             "event_src": self.event_src,
-            "do_force_send": self.force_send,
             "message": self.message.to_dict() if self.message is not None else None,
             "event": self.event.to_dict() if self.event is not None else None,
+            "force_send": self.force_send,
         }
 
     @classmethod

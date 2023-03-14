@@ -310,7 +310,7 @@ class Entries:
 
     def to_dict(self) -> dict:
         return {
-            "set": [data.to_dict() for data in self.set],
+            "list": [data.to_dict() for data in self.set],
             "selected_name": self.selected_name
         }
 
@@ -515,10 +515,10 @@ class Container:
 
     def to_dict(self) -> dict:
         return {
-            "is_finished": self.is_finished,
-            "focused_at": self.focused_at,
             "entries": self.entries.to_dict(),
             "new_entries": self.new_entries.to_dict(),
+            "is_finished": self.is_finished,
+            "focused_at": self.focused_at,
         }
 
     @classmethod

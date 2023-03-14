@@ -31,8 +31,8 @@ class Container:
 
     def to_dict(self) -> dict:
         return {
-           "current_num": self.current_num,
            "list": [template.to_dict() for template in self.list],
+           "current_num": self.current_num,
         }
 
     @classmethod
