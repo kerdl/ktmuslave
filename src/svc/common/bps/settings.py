@@ -444,11 +444,15 @@ async def group(everything: CommonEverything):
 
         # if no group in text
         if group_match is None:
-
+            if SCHEDULE_API.is_online:
+                groups_fmt = messages.format_groups(await SCHEDULE_API.groups())
+            else:
+                groups_fmt = messages.format_cant_connect_to_schedule_server()
+            
             # send a message saying "your input is invalid"
             answer_text = (
                 messages.Builder()
-                        .add(messages.format_groups(await SCHEDULE_API.groups()))
+                        .add(groups_fmt)
                         .add(messages.format_invalid_group())
                         .add(footer_addition)
             )
@@ -472,9 +476,14 @@ async def group(everything: CommonEverything):
         # add validated group to context as valid group
         ctx.settings.group.valid = group_caps
 
+        
+        if SCHEDULE_API.is_online:
+            groups = await SCHEDULE_API.groups()
+        else:
+            groups = []
 
         # if this group not in list of all available groups
-        if group_caps not in await SCHEDULE_API.groups():
+        if group_caps not in groups:
             # ask if we should still set this unknown group
             return await to_unknown_group(everything)
 
@@ -487,9 +496,14 @@ async def group(everything: CommonEverything):
         # user proceeded to this state from callback button "begin"
         event = everything.event
 
+        if SCHEDULE_API.is_online:
+            groups_fmt = messages.format_groups(await SCHEDULE_API.groups())
+        else:
+            groups_fmt = messages.format_cant_connect_to_schedule_server()
+
         answer_text = (
             messages.Builder()
-                    .add(messages.format_groups(await SCHEDULE_API.groups()))
+                    .add(groups_fmt)
                     .add(messages.format_group_input())
                     .add(footer_addition)
         )

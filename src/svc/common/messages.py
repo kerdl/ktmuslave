@@ -181,6 +181,13 @@ def format_current_value(value: Any):
     )
 
 
+CANT_CONNECT_TO_SCHEDULE_SERVER = (
+    f"🤔 | Невозможно подключиться к серверу расписания"
+)
+def format_cant_connect_to_schedule_server() -> str:
+    return CANT_CONNECT_TO_SCHEDULE_SERVER
+
+
 #### Full messages for specific states ####
 
 WELCOME =  (

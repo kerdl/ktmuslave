@@ -1,5 +1,6 @@
 from time import time
 from loguru import logger
+from aiohttp.client_exceptions import ClientConnectorError
 import asyncio
 import async_timeout
 
@@ -25,6 +26,9 @@ async def update(everything: CommonEverything):
         message = messages.format_too_fast_retry_after(
             int(ctx.schedule.until_allowed)
         )
+        return await everything.event.show_notification(message)
+    if not SCHEDULE_API.is_online:
+        message = messages.format_cant_connect_to_schedule_server()
         return await everything.event.show_notification(message)
 
     with UpdateWaiter(ctx):
@@ -94,18 +98,21 @@ async def hub(
 
     group = ctx.settings.group.confirmed
 
-    if ctx.schedule.message.is_weekly:
-        weekly_page = await SCHEDULE_API.weekly(group)
-        users_group = weekly_page.get_group(group) if weekly_page is not None else None
+    if SCHEDULE_API.is_online:
+        if ctx.schedule.message.is_weekly:
+            weekly_page = await SCHEDULE_API.weekly(group)
+            users_group = weekly_page.get_group(group) if weekly_page is not None else None
 
-    elif ctx.schedule.message.is_daily:
-        daily_page = await SCHEDULE_API.daily(group)
-        users_group = daily_page.get_group(group) if daily_page is not None else None
+        elif ctx.schedule.message.is_daily:
+            daily_page = await SCHEDULE_API.daily(group)
+            users_group = daily_page.get_group(group) if daily_page is not None else None
 
-    schedule_text = await sc_format.group(
-        users_group,
-        ctx.settings.zoom.entries.list
-    )
+        schedule_text = await sc_format.group(
+            users_group,
+            ctx.settings.zoom.entries.list
+        )
+    else:
+        schedule_text = messages.format_cant_connect_to_schedule_server()
 
     answer_text = (
         messages.Builder()
