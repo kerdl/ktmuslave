@@ -8,12 +8,13 @@ from websockets.legacy import client
 from aiohttp.client_exceptions import ClientConnectorError
 from aiohttp import ClientResponse
 from pathlib import Path
+from dotenv import get_key
 import asyncio
 import datetime
 import aiofiles
 import time
 
-from src import defs
+from src import defs, ENV_PATH
 from src.api.base import Api
 from src.data import RepredBaseModel, Duration
 from src.data.schedule import Page, compare
@@ -387,5 +388,7 @@ class ScheduleApi(Api):
 
         return response
 
-SCHEDULE_API = ScheduleApi("127.0.0.1:8080/schedule")
+KTMUSCRAP_ADDR = get_key(ENV_PATH, 'KTMUSCRAP_ADDR')
+
+SCHEDULE_API = ScheduleApi(f"{KTMUSCRAP_ADDR}/schedule" if KTMUSCRAP_ADDR else "127.0.0.1:8080/schedule")
 LAST_NOTIFY  = LastNotify.load_or_init(defs.data_dir.joinpath("last_notify.json"))
