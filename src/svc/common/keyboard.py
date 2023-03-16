@@ -1,6 +1,6 @@
 from __future__ import annotations
 from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, List
 from typing import Literal
 from vkbottle import (
     Keyboard as VkKeyboard, 
@@ -14,7 +14,7 @@ from aiogram.types import (
     ForceReply as TgForceReply
 )
 from dataclasses import dataclass
-from pydantic import BaseModel, Field as PydField
+from pydantic import BaseModel, Field as PydField, parse_obj_as
 
 from src.svc import common
 from src.data import Emojized, Repred, Translated, Field, Emoji, format as fmt, schedule
@@ -42,6 +42,7 @@ class Payload:
     BROADCAST     = "broadcast"
     PIN           = "pin"
     ZOOM          = "zoom"
+    RESET         = "reset"
 
     # Zoom buttons
     FROM_TEXT     = "from_text"
@@ -93,6 +94,7 @@ class Text:
     BROADCAST  = "✉️ Рассылка"
     PIN        = "📌 Закрепление"
     ZOOM       = "🖥️ Zoom"
+    RESET      = "🗑️ Сбросить всё"
 
     # Zoom buttons
     FROM_TEXT  = "💬 Из сообщения"
@@ -190,7 +192,80 @@ class Keyboard(BaseModel):
     
     def __init__(__pydantic_self__, schematic: Optional[list[list[Optional[Button]]]] = None, **data: Any) -> None:
         super().__init__(**data)
-        __pydantic_self__.schematic = schematic if schematic is not None else []
+        if schematic is None:
+            __pydantic_self__.schematic = []
+        elif Keyboard.is_dict_schema(schematic):
+            __pydantic_self__.schematic = Keyboard.parse_schema(schematic)
+        else:
+            __pydantic_self__.schematic = schematic
+
+    @staticmethod
+    def is_dict_schema(schematic: list[list[Any]]) -> bool:
+        for row in schematic:
+            for button in row:
+                if button is None: continue
+                if isinstance(button, dict): return True
+        
+        return False
+
+    @staticmethod
+    def parse_schema(schematic: list[list[Optional[dict]]]) -> list[list[Button]]:
+        parsed_schematic = []
+        parsed_row = []
+
+        for row in schematic:
+            for button in row:
+                if button is None: continue
+                btn = Button.parse_obj(button)
+                parsed_row.append(btn)
+            
+            if not parsed_row: continue
+
+            parsed_schematic.append(parsed_row)
+            parsed_row = []
+        
+        return parsed_schematic
+
+    @classmethod
+    def hub_default(cls: Keyboard, sc_type: schedule.TYPE_LITERAL) -> Keyboard:
+        from src.api.schedule import SCHEDULE_API
+
+        is_daily = sc_type == schedule.Type.DAILY
+        is_weekly = sc_type == schedule.Type.WEEKLY
+
+        return cls([
+            [
+                WEEKLY_BUTTON.only_if(is_daily),
+                DAILY_BUTTON.only_if(is_weekly),
+                UPDATE_BUTTON
+            ],
+            #[kb.FOLD_BUTTON.only_if(is_unfolded)],
+            #[kb.UNFOLD_BUTTON.only_if(is_folded)],
+            [RESEND_BUTTON],
+            [SETTINGS_BUTTON],
+            [
+                SCHEDULE_API.ft_daily_url_button(),
+                SCHEDULE_API.ft_weekly_url_button()
+            ],
+            [SCHEDULE_API.r_weekly_url_button()],
+            [MATERIALS_BUTTON, JOURNALS_BUTTON],
+        ], add_back=False)
+
+    @classmethod
+    async def hub_broadcast_default(cls: Keyboard) -> Keyboard:
+        from src.api.schedule import SCHEDULE_API
+
+        return cls([
+            [UPDATE_BUTTON],
+            [RESEND_BUTTON],
+            [SETTINGS_BUTTON],
+            [
+                SCHEDULE_API.ft_daily_url_button(),
+                SCHEDULE_API.ft_weekly_url_button()
+            ],
+            [SCHEDULE_API.r_weekly_url_button()],
+            [MATERIALS_BUTTON, JOURNALS_BUTTON],
+        ], add_back=False)
 
     @classmethod
     def from_dataclass(
@@ -396,6 +471,7 @@ GROUP_BUTTON         = Button(text = Text.GROUP,      callback = Payload.GROUP, 
 BROADCAST_BUTTON     = Button(text = Text.BROADCAST,  callback = Payload.BROADCAST,     color = Color.BLUE)
 PIN_BUTTON           = Button(text = Text.PIN,        callback = Payload.PIN,           color = Color.BLUE)
 ZOOM_BUTTON          = Button(text = Text.ZOOM,       callback = Payload.ZOOM,          color = Color.BLUE)
+RESET_BUTTON         = Button(text = Text.RESET,      callback = Payload.RESET,         color = Color.RED)
 
 MATERIALS_BUTTON     = Button(text = Text.MATERIALS,  url = schedule.MATERIALS_URL)
 JOURNALS_BUTTON      = Button(text = Text.JOURNALS,   url = schedule.JOURNALS_URL)

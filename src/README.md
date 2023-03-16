@@ -8,3 +8,4 @@ server running on localhost ([ktmuscrap](https://github.com/kerdl/ktmuscrap))
     - so user's message `"HAVE SEX WITH ME 🥺"` will output the same result everywhere
 - `__init__.py` - global variables and objects, initializations and etc.
 - `__main__.py` - where program starts executing
+- `text.py` - some text utilities (like identation and chunking)

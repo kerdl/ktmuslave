@@ -51,16 +51,18 @@ async def remove_entry(everything: CommonEverything):
     focused = everything.ctx.settings.zoom.focused
     selected = focused.selected
 
-    everything.navigator.jump_back_to(ZOOM.II_BROWSE)
-
     if selected is None:
         # usually it should not happen,
         # only in case of rate limit
         return await to_browse(everything)
 
     focused.remove(selected.name.value)
+    everything.navigator.back(trace_it=False)
 
-    return await to_browse(everything)
+    if ZOOM.I_MASS in everything.navigator.trace and not focused.has_something:
+        return await to_mass(everything)
+    else:
+        return await to_browse(everything)
 
 async def set_attribute(
     everything: CommonEverything,
@@ -374,6 +376,10 @@ async def to_name(everything: CommonEverything):
 async def entry(everything: CommonEverything):
     ctx = everything.ctx
     
+    #if ctx.settings.zoom.focused is None or ctx.settings.zoom.focused.selected is None:
+    #    ctx.navigator.jump_back_to_or_append(ZOOM.II_BROWSE)
+    #    return await to_browse(everything)
+
     selected = ctx.settings.zoom.focused.selected
 
     answer_text = (
@@ -431,7 +437,7 @@ async def browse(
     if ctx.settings.zoom.is_focused_on_new_entries:
         # user came here from adding mass zoom data
         ctx.pages.list = pagination.from_zoom(
-            data = ctx.settings.zoom.new_entries.set,
+            data = ctx.settings.zoom.new_entries.list,
             text_footer = text_footer,
             keyboard_footer = [
                 [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
@@ -441,7 +447,7 @@ async def browse(
     elif ctx.settings.zoom.is_focused_on_entries:
         # user came here to view current active entries
         ctx.pages.list = pagination.from_zoom(
-            data = ctx.settings.zoom.entries.set,
+            data = ctx.settings.zoom.entries.list,
             text_footer = text_footer,
             keyboard_footer = [
                 [

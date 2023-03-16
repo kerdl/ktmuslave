@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any
+from typing import Any, Optional
 from src.data.settings import Settings
 
 from src.svc import common
@@ -7,7 +7,7 @@ from src.data import zoom, format as fmt, schedule
 from src.data.schedule import compare
 from src.parse.zoom import Key
 from src.svc.common.states import State
-from src.svc.common.keyboard import Text
+from src.svc.common.keyboard import Text, Payload
 
 
 DEBUGGING = False
@@ -106,6 +106,13 @@ def format_empty_page():
     return EMPTY_PAGE
 
 
+NO_MORE_PAGES = (
+    "■ Дальше ничего нет"
+)
+def format_no_more_pages() -> str:
+    return NO_MORE_PAGES
+
+
 PRESS_BEGIN = (
     f"👇 Нажимай {Text.BEGIN}, хуле"
 )
@@ -174,6 +181,13 @@ def format_current_value(value: Any):
     )
 
 
+CANT_CONNECT_TO_SCHEDULE_SERVER = (
+    f"🤔 | Невозможно подключиться к серверу расписания"
+)
+def format_cant_connect_to_schedule_server() -> str:
+    return CANT_CONNECT_TO_SCHEDULE_SERVER
+
+
 #### Full messages for specific states ####
 
 WELCOME =  (
@@ -213,7 +227,7 @@ def format_invalid_group():
 
 
 BROADCAST = (
-    "🔔 | Хочешь получать здесь рассылку расписания?"
+    "🔔 | Хочешь получать здесь рассылку, когда у группы меняется расписание?"
 )
 def format_broadcast():
     return BROADCAST
@@ -250,10 +264,10 @@ def format_permit_pin(src: common.MESSENGER_SOURCE):
 
 
 CANT_PIN_VK = (
-    "Нет у меня нихуя, перепроверь мою админку"
+    "❌ Нет у меня нихуя, перепроверь мою админку"
 )
 CANT_PIN_TG = (
-    "Нет у меня нихуя, перепроверь моё право \"Закрепление сообщений\""
+    "❌ Нет у меня нихуя, перепроверь моё право \"Закрепление сообщений\""
 )
 def format_cant_pin(src: common.MESSENGER_SOURCE):
     if src == common.Source.VK:
@@ -312,7 +326,7 @@ ZOOM_DATA_FORMAT = (
     f"   ↵ {Key.NAME}: <Фамилия> <И>.<О>.\n"
     f"   ↵ {Key.URL}: <Ссылка>\n"
     f"   ↵ {Key.ID}: <ID>\n"
-    f"   ↵ {Key.PWD}: <Код>\n"
+    f"   ↵ {'/'.join(Key.PWD)}: <Код>\n"
     f"   ↵ {Key.NOTES}: <Любой текст, например твой мини-фанфик, ссыль на фурри порно или в крайнем случае почта и Google Drive>\n"
     f"   ↵ ..."
 )
@@ -459,6 +473,64 @@ def format_finish():
     return FINISH
 
 
+GROUP_SETTING_EXPLAIN = (
+    f"{Text.GROUP} - настройки группы, с которой работает негр"
+)
+BROADCAST_SETTING_EXPLAIN = (
+    f"{Text.BROADCAST} - получишь ли ты новое сообщение при обновлении расписания для установленной группы"
+)
+PIN_SETTING_EXPLAIN = (
+    f"{Text.PIN} - закрепит ли негр рассылку расписания"
+)
+ZOOM_SETTING_EXPLAIN = (
+    f"{Text.ZOOM} - настройки данных преподов: их имена, ссылки, ID, пароли и заметки, которые показываются в расписании"
+)
+RESET_SETTING_EXPLAIN = (
+    f"{Text.RESET} - сбросить все данные и начать первоначальную настройку"
+)
+def format_settings_main(is_group_chat: bool) -> str:
+    text = ""
+
+    text += f"{GROUP_SETTING_EXPLAIN}\n"
+    text += "\n"
+    text += f"{BROADCAST_SETTING_EXPLAIN}\n"
+    text += "\n"
+    if is_group_chat:
+        text += f"{PIN_SETTING_EXPLAIN}\n"
+        text += "\n" 
+    text += f"{ZOOM_SETTING_EXPLAIN}\n"
+    text += "\n"
+    text += f"{RESET_SETTING_EXPLAIN}\n"
+
+    return text
+
+
+RESET_EXPLAIN = (
+    f"🗑️ | Это сбросит все настройки + Zoom данные и потребует пройти начальную настройку\n\n"
+    f"👇 | Нажимай {Text.RESET} чтобы у тебя тоже была болезнь Альцгеймера"
+)
+def format_reset_explain() -> str:
+    return RESET_EXPLAIN
+
+
+NO_SCHEDULE = (
+    f"🤔 Твоей группы нет в этом расписании"
+)
+def format_no_schedule() -> str:
+    return NO_SCHEDULE
+
+
+SCHEDULE_FOOTER = (
+    "⏱ Последнее обновление: {last_update}\n"
+    "✉ Период автообновления: {update_period} мин"
+)
+def format_schedule_footer(last_update: Any, update_period: Any) -> str:
+    return SCHEDULE_FOOTER.format(
+        last_update=last_update,
+        update_period=update_period
+    )
+
+
 NO_UPDATES = (
     "🤔 Обновлений не найдено"
 )
@@ -487,6 +559,13 @@ def format_too_fast_retry_after(secs: int):
     return TOO_FAST_RETRY_AFTER.format(
         secs = fmt_secs
     )
+
+
+NOT_IMPLEMENTED_ERROR = (
+    "🤔 Функция не реализована"
+)
+def format_not_implemented_error() -> str:
+    return NOT_IMPLEMENTED_ERROR
 
 
 GROUP_CHANGED_IN_SC_TYPE = (

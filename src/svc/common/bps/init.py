@@ -36,7 +36,6 @@ async def to_hub(everything: CommonEverything):
     ctx = everything.ctx
 
     ctx.register()
-    defs.ctx.poll_save()
 
     return await hub_bp.to_hub(everything)
 
@@ -63,7 +62,7 @@ async def to_finish(everything: CommonEverything):
     return await finish(everything)
 
 
-@r.on_message(StateFilter(INIT.I_MAIN))
+@r.on_everything(StateFilter(INIT.I_MAIN))
 async def main(everything: CommonEverything):
     answer_text = (
         messages.Builder()

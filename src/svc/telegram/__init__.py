@@ -4,7 +4,7 @@ from dotenv import get_key
 from aiogram import Bot, Router, Dispatcher
 from aiogram.types import MessageEntity, ForceReply, InlineKeyboardMarkup, Message, CallbackQuery
 
-from src import defs, text as text_utils
+from src import defs, text as text_utils, ENV_PATH
 
 
 class ChatType:
@@ -135,7 +135,7 @@ def load_bot(loop: asyncio.BaseEventLoop | asyncio.AbstractEventLoop = None) -> 
     ## Set token, load handlers and return a `Bot`
     """
 
-    bot = Bot(token=get_key(".env", "TG_TOKEN"))
+    bot = Bot(token=get_key(ENV_PATH, "TG_TOKEN"))
     return bot
 
 def load_router() -> Router:

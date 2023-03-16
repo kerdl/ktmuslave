@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Optional, Any
-from dataclasses import dataclass
 from pydantic import BaseModel, Field as PydField
 
 from src.data import zoom
@@ -19,7 +18,6 @@ class Settings(Values):
     zoom: zoom.Container = PydField(default_factory=zoom.Container)
     broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None
-
 
     def get_from_state(self, state: State) -> Any:
         VALUES = {

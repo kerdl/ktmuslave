@@ -36,7 +36,7 @@ class Notify(BaseModel):
     weekly: Optional[compare.PageCompare]
 
     def has_any_updates(self):
-        self.daily is not None and self.weekly is not None
+        return self.daily is not None and self.weekly is not None
     
     def has_updates_for_group(self, name: str):
         for page_compare in [self.daily, self.weekly]:
@@ -101,6 +101,7 @@ class LastNotify(BaseModel):
 @dataclass
 class ScheduleApi(Api):
     interactor: Optional[Interactor] = None
+    is_online: bool = False
 
     _last_daily: Optional[Page] = None
     _last_weekly: Optional[Page] = None
@@ -179,7 +180,7 @@ class ScheduleApi(Api):
 
         return groups_list
     
-    async def ping(self):
+    async def wait_for_schedule_server(self):
         retry_period = 5
         is_connect_error_logged = False
         url = "http://" + self.url
@@ -198,6 +199,15 @@ class ScheduleApi(Api):
                 continue
 
             break
+    
+    async def ping(self) -> bool:
+        url = "http://" + self.url
+
+        try:
+            await self._get(url, return_result = False)
+            return True
+        except ClientConnectorError:
+            return False
 
     async def schedule(self, url: str) -> Optional[Page]:
         response = await self._get(url)
@@ -329,6 +339,7 @@ class ScheduleApi(Api):
 
                 async with client.connect(url, create_protocol=protocol_factory) as socket:
                     try:
+                        self.is_online = True
                         is_connect_error_logged = False
 
                         logger.info(f"awaiting updates...")
@@ -354,6 +365,8 @@ class ScheduleApi(Api):
 
             except ClientConnectorError:
                 if not is_connect_error_logged:
+                    self.is_online = False
+
                     logger.error(
                         f"can't connect to updates server, "
                         f"will keep retrying each {retry_period} secs"
