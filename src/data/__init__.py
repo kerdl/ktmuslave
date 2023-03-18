@@ -40,9 +40,10 @@ class RepredBaseModel(BaseModel):
     def repr_name(self) -> str: ...
 
 class HiddenVars(BaseModel):
-    def __init__(self, **data):
+    def __init__(self, hidden_vars: bool = True, **data):
         super().__init__(**data)
-        self.__dict__["__hidden_vars__"] = {}
+        if hidden_vars:
+            self.__dict__["__hidden_vars__"] = {}
 
     @property
     def __hidden_vars__(self) -> dict[str, Any]:

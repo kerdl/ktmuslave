@@ -1470,10 +1470,11 @@ class CommonEverything(BaseCommonEvent):
     @classmethod
     def from_message(cls: type[CommonEverything], message: CommonMessage):
         self = cls(
-            src       = message.src,
-            chat_id   = message.chat_id,
-            event_src = Source.MESSAGE,
-            message   = message,
+            src         = message.src,
+            chat_id     = message.chat_id,
+            event_src   = Source.MESSAGE,
+            message     = message,
+            hidden_vars = False
         )
 
         return self
@@ -1481,10 +1482,11 @@ class CommonEverything(BaseCommonEvent):
     @classmethod
     def from_event(cls: type[CommonEverything], event: CommonEvent):
         self = cls(
-            src       = event.src,
-            chat_id   = event.chat_id,
-            event_src = Source.EVENT,
-            event     = event,
+            src         = event.src,
+            chat_id     = event.chat_id,
+            event_src   = Source.EVENT,
+            event       = event,
+            hidden_vars = False
         )
 
         return self
