@@ -66,7 +66,7 @@ class Notify(BaseModel):
 
 class LastNotify(BaseModel):
     path: Optional[Path]
-    randoms: list[str]
+    random: Optional[str]
 
     async def save(self):
         async with aiofiles.open(defs.data_dir.joinpath("last_notify.json"), mode="w") as f:
@@ -88,15 +88,13 @@ class LastNotify(BaseModel):
         if path.exists():
             return cls.load(path)
         else:
-            self = cls(path = path, randoms = [])
+            self = cls(path=path, random=None)
             self.poll_save()
 
             return self
     
-    def add_random(self, random: str):
-        self.randoms.append(random)
-        self.randoms = self.randoms[-10:]
-
+    def set_random(self, random: str):
+        self.random = random
         self.poll_save()
 
 @dataclass
@@ -347,13 +345,13 @@ class ScheduleApi(Api):
                         async for message in socket:
                             notify = Notify.parse_raw(message)
 
-                            if notify.random in LAST_NOTIFY.randoms:
+                            if notify.random == LAST_NOTIFY.random:
                                 logger.warning(
                                     f"caught duplicate notify {notify.random}, ignoring"
                                 )
                                 continue
                             
-                            LAST_NOTIFY.add_random(notify.random)
+                            LAST_NOTIFY.set_random(notify.random)
 
                             await self.daily()
                             await self.weekly()
