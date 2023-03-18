@@ -213,10 +213,10 @@ class Defs:
             logger.info("created redis \"broadcast\" index")
 
     def init_redis(self):
-        no_addr_error = ValueError("put redis connection details to the .env file like this: REDIS = \"127.0.0.1:6379\"")
+        no_addr_error = ValueError("put redis connection details to the .env file like this: REDIS_ADDR = \"127.0.0.1:6379\"")
         invalid_addr_error = ValueError("invalid addr for redis, make sure there is a \":\" in it like this: 127.0.0.1:6379")
 
-        redis_uri = get_key(ENV_PATH, "REDIS")
+        redis_uri = get_key(ENV_PATH, "REDIS_ADDR")
         if redis_uri is None:
             raise no_addr_error
         
@@ -225,8 +225,9 @@ class Defs:
             raise invalid_addr_error
 
         host, port = host_port
+        password = get_key(ENV_PATH, "REDIS_PASSWORD") or None
 
-        self.redis = Redis(host=host, port=port)
+        self.redis = Redis(host=host, port=port, password=password)
         self.loop.run_until_complete(self.wait_for_redis())
         self.loop.run_until_complete(self.check_redisearch_index())
         
