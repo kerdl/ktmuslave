@@ -15,9 +15,11 @@ services:
     networks:
       - local
     volumes:
-    - type: bind
-      source: ./data/docker/ktmuslave
-      target: /ktmuslave/data
+      - type: bind
+        source: ./data/docker/ktmuslave
+        target: /ktmuslave/data
+        bind:
+          create_host_path: true
   ktmuscrap:
     build: https://github.com/kerdl/ktmuscrap.git
     ports:
@@ -28,6 +30,8 @@ services:
       - type: bind
         source: ./data/docker/ktmuscrap
         target: /ktmuscrap/data
+        bind:
+          create_host_path: true
   redis:
     image: redis/redis-stack-server:latest
     environment:
@@ -40,6 +44,8 @@ services:
       - type: bind
         source: ./data/docker/redis
         target: /data
+        bind:
+          create_host_path: true
 networks:
   local:
     driver: bridge
