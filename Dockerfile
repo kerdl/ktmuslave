@@ -10,7 +10,6 @@ ARG REDIS_PASSWORD=""
 
 # build options
 ARG cwd=/ktmuslave
-ARG repo=https://github.com/kerdl/ktmuslave
 
 WORKDIR ${cwd}
 
