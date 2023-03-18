@@ -103,60 +103,60 @@ class Data(BaseModel, Translated, Emojized):
         return zoom.Parser(text).parse()
     
     @staticmethod
-    def check_name(name: str) -> set[Warning]:
-        warns = set()
+    def check_name(name: str) -> list[Warning]:
+        warns = []
 
         match = pattern.SHORT_NAME.match(name)
 
         if not match or match.group() != name:
-            warns.add(data.INCORRECT_NAME_FORMAT)
+            warns.append(data.INCORRECT_NAME_FORMAT)
 
         if not name.endswith("."):
-            warns.add(data.NO_DOT_AT_THE_END)
+            warns.append(data.NO_DOT_AT_THE_END)
 
         return warns
     
     @staticmethod
-    def check_url(url: str) -> set[Warning]:
-        warns = set()
+    def check_url(url: str) -> list[Warning]:
+        warns = []
 
         if urlparse(url).netloc is None:
-            warns.add(data.NOT_AN_URL)
+            warns.append(data.NOT_AN_URL)
 
         if (
             data.NOT_AN_URL not in warns 
             and url.replace(" ", "").endswith(("..", "...", "…"))
         ):
-            warns.add(data.URL_MAY_BE_CUTTED)
+            warns.append(data.URL_MAY_BE_CUTTED)
         
         return warns
 
     @staticmethod
-    def check_id(id: str) -> set[Warning]:
-        warns = set()
+    def check_id(id: str) -> list[Warning]:
+        warns = []
 
         if not pattern.ZOOM_ID.search(id.replace(" ", "")):
-            warns.add(data.INCORRECT_ID_FORMAT)
+            warns.append(data.INCORRECT_ID_FORMAT)
         
         if pattern.PUNCTUATION.search(id):
-            warns.add(data.HAS_PUNCTUATION)
+            warns.append(data.HAS_PUNCTUATION)
         
         if pattern.LETTER.search(id):
-            warns.add(data.HAS_LETTERS)
+            warns.append(data.HAS_LETTERS)
 
         return warns
     
     def check(self):
         for warn in self.check_name(self.name.value):
-            self.name.warnings.add(warn)
+            self.name.warnings.append(warn)
 
         if hasattr(self, "url") and self.url.value is not None:
             for warn in self.check_url(self.url.value):
-                self.url.warnings.add(warn)
+                self.url.warnings.append(warn)
         
         if hasattr(self, "id") and self.id.value is not None:
             for warn in self.check_id(self.id.value):
-                self.id.warnings.add(warn)
+                self.id.warnings.append(warn)
 
     def fields(
         self, 

@@ -28,7 +28,7 @@ from src.svc.common.navigator import Navigator, DbNavigator
 from src.svc.common import pagination, messages
 from src.svc.vk.types_ import RawEvent
 from src.svc.common import keyboard as kb, error
-from src.data import RepredBaseModel
+from src.data import RepredBaseModel, HiddenVars
 from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL, Page
 from src.data.settings import Settings
 from src.api.schedule import Notify
@@ -637,29 +637,9 @@ class Ctx:
         await self.broadcast_mappings(mappings, invoker)
 
 
-class BaseCommonEvent(BaseModel):
+class BaseCommonEvent(HiddenVars):
     src: Optional[MESSENGER_SOURCE] = None
     chat_id: Optional[int] = None
-
-
-    def __init__(__pydantic_self__, **data: Any) -> None:
-        super().__init__(**data)
-        __pydantic_self__.set_hidden_vars(dict())
-
-    @property
-    def __hidden_vars__(self) -> dict[str, Any]:
-        return self.__dict__["__hidden_vars__"]
-    
-    def set_hidden_vars(self, value: dict[str, Any]):
-        self.__dict__["__hidden_vars__"] = value
-
-    def del_hidden_vars(self):
-        del self.__dict__["__hidden_vars__"]
-
-    def take_hidden_vars(self) -> dict[str, Any]:
-        hidden_vars = self.__hidden_vars__
-        self.del_hidden_vars()
-        return hidden_vars
 
     @property
     def ctx(self) -> Optional[BaseCtx]:
@@ -697,7 +677,7 @@ class BaseCommonEvent(BaseModel):
 
         self.set_ctx(db_ctx_parsed.to_runtime())
         
-        logger.success(f"ctx {self.ctx.db_key} loaded and set")
+        logger.debug(f"ctx {self.ctx.db_key} loaded and set")
 
         return self.ctx
 
