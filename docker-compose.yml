@@ -1,0 +1,22 @@
+services:
+  ktmuslave:
+    build:
+      context: .
+      args:
+        - VK_TOKEN="YOUR_VK_BOT_TOKEN_HERE"
+        - TG_TOKEN="YOUR_TG_BOT_TOKEN_HERE"
+        - VK_ADMIN="YOUR_VK_USER_ID_TO_SEND_ERRORS_IN_PMs_OR_SET_TO_0"
+        - KTMUSCRAP_ADDR="127.0.0.1:8080"
+        - REDIS_ADDR="127.0.0.1:6379"
+        - REDIS_PASSWORD=""
+    depends_on:
+      - ktmuscrap
+      - redis
+  ktmuscrap:
+    build: https://github.com/kerdl/ktmuscrap.git
+    ports:
+      - 8080:8080
+  redis:
+    image: redis/redis-stack-server:latest
+    ports:
+      - 6379:6379
