@@ -39,6 +39,27 @@ class RepredBaseModel(BaseModel):
     @property
     def repr_name(self) -> str: ...
 
+class HiddenVars(BaseModel):
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.__dict__["__hidden_vars__"] = {}
+
+    @property
+    def __hidden_vars__(self) -> dict[str, Any]:
+        return self.__dict__["__hidden_vars__"]
+
+    def set_hidden_vars(self, value: dict[str, Any]):
+        self.__dict__["__hidden_vars__"] = value
+
+    def del_hidden_vars(self):
+        del self.__dict__["__hidden_vars__"]
+    
+    def take_hidden_vars(self) -> dict[str, Any]:
+        hidden_vars = self.__hidden_vars__
+        self.del_hidden_vars()
+        return hidden_vars
+
+
 
 class Duration(BaseModel):
     secs: int
@@ -77,11 +98,7 @@ class Warning:
 
 class Field(GenericModel, Generic[T], Repred):
     value: T
-
-    warnings: set[Warning] = PydField(default_factory=set)
-    """
-    # Warns if `value` is unusual
-    """
+    warnings: list[Warning] = PydField(default_factory=list, exclude=True)
 
     @property
     def has_warnings(self) -> bool:

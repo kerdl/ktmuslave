@@ -1,5 +1,6 @@
 vkbottle==4.3.12
 aiogram==3.0.0b4
+redis==4.5.1
 
 aiohttp==3.8.3
 async-timeout==4.0.2

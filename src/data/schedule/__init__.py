@@ -22,6 +22,13 @@ class Type:
     WEEKLY = "weekly"
     DAILY  = "daily"
 
+    @classmethod
+    def opposite(cls: type[Type], sc_type: TYPE_LITERAL) -> TYPE_LITERAL:
+        if sc_type == cls.WEEKLY:
+            return cls.DAILY
+        if sc_type == cls.DAILY:
+            return cls.WEEKLY
+
 TYPE_LITERAL = Literal["weekly", "daily"]
 
 

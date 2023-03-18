@@ -103,57 +103,60 @@ class Data(BaseModel, Translated, Emojized):
         return zoom.Parser(text).parse()
     
     @staticmethod
-    def check_name(name: str) -> set[Warning]:
-        warns = set()
+    def check_name(name: str) -> list[Warning]:
+        warns = []
 
         match = pattern.SHORT_NAME.match(name)
 
         if not match or match.group() != name:
-            warns.add(data.INCORRECT_NAME_FORMAT)
+            warns.append(data.INCORRECT_NAME_FORMAT)
 
         if not name.endswith("."):
-            warns.add(data.NO_DOT_AT_THE_END)
+            warns.append(data.NO_DOT_AT_THE_END)
 
         return warns
     
     @staticmethod
-    def check_url(url: str) -> set[Warning]:
-        warns = set()
+    def check_url(url: str) -> list[Warning]:
+        warns = []
 
         if urlparse(url).netloc is None:
-            warns.add(data.NOT_AN_URL)
+            warns.append(data.NOT_AN_URL)
 
         if (
             data.NOT_AN_URL not in warns 
             and url.replace(" ", "").endswith(("..", "...", "…"))
         ):
-            warns.add(data.URL_MAY_BE_CUTTED)
+            warns.append(data.URL_MAY_BE_CUTTED)
         
         return warns
 
     @staticmethod
-    def check_id(id: str) -> set[Warning]:
-        warns = set()
+    def check_id(id: str) -> list[Warning]:
+        warns = []
 
         if not pattern.ZOOM_ID.search(id.replace(" ", "")):
-            warns.add(data.INCORRECT_ID_FORMAT)
+            warns.append(data.INCORRECT_ID_FORMAT)
         
         if pattern.PUNCTUATION.search(id):
-            warns.add(data.HAS_PUNCTUATION)
+            warns.append(data.HAS_PUNCTUATION)
         
         if pattern.LETTER.search(id):
-            warns.add(data.HAS_LETTERS)
+            warns.append(data.HAS_LETTERS)
 
         return warns
     
     def check(self):
-        self.name.warnings = self.check_name(self.name.value)
+        for warn in self.check_name(self.name.value):
+            self.name.warnings.append(warn)
 
         if hasattr(self, "url") and self.url.value is not None:
-            self.url.warnings = self.check_url(self.url.value)
+            for warn in self.check_url(self.url.value):
+                self.url.warnings.append(warn)
         
         if hasattr(self, "id") and self.id.value is not None:
-            self.id.warnings = self.check_id(self.id.value)
+            for warn in self.check_id(self.id.value):
+                self.id.warnings.append(warn)
 
     def fields(
         self, 
@@ -287,7 +290,7 @@ class Data(BaseModel, Translated, Emojized):
 
 
 class Entries(BaseModel):
-    set: set[Data] = PydField(default_factory=set)
+    list: list[Data] = PydField(default_factory=list)
     """
     # The collection of data itself
     """
@@ -299,20 +302,20 @@ class Entries(BaseModel):
     """
 
     @classmethod
-    def from_set(cls: type[Entries], set: set[Data]):
-        return cls(set = set)
+    def from_list(cls: type[Entries], list: list[Data]):
+        return cls(list = list)
     
     @property
     def selected(self) -> Data:
         return self.get(self.selected_name)
 
     def change_name(self, old: str, new: str) -> None:
-        if old not in self.set:
+        if old not in self.list:
             raise error.ZoomNameNotInDatabase(
                 "you're trying to change inexistent name"
             )
         
-        if new in self.set:
+        if new in self.list:
             raise error.ZoomNameInDatabase(
                 "new name is already in database"
             )
@@ -349,21 +352,21 @@ class Entries(BaseModel):
 
     def add(
         self, 
-        data: Union[Data, set[Data], list[Data]], 
+        data: Union[Data, list[Data]], 
         overwrite: bool = False
     ):
         if isinstance(data, (set, list)):
             for data_obj in data:
-                if data_obj in self.set and overwrite:
-                    self.set.remove(data_obj)
+                if data_obj in self.list and overwrite:
+                    self.list.remove(data_obj)
 
-                self.set.add(data_obj)
+                self.list.append(data_obj)
         
         elif isinstance(data, Data):
-            if data in self.set and overwrite:
-                self.set.remove(data)
+            if data in self.list and overwrite:
+                self.list.remove(data)
 
-            self.set.add(data)
+            self.list.append(data)
 
     def add_from_name(self, name: str):
         data = Data(name=Field(value=name))
@@ -371,7 +374,7 @@ class Entries(BaseModel):
         self.add(data)
 
     def get(self, name: str) -> Optional[Data]:
-        for entry in self.set:
+        for entry in self.list:
             if entry.name == name:
                 return entry
 
@@ -379,29 +382,29 @@ class Entries(BaseModel):
 
     def has(self, name: str) -> bool:
         """ ## If `name` in this container """
-        return name in self.set
+        return name in self.list
 
     @property
     def has_something(self) -> bool:
         """ ## If this container has something """
-        return len(self.set) > 0
+        return len(self.list) > 0
 
     def remove(self, name: Union[str, set[str]]):
         if isinstance(name, set):
             for n in name:
-                self.set.remove(n)
+                self.list.remove(n)
             
             return None
 
         if isinstance(name, str):
-            self.set.remove(name)
+            self.list.remove(name)
 
             return None
     
     def format_compact(self) -> str:
         names: list[str] = []
 
-        for entry in self.set:
+        for entry in self.list:
             warns_text: Optional[str] = None
 
             if not entry.all_fields_without_warns():
@@ -418,19 +421,23 @@ class Entries(BaseModel):
         return "\n".join(names)
 
     def clear(self):
-        self.set = set()
+        self.list = set()
     
     def dump(self) -> str:
         entries_dumps: list[str] = []
 
-        for entry in self.set:
+        for entry in self.list:
             dump = entry.dump_str()
             entries_dumps.append(dump)
         
         return "\n\n".join(entries_dumps)
+    
+    def check_all(self):
+        for entry in self.list:
+            entry.check()
 
     def __len__(self):
-        return len(self.set)
+        return len(self.list)
 
 
 class Storage:
@@ -510,9 +517,9 @@ class Container(BaseModel):
 
     def confirm_new_entries(self) -> None:
         # add data from `new_entries` to `entries`
-        self.entries.add(self.new_entries.set, overwrite = True)
+        self.entries.add(self.new_entries.list, overwrite = True)
         # clear new entries
-        self.new_entries.set.clear()
+        self.new_entries.list.clear()
 
         self.finish()
 
@@ -543,14 +550,14 @@ class Container(BaseModel):
 
     @property
     def adding(self) -> Entries:
-        return Entries.from_set(
-            self.new_entries.set.difference(self.entries.set)
+        return Entries.from_list(
+            list(set(self.new_entries.list).difference(set(self.entries.list)))
         )
 
     @property
     def overwriting(self) -> Entries:
-        return Entries.from_set(
-            self.entries.set.intersection(self.new_entries.set)
+        return Entries.from_list(
+            list(set(self.entries.list).intersection(set(self.new_entries.list)))
         )
 
     def finish(self) -> None:
@@ -563,6 +570,10 @@ class Container(BaseModel):
     
     def unfocus(self) -> None:
         self.focused_at = None
+
+    def check_all(self):
+        self.entries.check_all()
+        self.new_entries.check_all()
 
 def focus_auto(everything: common.CommonEverything):
     from src.svc.common.states import tree

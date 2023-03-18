@@ -107,9 +107,8 @@ def from_zoom(
             back_symbol = "←" if not is_first_page else BULLET
             next_symbol = "→" if not is_last_page else BULLET
 
-            back_button = Button(back_symbol, Payload.PAGE_BACK)
-            #page_button = Button(f"{page_num + 1}", f"{page_num}")
-            next_button = Button(next_symbol, Payload.PAGE_NEXT)
+            back_button = Button(text=back_symbol, callback=Payload.PAGE_BACK)
+            next_button = Button(text=next_symbol, callback=Payload.PAGE_NEXT)
 
             # make a row with navigation
             kb_schema.append([

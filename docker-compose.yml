@@ -1,0 +1,45 @@
+services:
+  ktmuslave:
+    build:
+      context: .
+      args:
+        - VK_TOKEN=YOUR_VK_BOT_TOKEN_HERE
+        - TG_TOKEN=YOUR_TG_BOT_TOKEN_HERE
+        - VK_ADMIN=YOUR_VK_USER_ID_TO_SEND_ERRORS_IN_PMs_OR_SET_TO_ZERO
+        - KTMUSCRAP_ADDR=ktmuscrap:8080
+        - REDIS_ADDR=redis:6379
+        - REDIS_PASSWORD=Pu55Yamogu55y
+    depends_on:
+      - ktmuscrap
+      - redis
+    networks:
+      - local
+    volumes:
+    - type: bind
+      source: ./data/docker/ktmuslave
+      target: /ktmuslave/data
+  ktmuscrap:
+    build: https://github.com/kerdl/ktmuscrap.git
+    ports:
+      - 8080:8080
+    networks:
+      - local
+    volumes:
+      - type: bind
+        source: ./data/docker/ktmuscrap
+        target: /ktmuscrap/data
+  redis:
+    image: redis/redis-stack-server:latest
+    environment:
+      - REDIS_ARGS=--save 10 1 --loglevel warning --requirepass Pu55Yamogu55y
+    ports:
+      - 6379:6379
+    networks:
+      - local
+    volumes:
+      - type: bind
+        source: ./data/docker/redis
+        target: /data
+networks:
+  local:
+    driver: bridge

@@ -2,20 +2,24 @@ from __future__ import annotations
 from loguru import logger
 import time
 import asyncio
+import json
+from copy import deepcopy
+from json.encoder import JSONEncoder
 from typing import Literal, Optional, Callable, Any, TypeVar, Generic
 from copy import deepcopy
 from dataclasses import dataclass, field
-from pydantic import BaseModel
+from pydantic import BaseModel, utils
 from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.codegen.objects import MessagesMessageActionStatus
-from aiogram.types import Chat as TgChat, Message as TgMessage, CallbackQuery
-from aiogram.exceptions import TelegramRetryAfter
-import pickle
-import aiofiles
+from aiogram.types import Message as TgMessage, CallbackQuery
+from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError
+from redis.commands.json.path import Path
+from redis.commands.search.query import Query
+from redis.commands.search.result import Result
 
-from src import defs
+from src import defs, RedisName
 from src.svc import vk, telegram as tg
 from src import text
 from src.svc.common.states import formatter as states_fmt, Values
@@ -23,9 +27,9 @@ from src.svc.common.states.tree import HUB
 from src.svc.common.navigator import Navigator, DbNavigator
 from src.svc.common import pagination, messages
 from src.svc.vk.types_ import RawEvent
-from src.svc.common import keyboard as kb
-from src.data import RepredBaseModel
-from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL
+from src.svc.common import keyboard as kb, error
+from src.data import RepredBaseModel, HiddenVars
+from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL, Page
 from src.data.settings import Settings
 from src.api.schedule import Notify
 from .states.tree import Space
@@ -48,12 +52,39 @@ MESSENGER_SOURCE = Literal["vk", "tg"]
 MESSENGER_SOURCE_T = TypeVar("MESSENGER_SOURCE_T")
 EVENT_SOURCE = Literal["message", "event"]
 
+DB_BASE_CTX_UPDATED_FORWARD_REFS = False
+
 
 @dataclass
 class BroadcastGroup:
-    name: str
+    group: str
     header: str
     sc_type: TYPE_LITERAL
+
+    @property
+    def is_daily(self) -> bool:
+        return self.sc_type == Type.DAILY
+    
+    @property
+    def is_weekly(self) -> bool:
+        return self.sc_type == Type.WEEKLY
+
+    def add_header_to(self, fmt_schedule: str) -> str:
+        return f"{self.header}\n\n{fmt_schedule}"
+
+    @staticmethod
+    def filter_for_group(
+        group: str,
+        mappings: list[BroadcastGroup]
+    ) -> list[BroadcastGroup]:
+        relatives = []
+
+        """ # Search for relative mapping """
+        for mapping in mappings:
+            if mapping.group == group:
+                relatives.append(mapping)
+
+        return relatives
 
 class DbBaseCtx(BaseModel):
     chat_id: int
@@ -72,7 +103,17 @@ class DbBaseCtx(BaseModel):
     last_weekly_message: Optional[CommonBotMessage]
 
     @classmethod
+    def ensure_update_forward_refs(cls):
+        global DB_BASE_CTX_UPDATED_FORWARD_REFS
+
+        if not DB_BASE_CTX_UPDATED_FORWARD_REFS:
+            cls.update_forward_refs()
+            DB_BASE_CTX_UPDATED_FORWARD_REFS = True
+
+    @classmethod
     def from_runtime(cls: type[DbBaseCtx], ctx: BaseCtx) -> DbBaseCtx:
+        DbBaseCtx.ensure_update_forward_refs()
+        
         return cls(
             chat_id=ctx.chat_id,
             is_registered=ctx.is_registered,
@@ -90,10 +131,11 @@ class DbBaseCtx(BaseModel):
     def to_runtime(self) -> BaseCtx:
         return BaseCtx.from_db(self)
 
+
 @dataclass
 class BaseCtx:
     chat_id: int
-    is_registered: bool = False
+    is_registered: bool = field(default_factory=lambda: False)
 
     navigator: Navigator = field(default_factory=Navigator)
     """ # `Back`, `next` buttons tracer """
@@ -102,7 +144,7 @@ class BaseCtx:
     schedule: Schedule = field(default_factory=Schedule)
     """ # Schedule data """
     
-    last_call: float = 0.0
+    last_call: float = field(default_factory=lambda: .0)
     """
     # Last UNIX time when user interacted with bot
 
@@ -139,10 +181,13 @@ class BaseCtx:
     last_daily_message: Optional[CommonBotMessage] = None
     last_weekly_message: Optional[CommonBotMessage] = None
 
+    @property
+    def db_key(self) -> str:
+        return f"{self.last_everything.src.upper()}_{self.chat_id}"
 
     @classmethod
     def from_db(cls: type[BaseCtx], db: DbBaseCtx) -> BaseCtx:
-        return cls(
+        self = cls(
             chat_id=db.chat_id,
             is_registered=db.is_registered,
             navigator=db.navigator.to_runtime(db.last_everything),
@@ -155,9 +200,42 @@ class BaseCtx:
             last_daily_message=db.last_daily_message,
             last_weekly_message=db.last_weekly_message
         )
+
+        self.settings.zoom.check_all()
+
+        return self
     
     def to_db(self) -> DbBaseCtx:
         return DbBaseCtx.from_runtime(self)
+
+    async def set_last_bot_message(self, message: CommonBotMessage):
+        self.last_bot_message = message
+    
+    async def save(self):
+        # backup hidden vars and delete them from last_everything
+        hidden_vars = self.last_everything.take_hidden_vars()
+
+        self_db = await defs.loop.run_in_executor(None, self.to_db)
+
+        # this is so retarded,
+        # i couldn't just do `self_db.dict()`,
+        # because vkbottle's `Message` BaseModel
+        # contains a bunch of shitty enums
+        # that are only properly serialized
+        # when calling `self_db.json()`, but not `self_db.dict()`
+        self_db_json = self_db.json()
+        self_db_dict = json.loads(self_db_json)
+
+        self.last_everything.set_hidden_vars(hidden_vars)
+
+        await defs.redis.json(
+            encoder=JSONEncoder(default=str)
+        ).set(
+            self.db_key,
+            Path.root_path(),
+            self_db_dict,
+            decode_keys=True
+        )
 
     def register(self) -> None:
         self.is_registered = True
@@ -182,6 +260,172 @@ class BaseCtx:
         self.last_everything = everything
         self.navigator.set_everything(everything)
 
+    async def schedule_for_confirmed_group(
+        self,
+        sc_type: TYPE_LITERAL
+    ) -> Page:
+        from src.api.schedule import SCHEDULE_API
+
+        if sc_type == Type.DAILY:
+            return await SCHEDULE_API.daily(self.settings.group.confirmed)
+        if sc_type == Type.WEEKLY:
+            return await SCHEDULE_API.weekly(self.settings.group.confirmed)
+    
+    async def fmt_schedule_for_confirmed_group(
+        self,
+        sc_type: TYPE_LITERAL
+    ) -> str:
+        page = await self.schedule_for_confirmed_group(sc_type)
+
+        try: group = page.groups[0]
+        except IndexError: group = None
+
+        return await sc_format.group(
+            group,
+            self.settings.zoom.entries.list
+        )
+
+    async def send_custom_broadcast(
+        self,
+        message: CommonBotMessage,
+        sc_type: TYPE_LITERAL
+    ):
+        new_message = await message.send()
+
+        if new_message.id is not None:
+            # we do that after 'cause of the sending delay,
+            # and going back to hub state before the message
+            # is sent causes bugs if used was actively
+            # interacting with the bot
+            self.navigator.jump_back_to_or_append(HUB.I_MAIN)
+
+            if sc_type == Type.DAILY:
+                self.last_daily_message = new_message
+            elif sc_type == Type.WEEKLY:
+                self.last_weekly_message = new_message
+
+            self.last_bot_message = new_message
+
+            await self.save()
+
+            if self.settings.should_pin:
+                await new_message.safe_pin()
+        else:
+            raise error.BroadcastSendFail("sent message id is None")
+    
+    async def retry_send_custom_broadcast(
+        self,
+        message: CommonBotMessage,
+        sc_type: TYPE_LITERAL,
+        max_tries: int = 3,
+        interval: int = 60 # in secs
+    ):
+        tries = 0
+        errors = []
+        successful = False
+
+        while tries < max_tries:
+            try:
+                await self.send_custom_broadcast(message, sc_type)
+                successful = True
+                break
+            except Exception as e:
+                tries += 1
+                errors.append(f"{type(e).__name__}({e})")
+                await asyncio.sleep(interval)
+        
+        if successful:
+            logger.opt(colors=True).success(
+                f"<G><k><d>BROADCASTING {sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                f"succeeded after {tries} times"
+            )
+        else:
+            logger.opt(colors=True).error(
+                f"<R><k><d>BROADCASTING {sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                f"failed all {max_tries} times with errors: {' | '.join(errors)}"
+            )
+        
+    async def send_broadcast(self, mappings: list[BroadcastGroup]):
+        for mapping in mappings:
+            opposite_sc_type = Type.opposite(mapping.sc_type)
+            reply_to = None
+            fmt_schedule = await self.fmt_schedule_for_confirmed_group(mapping.sc_type)
+            bcast_text = mapping.add_header_to(fmt_schedule)
+            bcast_text_with_reply_hint = (
+                f"{messages.format_replied_to_schedule_message(opposite_sc_type)}\n\n"
+                f"{bcast_text}"
+            )
+            bcast_text_failed_reply_hint = (
+                f"{messages.format_failed_reply_to_schedule_message(opposite_sc_type)}\n\n"
+                f"{bcast_text}"
+            )
+
+            if mapping.is_daily:
+                if not self.last_weekly_message:
+                    bcast_text_with_reply_hint = bcast_text
+                else:
+                    reply_to = self.last_weekly_message.id
+            elif mapping.is_weekly:
+                if not self.last_daily_message:
+                    bcast_text_with_reply_hint = bcast_text
+                else:
+                    reply_to = self.last_daily_message.id
+
+            bcast_message = CommonBotMessage(
+                text=bcast_text_with_reply_hint,
+                keyboard=await kb.Keyboard.hub_broadcast_default(),
+                can_edit=False,
+                src=self.last_everything.src,
+                chat_id=self.chat_id,
+                reply_to=reply_to,
+            )
+
+            logger.opt(colors=True).info(
+                f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                f"{mapping.header}"
+            )
+
+            try:
+                await self.send_custom_broadcast(
+                    message=bcast_message,
+                    sc_type=mapping.sc_type
+                )
+            except VKAPIError[913] as e:
+                logger.opt(colors=True).warning(
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"failed with {type(e).__name__}({e}), trying without replying"
+                )
+
+                bcast_message.reply_to = None
+                bcast_message.text = bcast_text_failed_reply_hint
+
+                try:
+                    await self.send_custom_broadcast(
+                        message=bcast_message,
+                        sc_type=mapping.sc_type
+                    )
+                except Exception as e:
+                    logger.opt(colors=True).warning(
+                        f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                        f"unknown exception: {type(e).__name__}({e})"
+                    )
+            except TelegramForbiddenError:
+                logger.opt(colors=True).warning(
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"user had blocked the bot"
+                )
+            except error.BroadcastSendFail as e:
+                logger.opt(colors=True).warning(
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"sending the broadcast message had failed: {type(e).__name__}({e})"
+                )
+            except Exception as e:
+                logger.opt(colors=True).warning(
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"unknown exception: {type(e).__name__}({e})"
+                )
+
+
 @dataclass
 class DbIterator(Generic[MESSENGER_SOURCE_T]):
     ...
@@ -189,190 +433,152 @@ class DbIterator(Generic[MESSENGER_SOURCE_T]):
 
 @dataclass
 class Ctx:
-    """ ## Global context storage"""
-    vk: dict[int, BaseCtx]
-    """
-    ## VK chats
-    - stored in a dict of `{peer_id: ctx}`
-    """
-    tg: dict[int, BaseCtx]
-    """
-    ## Telegram chats
-    - stored in a dict of `{chat_id: ctx}`
-    """
-
-    def is_added(self, everything: CommonEverything) -> bool:
-        if everything.is_from_vk:
-            return everything.chat_id in self.vk.keys()
-        if everything.is_from_tg:
-            return everything.chat_id in self.tg.keys()
+    async def is_added(self, everything: CommonEverything) -> bool:
+        return bool(await defs.redis.exists(f"{everything.src.upper()}_{everything.chat_id}"))
     
-    def add_from_everything(self, everything: CommonEverything) -> BaseCtx:
+    async def add_from_everything(self, everything: CommonEverything) -> BaseCtx:
         if everything.is_from_vk:
-            ctx = self.add_vk(everything.chat_id)
+            ctx = await self.add_vk(everything)
         elif everything.is_from_tg:
-            if everything.is_from_event:
-                ctx = self.add_tg(everything.event.tg.message.chat.id)
-            elif everything.is_from_message:
-                ctx = self.add_tg(everything.message.tg.chat.id)
-        
+            ctx = await self.add_tg(everything)
+
+        return ctx
+
+    async def add(
+        self,
+        everything: Optional[CommonEverything] = None
+    ) -> BaseCtx:
+        ctx = BaseCtx(
+            chat_id=everything.chat_id,
+            last_call=time.time(),
+        )
         ctx.set_everything(everything)
 
         return ctx
 
-    def add_vk(self, peer_id: int) -> BaseCtx:
-        self.vk[peer_id] = BaseCtx(
-            chat_id=peer_id,
-            last_call=time.time(),
+    async def add_vk(self, everything: Optional[CommonEverything] = None) -> BaseCtx:
+        ctx = await self.add(everything)
+        logger.opt(colors=True).info(
+            "<G><k><d>+</></></> created ctx for vk {}", everything.chat_id
         )
 
-        logger.info("created ctx for vk {}", peer_id)
+        return ctx
 
-        return self.vk[peer_id]
-
-    def add_tg(self, chat_id: int) -> BaseCtx:
-        self.tg[chat_id] = BaseCtx(
-            chat_id=chat_id,
-            last_call=time.time(),
+    async def add_tg(self, everything: Optional[CommonEverything] = None) -> BaseCtx:
+        ctx = await self.add(everything)
+        logger.opt(colors=True).info(
+            "<G><k><d>+</></></> created ctx for tg {}", everything.chat_id
         )
 
-        logger.info("created ctx for tg {}", chat_id)
+        return ctx
 
-        return self.tg[chat_id]
+    async def delete(self, key: str):
+        await defs.redis.json().delete(key)
+
+    async def get_who_needs_broadcast(
+        self,
+        groups: list[str]
+    ) -> Optional[Result]:
+        if not groups:
+            return None
+
+        affected_groups_query = "|".join(groups)
+
+        query = Query(
+            f"@{RedisName.IS_REGISTERED}:""{true} "
+            f"@{RedisName.BROADCAST}:""{true} "
+            f"@{RedisName.GROUP}:({affected_groups_query})"
+        )
+
+        response: Result = await defs.redis.ft(RedisName.BROADCAST).search(query)
+
+        return response
+
+    async def parse_redis_result(self, result: Result) -> list[BaseCtx]:
+        ctxs: list[BaseCtx] = []
+
+        for document in result.docs:
+            document.id: str # key, looks like "TG_133769696"
+            #                         messenger ^      ^ chat id
+            document.json: str # value, the ctx json
+
+            # run_in_executor means regular function
+            # being executed as async function
+
+            # convert ['{"string json": "ctx"}' -> DbBaseCtx]
+            # in executor
+            db_ctx = await defs.loop.run_in_executor(
+                None,
+                DbBaseCtx.parse_raw,
+                document.json
+            )
+            # convert [DbBaseCtx -> BaseCtx]
+            # in executor
+            ctx = await defs.loop.run_in_executor(
+                None,
+                db_ctx.to_runtime
+            )
+
+            ctxs.append(ctx)
+
+        return ctxs
+
+    async def get_who_needs_broadcast_parsed(self, groups: list[str]) -> list[BaseCtx]:
+        raw_result = await self.get_who_needs_broadcast(groups)
+
+        if raw_result is None:
+            return []
+
+        return await self.parse_redis_result(raw_result)
+
+    @staticmethod
+    def sort_first_by_db_keys(keys: list[str], ctxs: list[BaseCtx]) -> list[BaseCtx]:
+        """
+        ## Put desired contexts in the list first
+        In the order of `keys` list
+
+        ## Example
+        ```
+        keys = ["TG_13376969", "VK_69696969"]
+        ctxs = [BaseCtx("VK_00000000"), BaseCtx("VK_69696969"), BaseCtx("TG_13376969")]
+        
+        result = Ctx().sort_first_by_db_keys(keys, ctxs)
+
+        assert result == [BaseCtx("TG_13376969"), BaseCtx("VK_69696969"), BaseCtx("VK_00000000")]
+        ```
+        """
+        new_list: list[BaseCtx] = []
+
+        for key in keys:
+            for index, ctx in enumerate(ctxs):
+                if ctx.db_key == key:
+                    new_list.append(ctx)
+                    ctxs.pop(index)
+                    break
+        
+        new_list += ctxs
+
+        return new_list
 
     async def broadcast_mappings(
         self,
         mappings: list[BroadcastGroup],
         invoker: Optional[BaseCtx] = None
     ):
-        from src.api.schedule import SCHEDULE_API
+        affected_groups = [mapping.group for mapping in mappings]
+        chats_that_need_broadcast = await self.get_who_needs_broadcast_parsed(affected_groups)
+        sorted_chats_that_need_broadcast = await defs.loop.run_in_executor(
+            None,
+            self.sort_first_by_db_keys,
+            defs.update_waiters_db_keys,
+            chats_that_need_broadcast
+        )
 
-        groups = [group.name for group in mappings]
-
-        CTX_TYPES = {
-            Source.VK: self.vk,
-            Source.TG: self.tg
-        }
-
-        for (src, storage) in CTX_TYPES.items():
-            storage: dict[int, BaseCtx]
-
-            for (chat_id, ctx) in storage.items():
-                if not ctx.is_registered:
-                    continue
-
-                user_group = ctx.settings.group.confirmed
-                should_broadcast = (
-                    ctx.settings.broadcast
-                    if invoker is None or ctx.chat_id != invoker.chat_id else True
-                )
-
-                if not should_broadcast:
-                    continue
-
-                if user_group not in groups:
-                    continue
-
-                mappings_to_send = [
-                    mapping for mapping in mappings if mapping.name == user_group
-                ]
-                
-                for mapping in mappings_to_send:
-                    opposite_type: TYPE_LITERAL
-                    no_message_to_reply_to = False
-                    reply_to = None
-
-                    if mapping.sc_type == Type.DAILY:
-                        opposite_type = Type.WEEKLY
-                        page = await SCHEDULE_API.daily()
-
-                        if ctx.last_weekly_message is not None:
-                            reply_to = ctx.last_weekly_message.id
-                        else:
-                            no_message_to_reply_to = True
-
-                    elif mapping.sc_type == Type.WEEKLY:
-                        opposite_type = Type.DAILY
-                        page = await SCHEDULE_API.weekly()
-
-                        if ctx.last_daily_message is not None:
-                            reply_to = ctx.last_daily_message.id
-                        else:
-                            no_message_to_reply_to = True
-
-                    fmt_schedule: str = await sc_format.group(
-                        page.get_group(mapping.name),
-                        ctx.settings.zoom.entries.set
-                    )
-
-                    reply_hint = messages.format_replied_to_schedule_message(
-                        opposite_type
-                    )
-                    failed_reply_hint = messages.format_failed_reply_to_schedule_message(
-                        opposite_type
-                    )
-
-                    whole_text_no_reply_hint = (
-                        f"{mapping.header}\n\n{fmt_schedule}"
-                    )
-                    whole_text_with_reply = (
-                        f"{reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
-                    )
-                    whole_text_failed_reply = (
-                        f"{failed_reply_hint}\n\n{mapping.header}\n\n{fmt_schedule}"
-                    )
-
-                    message = CommonBotMessage(
-                        can_edit = False,
-                        text     = whole_text_with_reply,
-                        keyboard = kb.Keyboard([
-                            [kb.UPDATE_BUTTON],
-                            [kb.RESEND_BUTTON],
-                            [kb.SETTINGS_BUTTON],
-                            [
-                                SCHEDULE_API.ft_daily_url_button(),
-                                SCHEDULE_API.ft_weekly_url_button()
-                            ],
-                            [SCHEDULE_API.r_weekly_url_button()],
-                            [kb.MATERIALS_BUTTON, kb.JOURNALS_BUTTON],
-                        ], add_back = False),
-                        src      = src,
-                        chat_id  = chat_id,
-                        reply_to = reply_to,
-                    )
-
-                    if no_message_to_reply_to:
-                        message.text = whole_text_no_reply_hint
-
-                    logger.info(f"broadcasting {mapping.sc_type} to {ctx.chat_id}")
-
-                    try:
-                        ctx.last_bot_message = await message.send()
-                    except VKAPIError[913]:
-                        logger.warning(
-                            f"(broadcasting {mapping.sc_type}) "
-                            f"{ctx.chat_id} has too many fwd messages, "
-                            f"proceeding without forwarding"
-                        )
-
-                        message.text = whole_text_failed_reply
-                        message.reply_to = None
-
-                        ctx.last_bot_message = await message.send()
-                    except Exception as e:
-                        logger.error(
-                            f"cannot broadcast {mapping.sc_type} to {ctx.chat_id}: {e}"
-                        )
-                    
-                    ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
-
-                    if mapping.sc_type == Type.DAILY:
-                        ctx.last_daily_message = ctx.last_bot_message
-                    elif mapping.sc_type == Type.WEEKLY:
-                        ctx.last_weekly_message = ctx.last_bot_message
-
-                    if ctx.settings.should_pin:
-                        await ctx.last_bot_message.safe_pin()
+        for chat in sorted_chats_that_need_broadcast:
+            chat_group = chat.settings.group.confirmed
+            chat_relative_mappings = BroadcastGroup.filter_for_group(chat_group, mappings)
+            
+            await chat.send_broadcast(chat_relative_mappings)
 
     async def broadcast(self, notify: Notify, invoker: Optional[BaseCtx] = None):
         from src.data.schedule.compare import ChangeType
@@ -429,55 +635,31 @@ class Ctx:
                     mappings.append(BroadcastGroup(name, header, sc_type))
         
         await self.broadcast_mappings(mappings, invoker)
-    
-    async def save(self):
-        async with aiofiles.open(defs.data_dir.joinpath("ctx.bin"), mode="wb") as f:
-            dump = pickle.dumps(self)
-            await f.write(dump)
-    
-    def poll_save(self):
-        defs.create_task(self.save())
-
-    async def save_forever(self):
-        while True:
-            await asyncio.sleep(10 * 60)
-            await self.save()
-
-    @classmethod
-    def load(cls) -> Ctx:
-        path = defs.data_dir.joinpath("ctx.bin")
-
-        with open(path, mode="rb") as f:
-            self: Ctx = pickle.load(f)
-
-            for messenger in [self.vk, self.tg]:
-                messenger: dict[int, BaseCtx]
-
-                for (id, ctx) in messenger.items():
-                    for tchr in ctx.settings.zoom.entries.set:
-                        tchr.i_promise_i_will_get_rid_of_this_thing_but_not_now()
-                    
-                    for tchr in ctx.settings.zoom.new_entries.set:
-                        tchr.i_promise_i_will_get_rid_of_this_thing_but_not_now()
-
-            return self
-
-    @classmethod
-    def load_or_init(cls: type[Ctx]) -> Ctx:
-        path = defs.data_dir.joinpath("ctx.bin")
-
-        if not path.exists():
-            self = cls(vk={}, tg={})
-            self.poll_save()
-
-            return self
-        else:
-            return cls.load()
 
 
-class BaseCommonEvent(BaseModel):
+class BaseCommonEvent(HiddenVars):
     src: Optional[MESSENGER_SOURCE] = None
     chat_id: Optional[int] = None
+
+    @property
+    def ctx(self) -> Optional[BaseCtx]:
+        try:
+            return self.__hidden_vars__["ctx"]
+        except KeyError:
+            return None
+
+    def set_ctx(self, ctx: BaseCtx):
+        self.__hidden_vars__["ctx"] = ctx
+    
+    def del_ctx(self):
+        del self.__hidden_vars__["ctx"]
+
+    @property
+    def was_processed(self) -> bool:
+        return self.__hidden_vars__["was_processed"]
+    
+    def set_was_processed(self, value: bool):
+        self.__hidden_vars__["was_processed"] = value
 
     @property
     def is_from_vk(self):
@@ -487,13 +669,18 @@ class BaseCommonEvent(BaseModel):
     def is_from_tg(self):
         return self.src == Source.TG
 
-    @property
-    def ctx(self) -> BaseCtx:
-        if self.is_from_vk:
-            return defs.ctx.vk.get(self.chat_id)
-        if self.is_from_tg:
-            return defs.ctx.tg.get(self.chat_id)
-    
+    async def load_ctx(self) -> BaseCtx:        
+        DbBaseCtx.ensure_update_forward_refs()
+
+        db_ctx = await defs.redis.json().get(f"{self.src.upper()}_{self.chat_id}")
+        db_ctx_parsed = DbBaseCtx.parse_obj(db_ctx)
+
+        self.set_ctx(db_ctx_parsed.to_runtime())
+        
+        logger.debug(f"ctx {self.ctx.db_key} loaded and set")
+
+        return self.ctx
+
     @property
     def navigator(self) -> Navigator:
         return self.ctx.navigator
@@ -795,7 +982,7 @@ class CommonMessage(BaseCommonEvent):
             tree_values = tree_values
         )
 
-        self.ctx.last_bot_message = bot_message
+        await self.ctx.set_last_bot_message(bot_message)
 
 class CommonBotMessage(BaseModel):
     """
@@ -1104,11 +1291,6 @@ class CommonEvent(BaseCommonEvent):
 
         was_split = False
         was_sent_instead = False
-        sent_more_than_24_hr_ago = (
-            self.is_from_last_message and
-            self.ctx.last_bot_message.timestamp is not None
-            and (self.ctx.last_bot_message.timestamp + 24 * 3600) > time.time()
-        ) 
 
         if self.is_from_vk:
             chat_id = self.vk["object"]["peer_id"]
@@ -1133,7 +1315,6 @@ class CommonEvent(BaseCommonEvent):
             
             if (
                 self.force_send
-                or sent_more_than_24_hr_ago
                 or (self.is_from_last_message and self.ctx.last_bot_message.was_split)
             ):
                 await send()
@@ -1200,7 +1381,7 @@ class CommonEvent(BaseCommonEvent):
             tree_values = tree_values
         )
 
-        self.ctx.last_bot_message = bot_message
+        await self.ctx.set_last_bot_message(bot_message)
 
     async def send_message(
         self,
@@ -1265,7 +1446,7 @@ class CommonEvent(BaseCommonEvent):
             tree_values = tree_values
         )
 
-        self.ctx.last_bot_message = bot_message
+        await self.ctx.set_last_bot_message(bot_message)
 
 class CommonEverything(BaseCommonEvent):
     """
@@ -1284,6 +1465,7 @@ class CommonEverything(BaseCommonEvent):
 
     force_send: Optional[bool] = None
     """ ## Even if we can edit the message, we may want to send a new one instead """
+
 
     @classmethod
     def from_message(cls: type[CommonEverything], message: CommonMessage):
@@ -1306,6 +1488,19 @@ class CommonEverything(BaseCommonEvent):
         )
 
         return self
+
+    @property
+    def __hidden_vars__(self) -> dict[str, Any]:
+        if self.is_from_event:
+            return self.event.__hidden_vars__
+        if self.is_from_message:
+            return self.message.__hidden_vars__
+    
+    def set_hidden_vars(self, value: dict[str, Any]):
+        if self.is_from_event:
+            self.event.set_hidden_vars(value)
+        elif self.is_from_message:
+            self.message.set_hidden_vars(value)
 
     @property
     def is_from_message(self) -> bool:
@@ -1357,6 +1552,49 @@ class CommonEverything(BaseCommonEvent):
         if self.is_from_message:
             return self.message.ctx
 
+    def set_ctx(self, value: Any):
+        if self.is_from_event:
+            self.event.set_ctx(value)
+        elif self.is_from_message:
+            self.message.set_ctx(value)
+    
+    def del_ctx(self):
+        if self.is_from_event:
+            self.event.del_ctx()
+        elif self.is_from_message:
+            self.message.del_ctx()
+    
+    def del_hidden_vars(self):
+        if self.is_from_event:
+            self.event.del_hidden_vars()
+        elif self.is_from_message:
+            self.message.del_hidden_vars()
+    
+    def take_hidden_vars(self) -> dict[str, Any]:
+        if self.is_from_event:
+            return self.event.take_hidden_vars()
+        if self.is_from_message:
+            return self.message.take_hidden_vars()
+
+    async def load_ctx(self) -> BaseCtx:
+        if self.is_from_event:
+            return await self.event.load_ctx()
+        elif self.is_from_message:
+            return await self.message.load_ctx()
+
+    @property
+    def was_processed(self) -> bool:
+        if self.is_from_event:
+            return self.event.was_processed
+        if self.is_from_message:
+            return self.message.was_processed
+    
+    def set_was_processed(self, value: bool):
+        if self.is_from_event:
+            self.event.set_was_processed(value)
+        elif self.is_from_message:
+            self.message.set_was_processed(value)
+
     @property
     def corresponding(self) -> Any:
         if self.is_from_event:
@@ -1399,28 +1637,51 @@ class CommonEverything(BaseCommonEvent):
         - if we received a `message`, we SEND our response `(answer)`
         - if we received an `event`, we EDIT the message with response
         """
-
-        if self.is_from_event:
-            event = self.event
+        event = self.event
+        if event is not None:
             event.force_send = self.force_send
+        message = self.message
 
+        edit = False
+        send = False
+        notify_about_resending = False
+
+        if self.is_from_event and self.ctx.last_bot_message and self.ctx.last_bot_message.can_edit:
+            edit = True
+        elif self.is_from_event and (not self.ctx.last_bot_message or not self.ctx.last_bot_message.can_edit):
+            send = True
+            notify_about_resending = True
+        else:
+            send = True
+
+        if edit:
             return await event.edit_message(
                 text        = text, 
                 keyboard    = keyboard,
                 add_tree    = add_tree,
                 tree_values = tree_values
             )
+        elif send:
+            if notify_about_resending:
+                await self.event.show_notification(
+                    messages.format_sent_as_new_message()
+                )
 
-        if self.is_from_message:
-            message = self.message
+            if message is not None:
+                return await message.answer(
+                    text        = text, 
+                    keyboard    = keyboard,
+                    add_tree    = add_tree,
+                    tree_values = tree_values
+                )
+            else:
+                return await event.send_message(
+                    text=text,
+                    keyboard=keyboard,
+                    add_tree=add_tree,
+                    tree_values=tree_values
+                )
 
-            return await message.answer(
-                text        = text, 
-                keyboard    = keyboard,
-                add_tree    = add_tree,
-                tree_values = tree_values
-            )
-    
     async def answer(
         self,
         text: str, 
@@ -1510,8 +1771,6 @@ def run_forever():
     try:
         loop.run_forever()
     except (KeyboardInterrupt, SystemExit):
-        logger.info("shutdown, saving ctx and closing log file")
-
-        loop.run_until_complete(defs.ctx.save())
+        logger.info("shutdown, closing log file")
         defs.log_file.close()
     

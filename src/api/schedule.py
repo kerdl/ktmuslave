@@ -8,12 +8,13 @@ from websockets.legacy import client
 from aiohttp.client_exceptions import ClientConnectorError
 from aiohttp import ClientResponse
 from pathlib import Path
+from dotenv import get_key
 import asyncio
 import datetime
 import aiofiles
 import time
 
-from src import defs
+from src import defs, ENV_PATH
 from src.api.base import Api
 from src.data import RepredBaseModel, Duration
 from src.data.schedule import Page, compare
@@ -36,7 +37,7 @@ class Notify(BaseModel):
     weekly: Optional[compare.PageCompare]
 
     def has_any_updates(self):
-        self.daily is not None and self.weekly is not None
+        return self.daily is not None and self.weekly is not None
     
     def has_updates_for_group(self, name: str):
         for page_compare in [self.daily, self.weekly]:
@@ -65,7 +66,7 @@ class Notify(BaseModel):
 
 class LastNotify(BaseModel):
     path: Optional[Path]
-    randoms: list[str]
+    random: Optional[str]
 
     async def save(self):
         async with aiofiles.open(defs.data_dir.joinpath("last_notify.json"), mode="w") as f:
@@ -87,20 +88,19 @@ class LastNotify(BaseModel):
         if path.exists():
             return cls.load(path)
         else:
-            self = cls(path = path, randoms = [])
+            self = cls(path=path, random=None)
             self.poll_save()
 
             return self
     
-    def add_random(self, random: str):
-        self.randoms.append(random)
-        self.randoms = self.randoms[-10:]
-
+    def set_random(self, random: str):
+        self.random = random
         self.poll_save()
 
 @dataclass
 class ScheduleApi(Api):
     interactor: Optional[Interactor] = None
+    is_online: bool = False
 
     _last_daily: Optional[Page] = None
     _last_weekly: Optional[Page] = None
@@ -179,7 +179,7 @@ class ScheduleApi(Api):
 
         return groups_list
     
-    async def ping(self):
+    async def wait_for_schedule_server(self):
         retry_period = 5
         is_connect_error_logged = False
         url = "http://" + self.url
@@ -198,6 +198,15 @@ class ScheduleApi(Api):
                 continue
 
             break
+    
+    async def ping(self) -> bool:
+        url = "http://" + self.url
+
+        try:
+            await self._get(url, return_result = False)
+            return True
+        except ClientConnectorError:
+            return False
 
     async def schedule(self, url: str) -> Optional[Page]:
         response = await self._get(url)
@@ -329,19 +338,20 @@ class ScheduleApi(Api):
 
                 async with client.connect(url, create_protocol=protocol_factory) as socket:
                     try:
+                        self.is_online = True
                         is_connect_error_logged = False
 
                         logger.info(f"awaiting updates...")
                         async for message in socket:
                             notify = Notify.parse_raw(message)
 
-                            if notify.random in LAST_NOTIFY.randoms:
+                            if notify.random == LAST_NOTIFY.random:
                                 logger.warning(
                                     f"caught duplicate notify {notify.random}, ignoring"
                                 )
                                 continue
                             
-                            LAST_NOTIFY.add_random(notify.random)
+                            LAST_NOTIFY.set_random(notify.random)
 
                             await self.daily()
                             await self.weekly()
@@ -354,6 +364,8 @@ class ScheduleApi(Api):
 
             except ClientConnectorError:
                 if not is_connect_error_logged:
+                    self.is_online = False
+
                     logger.error(
                         f"can't connect to updates server, "
                         f"will keep retrying each {retry_period} secs"
@@ -374,5 +386,7 @@ class ScheduleApi(Api):
 
         return response
 
-SCHEDULE_API = ScheduleApi("127.0.0.1:8080/schedule")
+KTMUSCRAP_ADDR = get_key(ENV_PATH, 'KTMUSCRAP_ADDR')
+
+SCHEDULE_API = ScheduleApi(f"{KTMUSCRAP_ADDR}/schedule" if KTMUSCRAP_ADDR else "127.0.0.1:8080/schedule")
 LAST_NOTIFY  = LastNotify.load_or_init(defs.data_dir.joinpath("last_notify.json"))

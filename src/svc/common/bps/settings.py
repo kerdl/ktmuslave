@@ -8,7 +8,7 @@ from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
 from src.svc.common.states import formatter as states_fmt, Space
-from src.svc.common.states.tree import INIT, ZOOM, SETTINGS, HUB
+from src.svc.common.states.tree import INIT, ZOOM, SETTINGS, RESET, HUB
 from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import Keyboard, Payload
@@ -46,7 +46,6 @@ async def auto_route(everything: CommonEverything):
     if current_state in [SETTINGS.II_ZOOM]:
         from src.svc.common.bps import init
         return await init.to_finish(everything)
-
 
 
 """ ZOOM ACTIONS """
@@ -135,9 +134,9 @@ async def add_zoom(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-                .add_if(messages.format_recommend_adding_zoom(), is_from_init)
-                .add_if(messages.format_choose_adding_type(), is_from_hub)
-                .add(adding_types)
+            .add_if(messages.format_recommend_adding_zoom(), is_from_init)
+            .add_if(messages.format_choose_adding_type(), is_from_hub)
+            .add(adding_types)
     )
     answer_keyboard = Keyboard([
         [
@@ -445,11 +444,15 @@ async def group(everything: CommonEverything):
 
         # if no group in text
         if group_match is None:
-
+            if SCHEDULE_API.is_online:
+                groups_fmt = messages.format_groups(await SCHEDULE_API.groups())
+            else:
+                groups_fmt = messages.format_cant_connect_to_schedule_server()
+            
             # send a message saying "your input is invalid"
             answer_text = (
                 messages.Builder()
-                        .add(messages.format_groups(await SCHEDULE_API.groups()))
+                        .add(groups_fmt)
                         .add(messages.format_invalid_group())
                         .add(footer_addition)
             )
@@ -473,9 +476,14 @@ async def group(everything: CommonEverything):
         # add validated group to context as valid group
         ctx.settings.group.valid = group_caps
 
+        
+        if SCHEDULE_API.is_online:
+            groups = await SCHEDULE_API.groups()
+        else:
+            groups = []
 
         # if this group not in list of all available groups
-        if group_caps not in await SCHEDULE_API.groups():
+        if group_caps not in groups:
             # ask if we should still set this unknown group
             return await to_unknown_group(everything)
 
@@ -488,9 +496,14 @@ async def group(everything: CommonEverything):
         # user proceeded to this state from callback button "begin"
         event = everything.event
 
+        if SCHEDULE_API.is_online:
+            groups_fmt = messages.format_groups(await SCHEDULE_API.groups())
+        else:
+            groups_fmt = messages.format_cant_connect_to_schedule_server()
+
         answer_text = (
             messages.Builder()
-                    .add(messages.format_groups(await SCHEDULE_API.groups()))
+                    .add(groups_fmt)
                     .add(messages.format_group_input())
                     .add(footer_addition)
         )
@@ -530,7 +543,7 @@ async def main(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-                .add("i love niggers")
+                .add(messages.format_settings_main(is_group_chat=everything.is_group_chat))
     )
     answer_keyboard = Keyboard([
         [kb.GROUP_BUTTON.with_value(ctx.settings.group.confirmed)],
@@ -538,19 +551,14 @@ async def main(everything: CommonEverything):
         [kb.PIN_BUTTON.with_value(ctx.settings.should_pin).only_if(
             SETTINGS.III_SHOULD_PIN not in ctx.navigator.ignored
         )],
-        [kb.ZOOM_BUTTON.with_value(len(ctx.settings.zoom.entries))]
+        [kb.ZOOM_BUTTON.with_value(len(ctx.settings.zoom.entries))],
+        [kb.RESET_BUTTON]
     ])
 
-    if ctx.last_bot_message.can_edit:
-        return await everything.edit_or_answer(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
-        )
-    else:
-        return await everything.answer(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
-        )
+    return await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard
+    )
 
 @r.on_callback(
     StateFilter(HUB.I_MAIN),
