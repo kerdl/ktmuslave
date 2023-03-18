@@ -4,3 +4,5 @@ __pycache__
 /.env
 /.vscode
 test.py
+docker-compose-dev.yml
+docker-compose-prod.yml
