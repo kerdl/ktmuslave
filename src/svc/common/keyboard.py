@@ -208,7 +208,7 @@ class Keyboard:
             schema.append(dict_row)
 
         return {
-            "schema": schema,
+            "schematic": schema,
             "add_back": self.add_back,
             "next_button": self.next_button.to_dict() if self.next_button else None
         }

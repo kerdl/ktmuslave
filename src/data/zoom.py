@@ -87,11 +87,11 @@ class Data(Translated, Emojized):
 
     def to_dict(self) -> dict:
         return {
-            "name": self.name.value, 
-            "url": self.url.value,
-            "id": self.id.value,
-            "pwd": self.pwd.value,
-            "notes": self.notes.value
+            "name": self.name.to_dict(), 
+            "url": self.url.to_dict(),
+            "id": self.id.to_dict(),
+            "pwd": self.pwd.to_dict(),
+            "notes": self.notes.to_dict()
         }
 
     def i_promise_i_will_get_rid_of_this_thing_but_not_now(self):

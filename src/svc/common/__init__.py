@@ -727,7 +727,7 @@ class CommonBotMessage:
             "keyboard": self.keyboard.to_dict(),
             "can_edit": self.can_edit,
             "add_tree": self.add_tree,
-            "tree_values": self.tree_values,
+            "tree_values": self.tree_values.to_dict() if self.tree_values else None,
             "src": self.src,
             "chat_id": self.chat_id,
             "id": self.id,

@@ -2,8 +2,8 @@ import sys
 from loguru import logger
 
 if __name__ == "__main__":
-    #action = "convert"
-    action = "add_to_redis"
+    action = "convert"
+    #action = "add_to_redis"
 
     if action == "convert":
         sys.path.append(".")

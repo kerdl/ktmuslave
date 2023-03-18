@@ -59,6 +59,12 @@ class Warning:
     anchor: str
     text: str
 
+    def to_dict(self) -> dict:
+        return {
+            "anchor": self.anchor,
+            "text": self.text
+        }
+
     @staticmethod
     def format_multiple(warns: Iterable[Warning]) -> str:
         text_warns: list[str] = []
@@ -82,6 +88,12 @@ class Field(Generic[T], Repred):
     """
     # Warns if `value` is unusual
     """
+
+    def to_dict(self) -> dict:
+        return {
+            "value": self.value,
+            "warnings": [warn.to_dict() for warn in self.warnings]
+        }
 
     @property
     def has_warnings(self) -> bool:
