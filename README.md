@@ -1,4 +1,4 @@
-[🇷🇺 Russian](/README-RU.md)
+[🇷🇺 Русский](/README-RU.md)
 
 Running in production:
 <p float="left">
