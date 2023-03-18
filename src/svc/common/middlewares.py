@@ -110,7 +110,7 @@ class ShowNotImplementedError(Middleware):
 @r.middleware()
 class SaveCtxToDb(Middleware):
     async def post(self, everything: CommonEverything):
-        logger.success(f"saving {everything.ctx.db_key} ctx")
+        logger.debug(f"saving {everything.ctx.db_key} ctx")
         await everything.ctx.save()
-        logger.success(f"del {everything.ctx.db_key} ctx")
+        logger.debug(f"del {everything.ctx.db_key} ctx")
         everything.del_ctx()
