@@ -806,62 +806,90 @@ class CommonMessage(BaseCommonEvent):
         if self.is_from_tg:
             return self.tg
     
-    def _tg_is_for_bot(self) -> bool:
+    def tg_is_invite(self) -> bool:
+        if not self.is_from_tg:
+            return False
+
+        if self.tg.content_type != "new_chat_members":
+            return False
+        
+        for new in self.tg.new_chat_members:
+            if new.id == defs.tg_bot_info.id:
+                return True
+        
+        return False
+    
+    def tg_did_user_used_bot_command(self) -> bool:
+        if not self.is_from_tg:
+            return False
+
+        if self.tg.text is None:
+            return False
+        
+        if self.tg.text == "/":
+            return False
+        elif any(cmd in self.tg.text for cmd in defs.tg_bot_commands):
+            return True
+        
+        return False
+
+    def tg_did_user_mentioned_bot(self) -> bool:
+        if self.tg.entities is None:
+            return False
+
+        mentions = tg.extract_mentions(self.tg.entities, self.tg.text)
+
+        # if our bot not in mentions
+        if defs.tg_bot_mention not in mentions:
+            return False
+
+        return True
+
+    def tg_did_user_replied_to_bot_message(self) -> bool:
+        if self.tg.reply_to_message is None:
+            return False
+
+        return self.tg.reply_to_message.from_user.id == defs.tg_bot_info.id
+
+    def tg_is_for_bot(self) -> bool:
         if not self.is_from_tg:
             return False
 
         event = self.tg
         is_group_chat = tg.is_group_chat(event.chat.type)
 
-        def is_invite() -> bool:
-            if event.content_type != "new_chat_members":
-                return False
-            
-            for new in event.new_chat_members:
-                if new.id == defs.tg_bot_info.id:
-                    return True
-            
-            return False
-
-        def did_user_used_bot_command() -> bool:
-            if event.text is None:
-                return False
-            
-            if event.text == "/":
-                return False
-            elif any(cmd in event.text for cmd in defs.tg_bot_commands):
-                return True
-            
-            return False
-
-        def did_user_mentioned_bot() -> bool:
-            if event.entities is None:
-                return False
-
-            mentions = tg.extract_mentions(event.entities, event.text)
-
-            # if our bot not in mentions
-            if defs.tg_bot_mention not in mentions:
-                return False
-
-            return True
-
-        def did_user_replied_to_bot_message() -> bool:
-            if event.reply_to_message is None:
-                return False
-
-            return event.reply_to_message.from_user.id == defs.tg_bot_info.id
-
-        if not is_invite() and (is_group_chat and not (
-            did_user_used_bot_command() or
-            did_user_mentioned_bot() or
-            did_user_replied_to_bot_message()
+        if not self.tg_is_invite() and (is_group_chat and not (
+            self.tg_did_user_used_bot_command() or
+            self.tg_did_user_mentioned_bot() or
+            self.tg_did_user_replied_to_bot_message()
         )):
             return False
         
         return True
     
-    def _vk_is_for_bot(self) -> bool:
+    def vk_is_invite(self) -> bool:
+        if not self.is_from_vk:
+            return False
+
+        if self.vk.action is None:
+            return False
+
+        return (
+            self.vk.action.member_id == -defs.vk_bot_info.id
+            and self.vk.action.type.value == MessagesMessageActionStatus.CHAT_INVITE_USER.value
+        )
+
+    def vk_did_user_mentioned_bot(self) -> bool:
+        """ 
+        ## @<bot id> <message> 
+        ### `@<bot id>` is a mention
+        """
+        if not self.is_from_vk:
+            return False
+
+        return self.vk.is_mentioned
+
+    def vk_is_for_bot(self) -> bool:
         if not self.is_from_vk:
             return False
 
@@ -869,25 +897,9 @@ class CommonMessage(BaseCommonEvent):
         is_group_chat = event.peer_id != event.from_id
         bot_id = defs.vk_bot_info.id
         negative_bot_id = -bot_id
-        
-        def is_invite() -> bool:
-            if event.action is None:
-                return False
 
-            return (
-                event.action.member_id == -defs.vk_bot_info.id
-                and event.action.type.value == MessagesMessageActionStatus.CHAT_INVITE_USER.value
-            )
-
-        def did_user_mentioned_bot() -> bool:
-            """ 
-            ## @<bot id> <message> 
-            ### `@<bot id>` is a mention
-            """
-            return event.is_mentioned
-
-        if not is_invite() and (is_group_chat and not (
-            did_user_mentioned_bot()
+        if not self.vk_is_invite() and (is_group_chat and not (
+            self.vk_did_user_mentioned_bot()
         )):
             return False
         
@@ -895,9 +907,15 @@ class CommonMessage(BaseCommonEvent):
     
     def is_for_bot(self) -> bool:
         if self.is_from_vk:
-            return self._vk_is_for_bot()
+            return self.vk_is_for_bot()
         if self.is_from_tg:
-            return self._tg_is_for_bot()
+            return self.tg_is_for_bot()
+    
+    def did_user_mentioned_bot(self) -> bool:
+        if self.is_from_vk:
+            return self.vk_did_user_mentioned_bot()
+        if self.is_from_tg:
+            return self.tg_did_user_mentioned_bot() or self.tg_did_user_used_bot_command()
 
     async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
         if self.is_from_vk:
@@ -1609,6 +1627,12 @@ class CommonEverything(BaseCommonEvent):
             return True
         if self.is_from_message:
             return self.message.is_for_bot()
+    
+    def did_user_mentioned_bot(self) -> bool:
+        if self.is_from_event:
+            return True
+        if self.is_from_message:
+            return self.message.did_user_mentioned_bot()
 
     async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
         if self.is_from_event:

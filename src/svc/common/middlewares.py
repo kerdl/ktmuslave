@@ -72,8 +72,6 @@ class OldMessagesBlock(EventMiddleware):
         if this_message_id != last_message_id:
             if everything.ctx.is_registered:
                 if common_event.payload in [
-                    kb.Payload.WEEKLY,
-                    kb.Payload.DAILY,
                     kb.Payload.UPDATE,
                     kb.Payload.RESEND,
                 ]:
