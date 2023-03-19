@@ -372,7 +372,7 @@ async def to_name(everything: CommonEverything):
     everything.navigator.append(ZOOM.IIII_NAME)
     return await name(everything)
 
-
+@r.on_everything(StateFilter(ZOOM.III_ENTRY))
 async def entry(everything: CommonEverything):
     ctx = everything.ctx
     
@@ -406,9 +406,9 @@ async def add_init_entry(everything: CommonEverything):
     return await to_name(everything)
 
 
-@r.on_callback(
+@r.on_everything(
     StateFilter(ZOOM.II_BROWSE),
-    lambda every: every.event.payload != kb.Payload.ADD_HUB
+    lambda every: every.event.payload != kb.Payload.ADD_HUB if every.is_from_event else True
 )
 async def browse(
     everything: CommonEverything, 

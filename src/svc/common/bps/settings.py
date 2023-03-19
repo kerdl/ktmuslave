@@ -531,7 +531,7 @@ async def to_group(everything: CommonEverything):
 
 
 """ MAIN STATE """
-
+@r.on_everything(StateFilter(SETTINGS.I_MAIN))
 async def main(everything: CommonEverything):
     ctx = everything.ctx
 

@@ -18,7 +18,7 @@ from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common import keyboard as kb
 
 
-@r.on_callback(StateFilter(HUB.I_MAIN), PayloadFilter(kb.Payload.UPDATE))
+@r.on_callback(PayloadFilter(kb.Payload.UPDATE))
 async def update(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -81,13 +81,16 @@ async def switch_to_daily(everything: CommonEverything):
 async def resend(everything: CommonEverything):
     return await to_hub(everything, allow_edit=False)
 
-@r.on_callback(StateFilter(HUB.I_MAIN))
+@r.on_everything(StateFilter(HUB.I_MAIN))
 async def hub(
     everything: CommonEverything,
     allow_edit: bool = True,
     allow_send: bool = True
 ):
     ctx = everything.ctx
+
+    if everything.is_from_message and not everything.did_user_mentioned_bot():
+        return
 
     is_daily = ctx.schedule.message.is_daily
     is_weekly = ctx.schedule.message.is_weekly
