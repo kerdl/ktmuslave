@@ -266,6 +266,8 @@ class Data(BaseModel, Translated, Emojized):
 
             parsing_key = self.__keys__.get(key)
 
+            if isinstance(parsing_key, list):
+                parsing_key = parsing_key[0]
             if parsing_key is None:
                 continue
                 
