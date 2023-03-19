@@ -2,8 +2,8 @@ import sys
 from loguru import logger
 
 if __name__ == "__main__":
-    action = "convert"
-    #action = "add_to_redis"
+    #action = "convert"
+    action = "add_to_redis"
 
     if action == "convert":
         sys.path.append(".")
@@ -19,7 +19,7 @@ if __name__ == "__main__":
         import json
         from json.encoder import JSONEncoder
 
-        db = redis.Redis("192.168.1.127", 6379)
+        db = redis.Redis("192.168.1.127", 6379, password="Pu55Yamogu55y")
 
         with open("./data/ctx.json", mode="r", encoding="utf8") as f:
             str_ctxs = f.read()
