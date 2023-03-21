@@ -75,6 +75,7 @@ class TgUpdateCatcher:
             everything = CommonEverything.from_event(event)
         else:
             logger.warning(f"unsupported tg event type: {event.event_type}")
+            return
         
         await r.choose_handler(everything)
 
