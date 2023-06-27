@@ -34,6 +34,9 @@ class ExecFilter:
 EXEC_FILTER_LITERAL = Literal["always", "raw_event", "message"]
 
 
+class AvoidPostMw: ...
+
+
 class Stop(Exception): ...
 class StopPre(Exception): ...
 
@@ -195,6 +198,7 @@ class Router:
     async def choose_handler(self, everything: CommonEverything):
         do_handler_choose = True
         handler_was_called = False
+        avoid_post_mw = False
 
         try:
             await self.call_pre_middlewares(everything)
@@ -265,7 +269,11 @@ class Router:
                         elif annotation == CommonEvent:
                             kwargs[argument] = everything.event
 
-                    await handler.func(**kwargs)
+                    handler_result = await handler.func(**kwargs)
+
+                    if isinstance(handler_result, AvoidPostMw):
+                        avoid_post_mw = True
+
                     handler_was_called = True
                     
                     if handler.is_blocking:
@@ -273,6 +281,7 @@ class Router:
 
         everything.set_was_processed(handler_was_called)
 
-        await self.call_post_middlewares(everything)
+        if not avoid_post_mw:
+            await self.call_post_middlewares(everything)
 
 r = Router()
