@@ -223,7 +223,7 @@ async def group(
         update_period=update_period
     )
 
-    if group is None:
+    if group is None or not group.days:
         return (
             f"{messages.format_no_schedule()}\n\n"
             f"{update_params}"
