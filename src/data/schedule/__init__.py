@@ -15,7 +15,7 @@ T = TypeVar("T")
 
 
 MATERIALS_URL = "https://docs.google.com/document/d/1mvj8U4vejPYjQL0VH2FRHa-_4zbwtMguv4GXSYidmKM"
-JOURNALS_URL = "https://drive.google.com/drive/folders/17sbp95SfRhU1JPII5S_uibxj27t9zpFM"
+JOURNALS_URL = "https://drive.google.com/drive/folders/14siGbti1t6X4LY2V5MDFDT786Eu-Py10"
 
 
 class Type:
