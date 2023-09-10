@@ -380,11 +380,6 @@ class BaseCtx:
                 reply_to=reply_to,
             )
 
-            logger.opt(colors=True).info(
-                f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
-                f"{mapping.header}"
-            )
-
             async def try_without_reply(e, bcast_message, mapping):
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
@@ -395,6 +390,10 @@ class BaseCtx:
                 bcast_message.text = bcast_text_failed_reply_hint
 
                 try:
+                    logger.opt(colors=True).info(
+                        f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                        f"{mapping.header}"
+                    )
                     await self.send_custom_broadcast(
                         message=bcast_message,
                         sc_type=mapping.sc_type
@@ -408,6 +407,10 @@ class BaseCtx:
                     ...
 
             try:
+                logger.opt(colors=True).info(
+                    f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"{mapping.header}"
+                )
                 await self.send_custom_broadcast(
                     message=bcast_message,
                     sc_type=mapping.sc_type
