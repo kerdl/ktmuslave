@@ -514,7 +514,7 @@ class Ctx:
             f"{query}",
             f"LIMIT",
             f"0",
-            f"1000000"
+            f"10000"
         )
 
         return response
