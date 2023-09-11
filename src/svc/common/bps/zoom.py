@@ -503,6 +503,7 @@ async def mass(everything: CommonEverything):
             messages.Builder()
                     .add(messages.format_send_zoom_data())
                     .add(messages.format_zoom_data_format())
+                    .add(messages.format_zoom_example())
                     .add(messages.format_mass_zoom_data_explain())
                     .add(footer_addition)
         )
@@ -551,6 +552,7 @@ async def mass(everything: CommonEverything):
             answer_text = (
                 messages.Builder()
                         .add(messages.format_zoom_data_format())
+                        .add(messages.format_zoom_example())
                         .add(messages.format_mass_zoom_data_explain())
                         .add(messages.format_doesnt_contain_zoom())
                         .add(footer_addition)
