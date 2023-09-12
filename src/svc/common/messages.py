@@ -10,7 +10,7 @@ from src.svc.common.states import State
 from src.svc.common.keyboard import Text, Payload
 
 
-DEBUGGING = False
+DEBUGGING = True
 
 
 class Builder:
@@ -341,7 +341,7 @@ ZOOM_EXAMPLE = (
     "Ид: 22813376969\n"
     "Код: 0oChK0\n"
     "\n"
-    "имя: Ебанько Х.Й.\n"
+    "имя: Говновоз Ж.\n"
     "Ид: 22813376969\n"
     "заметки: выебывается на парах"
 )

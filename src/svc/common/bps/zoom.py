@@ -407,78 +407,6 @@ async def add_init_entry(everything: CommonEverything):
 
 
 @r.on_everything(
-    StateFilter(ZOOM.II_BROWSE),
-    lambda every: every.event.payload != kb.Payload.ADD_HUB if every.is_from_event else True
-)
-async def browse(
-    everything: CommonEverything, 
-    text_footer: Optional[str] = None
-):
-    ctx = everything.ctx
-    has_entries = ctx.settings.zoom.entries.has_something
-    has_new_entries = ctx.settings.zoom.new_entries.has_something
-
-    is_init_space = Space.INIT in ctx.navigator.spaces
-    is_hub_space = Space.HUB in ctx.navigator.spaces
-
-    if everything.is_from_event:
-        # try to check if user selected an entry in list
-        event = everything.event
-        payload = event.payload
-
-        related_to_entry = ctx.settings.zoom.has(payload)
-
-        if related_to_entry:
-            # user really selected someone
-            ctx.settings.zoom.focused.select(payload)
-
-            return await to_entry(everything)
-
-    if ctx.settings.zoom.is_focused_on_new_entries:
-        # user came here from adding mass zoom data
-        ctx.pages.list = pagination.from_zoom(
-            data = ctx.settings.zoom.new_entries.list,
-            text_footer = text_footer,
-            keyboard_footer = [
-                [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
-                [kb.BACK_BUTTON],
-            ],
-        )
-    elif ctx.settings.zoom.is_focused_on_entries:
-        # user came here to view current active entries
-        ctx.pages.list = pagination.from_zoom(
-            data = ctx.settings.zoom.entries.list,
-            text_footer = text_footer,
-            keyboard_footer = [
-                [
-                    kb.ADD_INIT_BUTTON.only_if(is_init_space),
-                    kb.ADD_HUB_BUTTON.only_if(is_hub_space),
-                    kb.REMOVE_ALL_BUTTON.only_if(has_entries)
-                ], 
-                [kb.DUMP_BUTTON.only_if(has_entries)],
-                [kb.BACK_BUTTON],
-            ],
-        )
-
-    return await everything.edit_or_answer(
-        text     = ctx.pages.current.text,
-        keyboard = ctx.pages.current.keyboard,
-    )
-
-async def to_browse(
-    everything: CommonEverything, 
-    text_footer: Optional[str] = None
-):
-    if everything.navigator.current != ZOOM.II_BROWSE:
-        everything.navigator.append(ZOOM.II_BROWSE)
-
-    #if everything.navigator.current != Zoom.II_BROWSE:
-    #    everything.navigator.append(Zoom.II_BROWSE)
-
-    return await browse(everything, text_footer)
-
-
-@r.on_everything(
     UnionFilter((
         StateFilter(ZOOM.I_MASS),
         StateFilter(ZOOM.II_BROWSE)
@@ -581,6 +509,78 @@ async def mass(everything: CommonEverything):
 async def to_mass(everything: CommonEverything):
     everything.navigator.append(ZOOM.I_MASS)
     return await mass(everything)
+
+
+@r.on_everything(
+    StateFilter(ZOOM.II_BROWSE),
+    lambda every: every.event.payload != kb.Payload.ADD_HUB if every.is_from_event else True
+)
+async def browse(
+    everything: CommonEverything, 
+    text_footer: Optional[str] = None
+):
+    ctx = everything.ctx
+    has_entries = ctx.settings.zoom.entries.has_something
+    has_new_entries = ctx.settings.zoom.new_entries.has_something
+
+    is_init_space = Space.INIT in ctx.navigator.spaces
+    is_hub_space = Space.HUB in ctx.navigator.spaces
+
+    if everything.is_from_event:
+        # try to check if user selected an entry in list
+        event = everything.event
+        payload = event.payload
+
+        related_to_entry = ctx.settings.zoom.has(payload)
+
+        if related_to_entry:
+            # user really selected someone
+            ctx.settings.zoom.focused.select(payload)
+
+            return await to_entry(everything)
+
+    if ctx.settings.zoom.is_focused_on_new_entries:
+        # user came here from adding mass zoom data
+        ctx.pages.list = pagination.from_zoom(
+            data = ctx.settings.zoom.new_entries.list,
+            text_footer = text_footer,
+            keyboard_footer = [
+                [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
+                [kb.BACK_BUTTON],
+            ],
+        )
+    elif ctx.settings.zoom.is_focused_on_entries:
+        # user came here to view current active entries
+        ctx.pages.list = pagination.from_zoom(
+            data = ctx.settings.zoom.entries.list,
+            text_footer = text_footer,
+            keyboard_footer = [
+                [
+                    kb.ADD_INIT_BUTTON.only_if(is_init_space),
+                    kb.ADD_HUB_BUTTON.only_if(is_hub_space),
+                    kb.REMOVE_ALL_BUTTON.only_if(has_entries)
+                ], 
+                [kb.DUMP_BUTTON.only_if(has_entries)],
+                [kb.BACK_BUTTON],
+            ],
+        )
+
+    return await everything.edit_or_answer(
+        text     = ctx.pages.current.text,
+        keyboard = ctx.pages.current.keyboard,
+    )
+
+async def to_browse(
+    everything: CommonEverything, 
+    text_footer: Optional[str] = None
+):
+    if everything.navigator.current != ZOOM.II_BROWSE:
+        everything.navigator.append(ZOOM.II_BROWSE)
+
+    #if everything.navigator.current != Zoom.II_BROWSE:
+    #    everything.navigator.append(Zoom.II_BROWSE)
+
+    return await browse(everything, text_footer)
 
 
 STATE_MAP = {
