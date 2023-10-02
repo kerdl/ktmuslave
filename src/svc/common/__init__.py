@@ -290,7 +290,9 @@ class BaseCtx:
         message: CommonBotMessage,
         sc_type: TYPE_LITERAL
     ):
+        logger.info(f"send_custom_broadcast() before message.send() {self=}")
         new_message = await message.send()
+        logger.info(f"send_custom_broadcast() after message.send() {self=}")
 
         if new_message.id is not None:
             # we do that after 'cause of the sending delay,
@@ -380,7 +382,11 @@ class BaseCtx:
                 reply_to=reply_to,
             )
 
-            async def try_without_reply(e, bcast_message, mapping):
+            async def try_without_reply(
+                e: Exception,
+                bcast_message: CommonBotMessage,
+                mapping: BroadcastGroup
+            ):
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
                     f"failed with {type(e).__name__}({e}), trying without replying"
@@ -411,6 +417,7 @@ class BaseCtx:
                     f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
                     f"{mapping.header}"
                 )
+                logger.info(f"{self=}")
                 await self.send_custom_broadcast(
                     message=bcast_message,
                     sc_type=mapping.sc_type
@@ -444,12 +451,6 @@ class BaseCtx:
                     f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
                     f"unknown exception: {type(e).__name__}({e})"
                 )
-
-
-@dataclass
-class DbIterator(Generic[MESSENGER_SOURCE_T]):
-    ...
-
 
 @dataclass
 class Ctx:
