@@ -61,7 +61,7 @@ class Key:
             return remove_str(key, line)
         if isinstance(key, list):
             for key_var in key:
-                if line.startswith(key_var):
+                if Key.is_relevant(key_var, line):
                     return remove_str(key_var, line)
 @dataclass
 class Parser:

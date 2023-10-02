@@ -34,7 +34,7 @@
 [Issues](https://github.com/kerdl/ktmuslave/issues) - самый **ЦЕННЫЙ©** и **ПРОВЕРЕННЫЙ®** источник запланированных улучшений (так как это моё портфолио и я хочу выглядеть ответственным) этой непопулярной хуйни
 
 ## Все фичи
-- [**Временная говно-база данных**](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/__init__.py#L41-L87) (pi... pikc.. pickle у меня в жопе чел 😳....)
+- [**База данных Redis**](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/__init__.py#L41-L87)
   - [Стейты навигации юзера](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/states/tree.py)
   - [Настройки юзера](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/data/settings.py#L17-L22)
   - [Хранилище Zoom данных юзера](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/data/zoom.py#L472-L499)

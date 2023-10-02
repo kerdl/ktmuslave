@@ -14,7 +14,7 @@ from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 from aiogram.types import Message as TgMessage, CallbackQuery
-from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError
+from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError, TelegramBadRequest
 from redis.commands.json.path import Path
 from redis.commands.search.query import Query
 from redis.commands.search.result import Result
@@ -410,6 +410,10 @@ class BaseCtx:
                 bcast_message.text = bcast_text_failed_reply_hint
 
                 try:
+                    logger.opt(colors=True).info(
+                        f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                        f"{mapping.header}"
+                    )
                     await self.send_custom_broadcast(
                         message=bcast_message,
                         sc_type=mapping.sc_type
@@ -419,6 +423,32 @@ class BaseCtx:
                         f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
                         f"unknown exception: {type(e).__name__}({e})"
                     )
+                except error.BroadcastSendFail:
+                    ...
+
+            try:
+                logger.opt(colors=True).info(
+                    f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"{mapping.header}"
+                )
+                await self.send_custom_broadcast(
+                    message=bcast_message,
+                    sc_type=mapping.sc_type
+                )
+            except VKAPIError[913] as e:
+                await try_without_reply(e, bcast_message, mapping)
+            except VKAPIError[100] as e:
+                if "cannot reply this message" in e.description:
+                    await try_without_reply(e, bcast_message, mapping)
+            except TelegramBadRequest as e:
+                logger.opt(colors=True).warning(
+                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"{type(e).__name__}({e})"
+                )
+
+                if "chat not found" in e.message:
+                    ...
+                
             except TelegramForbiddenError:
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
@@ -488,39 +518,52 @@ class Ctx:
     async def get_who_needs_broadcast(
         self,
         groups: list[str]
-    ) -> Optional[Result]:
+    ) -> Optional[list]:
         if not groups:
             return None
 
         affected_groups_query = "|".join(groups)
 
-        query = Query(
+        query = (
             f"@{RedisName.IS_REGISTERED}:""{true} "
             f"@{RedisName.BROADCAST}:""{true} "
             f"@{RedisName.GROUP}:({affected_groups_query})"
         )
 
-        response: Result = await defs.redis.ft(RedisName.BROADCAST).search(query)
+        #response: Result = await defs.redis.ft(RedisName.BROADCAST).search(query, params)
+        response: list = await defs.redis.execute_command(
+            f"FT.SEARCH",
+            f"{RedisName.BROADCAST}",
+            f"{query}",
+            f"LIMIT",
+            f"0",
+            f"10000"
+        )
 
         return response
 
-    async def parse_redis_result(self, result: Result) -> list[BaseCtx]:
+    async def parse_redis_result(self, result: list) -> list[BaseCtx]:
         ctxs: list[BaseCtx] = []
 
-        for document in result.docs:
-            document.id: str # key, looks like "TG_133769696"
-            #                         messenger ^      ^ chat id
-            document.json: str # value, the ctx json
+        for i, key_or_value in enumerate(result[1:]):
+            even = i % 2
+            is_key = even == 0
+            is_value = even == 1
+
+            if is_key:
+                continue
+
+            value = key_or_value[1]
 
             # run_in_executor means regular function
             # being executed as async function
 
-            # convert ['{"string json": "ctx"}' -> DbBaseCtx]
+            # convert ["string json" -> DbBaseCtx]
             # in executor
             db_ctx = await defs.loop.run_in_executor(
                 None,
                 DbBaseCtx.parse_raw,
-                document.json
+                value
             )
             # convert [DbBaseCtx -> BaseCtx]
             # in executor

@@ -406,13 +406,15 @@ async def add_init_entry(everything: CommonEverything):
     return await to_name(everything)
 
 
+
 @r.on_everything(
     StateFilter(ZOOM.II_BROWSE),
     lambda every: every.event.payload != kb.Payload.ADD_HUB if every.is_from_event else True
 )
 async def browse(
     everything: CommonEverything, 
-    text_footer: Optional[str] = None
+    text_footer: Optional[str] = None,
+    first_call: bool = True,
 ):
     ctx = everything.ctx
     has_entries = ctx.settings.zoom.entries.has_something
@@ -436,6 +438,10 @@ async def browse(
 
     if ctx.settings.zoom.is_focused_on_new_entries:
         # user came here from adding mass zoom data
+
+        if everything.is_from_message and first_call:
+            return await mass(everything)
+        
         ctx.pages.list = pagination.from_zoom(
             data = ctx.settings.zoom.new_entries.list,
             text_footer = text_footer,
@@ -467,7 +473,8 @@ async def browse(
 
 async def to_browse(
     everything: CommonEverything, 
-    text_footer: Optional[str] = None
+    text_footer: Optional[str] = None,
+    first_call: bool = True
 ):
     if everything.navigator.current != ZOOM.II_BROWSE:
         everything.navigator.append(ZOOM.II_BROWSE)
@@ -475,8 +482,7 @@ async def to_browse(
     #if everything.navigator.current != Zoom.II_BROWSE:
     #    everything.navigator.append(Zoom.II_BROWSE)
 
-    return await browse(everything, text_footer)
-
+    return await browse(everything, text_footer, first_call)
 
 @r.on_everything(
     UnionFilter((
@@ -503,6 +509,7 @@ async def mass(everything: CommonEverything):
             messages.Builder()
                     .add(messages.format_send_zoom_data())
                     .add(messages.format_zoom_data_format())
+                    .add(messages.format_zoom_example())
                     .add(messages.format_mass_zoom_data_explain())
                     .add(footer_addition)
         )
@@ -551,6 +558,7 @@ async def mass(everything: CommonEverything):
             answer_text = (
                 messages.Builder()
                         .add(messages.format_zoom_data_format())
+                        .add(messages.format_zoom_example())
                         .add(messages.format_mass_zoom_data_explain())
                         .add(messages.format_doesnt_contain_zoom())
                         .add(footer_addition)
@@ -574,12 +582,11 @@ async def mass(everything: CommonEverything):
             # add everything parsed
             ctx.settings.zoom.new_entries.add(parsed, overwrite=True)
 
-        return await to_browse(everything, text_footer.make())
+        return await to_browse(everything, text_footer.make(), first_call=False)
 
 async def to_mass(everything: CommonEverything):
     everything.navigator.append(ZOOM.I_MASS)
     return await mass(everything)
-
 
 STATE_MAP = {
     ZOOM.I_MASS: mass,

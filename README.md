@@ -34,7 +34,7 @@ More in [**ktmuscrap's** README](https://github.com/kerdl/ktmuscrap/blob/master/
 [Issues](https://github.com/kerdl/ktmuslave/issues) is the most **VALUABLE©** and **TRUSTED®** source of planned improvements (since this is my portfolio and I wanna look responsible) on this unpopular bullshit
 
 ## All features
-- [**Shit temp database**](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/__init__.py#L41-L87) (pi... pikc.. pickle in my ass bro 😳....)
+- [**Redis database**](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/__init__.py#L41-L87)
   - [User's navigation states](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/svc/common/states/tree.py)
   - [User's settings](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/data/settings.py#L17-L22)
   - [User's Zoom data storage](https://github.com/kerdl/ktmuslave/blob/b8c733216cb7c889a9ee21f4d7a20439639d82d2/src/data/zoom.py#L472-L499)

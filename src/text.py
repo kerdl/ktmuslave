@@ -95,23 +95,16 @@ def double_newline_chunks(text: str, limit: int = 4000) -> list[str]:
     output: list[str] = []
 
     temp_blocks: list[str] = []
-    for (index, block) in enumerate(blocks):
-        is_last = (index + 1) == len(blocks)
+    for block in blocks:
+        temps_len = chunks_len(temp_blocks)
 
-        if chunks_len(temp_blocks) > limit:
-            last_block = temp_blocks[-1]
-            del temp_blocks[-1]
-
+        if (temps_len + len(block)) > limit:
             output.append("\n\n".join(temp_blocks))
             temp_blocks = []
-            temp_blocks.append(last_block)
             temp_blocks.append(block)
-
-        elif is_last:
-            temp_blocks.append(block)
-            output.append("\n\n".join(temp_blocks))
-        
         else:
             temp_blocks.append(block)
+
+    output.append("\n\n".join(temp_blocks))
     
     return output
