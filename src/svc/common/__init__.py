@@ -290,10 +290,6 @@ class BaseCtx:
         message: CommonBotMessage,
         sc_type: TYPE_LITERAL
     ):
-        logger.info(
-            f"send_custom_broadcast() {self=}"
-        )
-
         new_message = await message.send()
 
         if new_message.id is not None:
@@ -384,26 +380,10 @@ class BaseCtx:
                 reply_to=reply_to,
             )
 
-            logger.opt(colors=True).info(
-                f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
-                f"{mapping.header}"
-            )
-            logger.info(
-                f"{self=}"
-            )
-
-            try:
-                await self.send_custom_broadcast(
-                    message=bcast_message,
-                    sc_type=mapping.sc_type
-                )
-            except VKAPIError[913] as e:
+            async def try_without_reply(e, bcast_message, mapping):
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
                     f"failed with {type(e).__name__}({e}), trying without replying"
-                )
-                logger.info(
-                    f"{self=}"
                 )
 
                 bcast_message.reply_to = None
@@ -627,14 +607,7 @@ class Ctx:
             chats_that_need_broadcast
         )
 
-        logger.info(f"sorted_chats_that_need_broadcast={[chat.db_key for chat in sorted_chats_that_need_broadcast]}")
-
         for chat in sorted_chats_that_need_broadcast:
-            if chat.settings is None:
-                logger.warning(f"{chat.db_key} has no settings")
-            if chat.navigator is None:
-                logger.warning(f"{chat.db_key} has no navigator")
-
             chat_group = chat.settings.group.confirmed
             chat_relative_mappings = BroadcastGroup.filter_for_group(chat_group, mappings)
             
@@ -1859,4 +1832,3 @@ def run_forever():
     except (KeyboardInterrupt, SystemExit):
         logger.info("shutdown, closing log file")
         defs.log_file.close()
-    
