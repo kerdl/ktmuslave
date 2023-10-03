@@ -290,9 +290,7 @@ class BaseCtx:
         message: CommonBotMessage,
         sc_type: TYPE_LITERAL
     ):
-        logger.info(f"send_custom_broadcast() before message.send() {self=}")
         new_message = await message.send()
-        logger.info(f"send_custom_broadcast() after message.send() {self=}")
 
         if new_message.id is not None:
             # we do that after 'cause of the sending delay,
@@ -417,7 +415,6 @@ class BaseCtx:
                     f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
                     f"{mapping.header}"
                 )
-                logger.info(f"{self=}")
                 await self.send_custom_broadcast(
                     message=bcast_message,
                     sc_type=mapping.sc_type
