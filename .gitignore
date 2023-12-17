@@ -1,8 +1,9 @@
 __pycache__
-/venv
+/.venv
+/.venv-linux
 /data
 /.env
 /.vscode
-test.py
-docker-compose-dev.yml
-docker-compose-prod.yml
+/test.py
+/docker-compose-dev.yml
+/docker-compose-prod.yml
