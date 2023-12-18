@@ -1,8 +1,8 @@
 import asyncio
-from typing import Literal, Optional, Callable
+from typing import Literal, Optional, Callable, Union
 from dotenv import get_key
 from aiogram import Bot, Router, Dispatcher
-from aiogram.types import MessageEntity, ForceReply, InlineKeyboardMarkup, Message, CallbackQuery
+from aiogram.types import MessageEntity, ForceReply, InlineKeyboardMarkup, Message, CallbackQuery, ChatMemberUpdated
 
 from src import defs, text as text_utils, ENV_PATH
 
@@ -15,12 +15,13 @@ class ChatType:
 
 CHAT_TYPE = Literal["private", "group", "supergroup", "channel"]
 
+
 def is_group_chat(    
     chat_type: CHAT_TYPE
 ) -> bool:
     return chat_type in [ChatType.GROUP, ChatType.SUPERGROUP, ChatType.CHANNEL]
 
-def name_from_message(msg: Message) -> tuple[str, Optional[str], Optional[str]]:
+def name_from_message(msg: Union[Message, ChatMemberUpdated]) -> tuple[str, Optional[str], Optional[str]]:
     return (msg.from_user.first_name, msg.from_user.last_name, msg.from_user.username)
 
 def name_from_callback(cb: CallbackQuery) -> tuple[str, Optional[str], Optional[str]]:

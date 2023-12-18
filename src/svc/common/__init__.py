@@ -3,6 +3,7 @@ from loguru import logger
 import time
 import asyncio
 import json
+import datetime
 from copy import deepcopy
 from json.encoder import JSONEncoder
 from typing import Literal, Optional, Callable, Any, TypeVar, Generic
@@ -69,7 +70,7 @@ class Source:
     EVENT = "event"
     """ ## Event came from pressing bot's keyboard buttons """
 
-MESSENGER_SOURCE = Literal[
+MESSENGER_OR_EVT_SOURCE = Literal[
     "vk",
     "tg",
     "tg_my_chat_member",
@@ -77,6 +78,7 @@ MESSENGER_SOURCE = Literal[
     "tg_channel_post",
     "tg_edited_channel_post"
 ]
+MESSENGER_SOURCE = Literal["vk", "tg"]
 MESSENGER_SOURCE_T = TypeVar("MESSENGER_SOURCE_T")
 EVENT_SOURCE = Literal["message", "event"]
 
@@ -700,7 +702,7 @@ class Ctx:
 
 
 class BaseCommonEvent(HiddenVars):
-    src: Optional[MESSENGER_SOURCE] = None
+    src: Optional[MESSENGER_OR_EVT_SOURCE] = None
     chat_id: Optional[int] = None
 
     @property
@@ -813,8 +815,6 @@ class CommonMessage(BaseCommonEvent):
     """ ## Info about a received VK message """
     tg: Optional[TgMessage] = None
     """ ## Info about a received Telegram message """
-    tg_my_chat_member: Optional[ChatMemberUpdated] = None
-    """ ## Info about a chat member who was invited/kicked """
     tg_edited_message: Optional[TgMessage] = None
     """ ## Info about an edited Telegram message """
     tg_channel_post: Optional[TgMessage] = None
@@ -838,16 +838,6 @@ class CommonMessage(BaseCommonEvent):
             src=Source.TG,
             chat_id=message.chat.id,
             tg=message,
-        )
-
-        return self
-
-    @classmethod
-    def from_tg_my_chat_member(cls, upd: ChatMemberUpdated):
-        self = cls(
-            src=Source.TG_MY_CHAT_MEMBER,
-            chat_id=upd.chat.id,
-            tg_my_chat_member=upd,
         )
 
         return self
@@ -886,8 +876,6 @@ class CommonMessage(BaseCommonEvent):
     def tg_chat_type(self) -> str:
         if self.is_from_tg:
             return self.tg.chat.type
-        if self.is_from_tg_my_chat_member:
-            return self.tg_my_chat_member.chat.type
         elif self.is_from_tg_edited_message:
             return self.tg_edited_message.chat.type
         elif self.is_from_tg_channel_post:
@@ -929,8 +917,6 @@ class CommonMessage(BaseCommonEvent):
             return self.vk.message_id
         if self.is_from_tg:
             return self.tg.message_id
-        if self.is_from_tg_my_chat_member:
-            return None
         if self.is_from_tg_edited_message:
             return self.tg_edited_message.message_id
         if self.is_from_tg_channel_post:
@@ -944,8 +930,6 @@ class CommonMessage(BaseCommonEvent):
             return self.vk.text
         if self.is_from_tg:
             return self.tg.text
-        if self.is_from_tg_my_chat_member:
-            return None
         if self.is_from_tg_edited_message:
             return self.tg_edited_message.text
         if self.is_from_tg_channel_post:
@@ -969,14 +953,25 @@ class CommonMessage(BaseCommonEvent):
             return self.vk
         if self.is_from_tg:
             return self.tg
-        if self.is_from_tg_my_chat_member:
-            return self.tg_my_chat_member
         if self.is_from_tg_edited_message:
             return self.tg_edited_message
         if self.is_from_tg_channel_post:
             return self.tg_channel_post
         if self.is_from_tg_edited_channel_post:
             return self.tg_edited_channel_post
+    
+    @property
+    def dt(self) -> datetime.datetime:
+        if self.is_from_vk:
+            return datetime.datetime.fromtimestamp(self.vk.date)
+        if self.is_from_tg:
+            return self.tg.date
+        if self.is_from_tg_edited_message:
+            return self.tg_edited_message.date
+        if self.is_from_tg_channel_post:
+            return self.tg_channel_post.date
+        if self.is_from_tg_edited_channel_post:
+            return self.tg_edited_channel_post.date
 
     def tg_is_invite(self) -> bool:
         if not self.is_from_tg:
@@ -1096,6 +1091,12 @@ class CommonMessage(BaseCommonEvent):
             return await vk.name_from_message(self.vk)
         if self.is_from_tg:
             return tg.name_from_message(self.tg)
+        if self.is_from_tg_edited_message:
+            return tg.name_from_message(self.tg_edited_message)
+        if self.is_from_tg_channel_post:
+            return tg.name_from_message(self.tg_channel_post)
+        if self.is_from_tg_edited_channel_post:
+            return tg.name_from_message(self.tg_edited_channel_post)
 
     async def vk_has_admin_rights(self) -> bool:
         if not self.is_from_vk:
@@ -1196,7 +1197,7 @@ class CommonBotMessage(BaseModel):
     tree_values: Optional[Values] = None
     """ ## Optional values to write at the right of each state """
 
-    src: Optional[MESSENGER_SOURCE] = None
+    src: Optional[MESSENGER_OR_EVT_SOURCE] = None
     """ ## For which messenger this message is """
     chat_id: Optional[int] = None
     """ ## For which chat this message is """
@@ -1306,9 +1307,13 @@ class CommonEvent(BaseCommonEvent):
     """ ## Info about received VK callback button click """
     tg: Optional[CallbackQuery] = None
     """ ## Info about received Telegram callback button click """
+    tg_my_chat_member: Optional[ChatMemberUpdated] = None
+    """ ## Info about a chat member whose rights were updated """
 
     force_send: Optional[bool] = None
     """ ## Even if we can edit the message, we may want to send a new one instead """
+    dt: Optional[datetime.datetime] = None
+    """ ## When the event was received """
 
 
     @classmethod
@@ -1336,6 +1341,16 @@ class CommonEvent(BaseCommonEvent):
 
         return self
 
+    @classmethod
+    def from_tg_my_chat_member(cls, upd: ChatMemberUpdated):
+        self = cls(
+            src=Source.TG_MY_CHAT_MEMBER,
+            chat_id=upd.chat.id,
+            tg_my_chat_member=upd,
+        )
+
+        return self
+
     @property
     def from_message_id(self):
         if self.is_from_vk:
@@ -1344,8 +1359,11 @@ class CommonEvent(BaseCommonEvent):
             return self.tg.message.message_id
 
     @property
-    def is_from_last_message(self):
+    def is_from_last_message(self) -> bool:
         return self.ctx.last_bot_message.id == self.from_message_id
+
+    def is_for_bot(self) -> bool:
+        return self.src != Source.TG_MY_CHAT_MEMBER
 
     @property
     def payload(self) -> str:
@@ -1797,7 +1815,7 @@ class CommonEverything(BaseCommonEvent):
 
     def is_for_bot(self) -> bool:
         if self.is_from_event:
-            return True
+            return self.event.is_for_bot()
         if self.is_from_message:
             return self.message.is_for_bot()
 

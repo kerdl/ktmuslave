@@ -256,7 +256,7 @@ PERMIT_PIN_TG = (
     "🚽 | Если хочешь закреп, назначь меня админом с правом "
     "\"Закрепление сообщений\", либо пропусти если поебать"
 )
-def format_permit_pin(src: common.MESSENGER_SOURCE):
+def format_permit_pin(src: common.MESSENGER_OR_EVT_SOURCE):
     if src == common.Source.VK:
         return PERMIT_PIN_VK
     if src == common.Source.TG:
@@ -269,7 +269,7 @@ CANT_PIN_VK = (
 CANT_PIN_TG = (
     "❌ Нет у меня нихуя, перепроверь моё право \"Закрепление сообщений\""
 )
-def format_cant_pin(src: common.MESSENGER_SOURCE):
+def format_cant_pin(src: common.MESSENGER_OR_EVT_SOURCE):
     if src == common.Source.VK:
         return CANT_PIN_VK
     if src == common.Source.TG:

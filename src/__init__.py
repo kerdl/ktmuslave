@@ -22,6 +22,7 @@ from dotenv import get_key
 
 if TYPE_CHECKING:
     from src.svc.common import Ctx, BaseCtx
+    from src.svc.common.logsvc import Logger
 
 ENV_PATH = ".env"
 COLOR_ESCAPE_REGEX = re.compile(r"\x1b[[]\d{1,}m")
@@ -114,6 +115,7 @@ class Defs:
     http: Optional[ClientSession] = None
     ctx: Optional["Ctx"] = None
     redis: Optional[Redis] = None
+    logger: Optional["Logger"] = None
 
     data_dir: Optional[Path] = None
     log_dir: Optional[Path] = None
@@ -234,6 +236,12 @@ class Defs:
         from src.svc.common import DbBaseCtx
         DbBaseCtx.ensure_update_forward_refs()
 
+    def init_logger_svc(self) -> None:
+        from src.svc.common.logsvc import Logger
+
+        logger_addr = get_key(ENV_PATH, "LOGGER_ADDR") or "127.0.0.1:7215"
+        self.logger = Logger(addr=logger_addr)
+
     def init_vars(
         self, 
         init_handlers: bool = True,
@@ -265,6 +273,7 @@ class Defs:
 
         self.ctx = Ctx()
         self.init_redis()
+        self.init_logger_svc()
 
         self.loop.run_until_complete(self.init_schedule_api())
 
