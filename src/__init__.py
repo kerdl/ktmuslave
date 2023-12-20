@@ -12,7 +12,7 @@ from vkbottle import Bot as VkBot
 from vkbottle_types.responses.groups import GroupsGroupFull
 from aiogram import Bot as TgBot, Dispatcher, Router
 from aiogram.types import User
-from aiohttp import ClientSession
+from aiohttp import ClientSession, client_exceptions as aiohttp_exc
 from loguru import logger
 from loguru._handler import Message
 from dataclasses import dataclass
@@ -236,10 +236,20 @@ class Defs:
         from src.svc.common import DbBaseCtx
         DbBaseCtx.ensure_update_forward_refs()
 
-    def init_logger_svc(self) -> None:
+    async def init_logger_svc(self) -> None:
         from src.svc.common.logsvc import Logger
 
         logger_addr = get_key(ENV_PATH, "LOGGER_ADDR") or "127.0.0.1:7215"
+        if not logger_addr.startswith("https://"):
+            logger_addr = "https://" + logger_addr
+
+        try:
+            await self.http.get(logger_addr)
+        except aiohttp_exc.ClientConnectorError:
+            logger.warning(
+                f"logging service at {logger_addr} is not running, logging may be inconsistent"
+            )
+
         self.logger = Logger(addr=logger_addr)
 
     def init_vars(
@@ -273,8 +283,8 @@ class Defs:
 
         self.ctx = Ctx()
         self.init_redis()
-        self.init_logger_svc()
 
+        self.loop.run_until_complete(self.init_logger_svc())
         self.loop.run_until_complete(self.init_schedule_api())
 
         self.update_waiters = []

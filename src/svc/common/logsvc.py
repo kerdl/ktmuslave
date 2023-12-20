@@ -11,6 +11,8 @@ from pydantic import BaseModel
 
 
 class LoggerSrc:
+    MESSAGE = "message"
+    CALLBACK = "callback"
     VK_MESSAGE = "vk_message"
     TG_MESSAGE = "tg_message"
     TG_EDITED_MESSAGE = "tg_edited_message"
@@ -18,13 +20,14 @@ class LoggerSrc:
     TG_EDITED_CHANNEL_POST = "tg_edited_channel_post"
     BCAST_MESSAGE = "bcast_message"
 
-    def from_commsg(src: MESSENGER_OR_EVT_SOURCE) -> MESSAGE_SRC_LITERAL:
+    def from_common(src: MESSENGER_OR_EVT_SOURCE) -> MESSAGE_SRC_LITERAL:
         if src == Source.VK:
             return LoggerSrc.VK_MESSAGE
         if src == Source.TG:
             return LoggerSrc.TG_MESSAGE
         
         return src
+
 
 EVENT_SRC_LITERAL = Literal["message", "callback"]
 CALLBACK_SRC_LITERAL = Literal["vk_callback", "tg_callback_query", "tg_my_chat_member"]
@@ -43,8 +46,7 @@ class Logger:
     addr: str
 
     async def log_everything(self, everything: CommonEverything):
-        await defs.http.post(self.addr, data=)
-        self.addr
+        await defs.http.post(self.addr, data=everything.dict())
     
     async def log_broadcast(self, bcast):
         ...
@@ -68,7 +70,7 @@ class UnionMessage(BaseModel):
     @classmethod
     def from_common_message(cls: type[UnionMessage], message: CommonMessage) -> UnionMessage:
         return cls(
-            src=LoggerSrc.from_commsg(message.src),
+            src=LoggerSrc.from_common(message.src),
             dt=message.dt,
             vk_message=message.vk,
             tg_message=message.tg,
@@ -87,8 +89,11 @@ class UnionCallback(BaseModel):
     @classmethod
     def from_common_event(cls: type[UnionCallback], event: CommonEvent) -> UnionCallback:
         return cls(
-            src=event.src,
-            dt=s
+            src=LoggerSrc.from_common(event.src),
+            dt=event.dt,
+            vk_callback=event.vk,
+            tg_callback_query=event.tg,
+            tg_my_chat_member=event.tg_my_chat_member
         )
 
 class UnionEvent(BaseModel):
@@ -100,6 +105,13 @@ class UnionEvent(BaseModel):
     @classmethod
     def from_everything(cls: type[UnionEvent], everything: CommonEverything) -> UnionEvent:
         if everything.is_from_message:
-            ...
-        if everything.is_from_event:
-            ...
+            evt_src = LoggerSrc.MESSAGE
+        elif everything.is_from_event:
+            evt_src = LoggerSrc.CALLBACK
+
+        return cls(
+            src=everything.src,
+            evt_src=evt_src,
+            message=everything.message,
+            callback=everything.event
+        )

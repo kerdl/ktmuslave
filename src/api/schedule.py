@@ -346,7 +346,7 @@ class ScheduleApi(Api):
                             notify = Notify.parse_raw(message)
 
                             if notify.random == LAST_NOTIFY.random:
-                                logger.warning(
+                                logger.info(
                                     f"caught duplicate notify {notify.random}, ignoring"
                                 )
                                 continue

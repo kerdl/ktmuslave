@@ -9,6 +9,7 @@ from vkbottle import BaseMiddleware
 from vkbottle.bot import Message as VkMessage
 from aiogram.types import Update
 import inspect
+import datetime
 
 from src import defs
 from src.svc.vk.types_ import RawEvent
@@ -44,7 +45,7 @@ class StopPre(Exception): ...
 class VkRawCatcher(BaseMiddleware[RawEvent]):
     async def pre(self) -> None:
         try:
-            event = CommonEvent.from_vk(self.event)
+            event = CommonEvent.from_vk(self.event, dt=datetime.datetime.now())
             everything = CommonEverything.from_event(event)
             await r.choose_handler(everything)
         except Exception as e:
@@ -73,9 +74,6 @@ class TgUpdateCatcher:
         if event.event_type == "message":
             message = CommonMessage.from_tg(event.message)
             everything = CommonEverything.from_message(message)
-        elif event.event_type == "my_chat_member":
-            message = CommonMessage.from_tg_my_chat_member(event.my_chat_member)
-            everything = CommonEverything.from_message(message)
         elif event.event_type == "edited_message":
             message = CommonMessage.from_tg_edited_message(event.edited_message)
             everything = CommonEverything.from_message(message)
@@ -86,7 +84,10 @@ class TgUpdateCatcher:
             message = CommonMessage.from_tg_edited_channel_post(event.edited_channel_post)
             everything = CommonEverything.from_message(message)
         elif event.event_type == "callback_query":
-            event = CommonEvent.from_tg(event.callback_query)
+            event = CommonEvent.from_tg(event.callback_query, dt=datetime.datetime.now())
+            everything = CommonEverything.from_event(event)
+        elif event.event_type == "my_chat_member":
+            event = CommonEvent.from_tg_my_chat_member(event.my_chat_member, dt=datetime.datetime.now())
             everything = CommonEverything.from_event(event)
         else:
             logger.warning(f"unsupported tg event type: {event.event_type}")

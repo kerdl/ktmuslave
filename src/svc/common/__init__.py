@@ -1317,7 +1317,7 @@ class CommonEvent(BaseCommonEvent):
 
 
     @classmethod
-    def from_vk(cls: type[CommonEvent], event: RawEvent):
+    def from_vk(cls: type[CommonEvent], event: RawEvent, dt: datetime.datetime):
         event_object = event["object"]
         peer_id = event_object["peer_id"]
 
@@ -1325,18 +1325,20 @@ class CommonEvent(BaseCommonEvent):
             src=Source.VK,
             chat_id=peer_id,
             vk=event,
-            force_send=False
+            force_send=False,
+            dt=dt
         )
 
         return self
 
     @classmethod
-    def from_tg(cls: type[CommonEvent], callback_query: CallbackQuery):
+    def from_tg(cls: type[CommonEvent], callback_query: CallbackQuery, dt: datetime.datetime):
         self = cls(
             src=Source.TG,
             chat_id=callback_query.message.chat.id,
             tg=callback_query,
             force_send=False,
+            dt=dt
         )
 
         return self
