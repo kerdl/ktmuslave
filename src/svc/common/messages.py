@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import Any, Optional
-from src.data.settings import Settings
+from dotenv import get_key
 
+from src.data.settings import Settings
 from src.svc import common
 from src.data import zoom, format as fmt, schedule
 from src.data.schedule import compare
@@ -15,23 +16,23 @@ DEBUGGING = False
 
 class Builder:
     def __init__(
-        self, 
+        self,
         separator: str = "\n\n",
     ) -> None:
         self.separator = separator
         self.components: list[str] = []
-    
+
     def add(self, text: str) -> Builder:
         if text == "":
             return self
 
         self.components.append(text)
         return self
-    
+
     def add_if(self, text: str, condition: bool):
         if condition:
             self.add(text)
-        
+
         return self
 
     def make(self) -> str:
@@ -63,7 +64,7 @@ def default_footer_addition(everything: common.CommonEverything):
 
         elif everything.is_from_tg:
             footer_addition = format_reply_to_me()
-    
+
     return footer_addition
 
 DEBUG = (
@@ -73,10 +74,10 @@ DEBUG = (
     "{back_trace}\n"
 )
 def format_debug(trace: list[State], back_trace: list[State], last_bot_message: common.CommonBotMessage, settings: Settings):
-    
+
     def fmt_trace(trace: list[State]):
         return "\n".join([f"   {state.space}:{state.anchor}" for state in trace])
-    
+
     trace_str = fmt_trace(trace)
     back_trace_str = fmt_trace(back_trace)
 
@@ -446,7 +447,7 @@ def format_will_be_overwritten(count: int):
 
 
 def format_zoom_mass_adding_overview(
-    adding: zoom.Entries, 
+    adding: zoom.Entries,
     overwriting: zoom.Entries
 ):
 
@@ -459,7 +460,7 @@ def format_zoom_mass_adding_overview(
         text += entries
 
         sections.append(text)
-    
+
     if len(overwriting) > 0:
         entries = common.text.indent(overwriting.format_compact())
         text = format_will_be_overwritten(len(overwriting))
@@ -512,7 +513,7 @@ def format_settings_main(is_group_chat: bool) -> str:
     text += "\n"
     if is_group_chat:
         text += f"{PIN_SETTING_EXPLAIN}\n"
-        text += "\n" 
+        text += "\n"
     text += f"{ZOOM_SETTING_EXPLAIN}\n"
     text += "\n"
     text += f"{RESET_SETTING_EXPLAIN}\n"
@@ -599,7 +600,7 @@ def format_group_changed_in_sc_type(
         repr_sc_type = "дневном"
     elif sc_type == schedule.Type.WEEKLY:
         repr_sc_type = "недельном"
-    
+
     return GROUP_CHANGED_IN_SC_TYPE.format(
         change  = repr_change,
         sc_type = repr_sc_type
@@ -639,3 +640,16 @@ DETAILED_COMPARE_NOT_SHOWN = (
 )
 def format_detailed_compare_not_shown():
     return DETAILED_COMPARE_NOT_SHOWN
+
+NOT_MAINTAINED_ANYMORE = (
+    "⚠️⚠️⚠️\n"
+    "Бот больше не обслуживается. Расписание дистанта не работает.\n\n"
+    "Формат дистант расписания поменялся, в будущем возможно поменяется и очка, а переписывать код желания нет.\n"
+    "Создателя отчислили летом 2023-го, ему больше нет дела до этого.\n\n"
+    "🔧 Кто хочет переделать/доработать бота сам, сюда: https://github.com/kerdl/ktmuslave.\n"
+    "💼 Кто хочет задать вопрос или предложить постоянную работу разработчиком в колледже "
+    "(чтобы в том числе дальше поддерживать этого бота), "
+    f"пишите мне на почту: {get_key('.env', 'ADMIN_CONTACT_MAIL')}.\n"
+)
+def format_not_maintained_anymore():
+    return NOT_MAINTAINED_ANYMORE

@@ -119,7 +119,8 @@ async def hub(
 
     answer_text = (
         messages.Builder()
-                .add(schedule_text)
+            .add(schedule_text)
+            .add(messages.format_not_maintained_anymore())
     )
     answer_keyboard = kb.Keyboard.hub_default(ctx.schedule.message.type)
 
@@ -143,7 +144,7 @@ async def hub(
             text     = answer_text.make(),
             keyboard = answer_keyboard
         )
-    
+
     if everything.is_from_message and allow_send:
         return await everything.message.answer(
             text     = answer_text.make(),
@@ -152,7 +153,7 @@ async def hub(
 
 
 async def to_hub(
-    everything: CommonEverything, 
+    everything: CommonEverything,
     allow_edit: bool = True,
     allow_send: bool = True
 ):

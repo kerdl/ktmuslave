@@ -25,7 +25,7 @@ class LoggerSrc:
             return LoggerSrc.VK_MESSAGE
         if src == Source.TG:
             return LoggerSrc.TG_MESSAGE
-        
+
         return src
 
 
@@ -46,8 +46,9 @@ class Logger:
     addr: str
 
     async def log_everything(self, everything: CommonEverything):
-        await defs.http.post(self.addr, data=everything.dict())
-    
+        #await defs.http.post(self.addr, data=everything.dict())
+        ...
+
     async def log_broadcast(self, bcast):
         ...
 

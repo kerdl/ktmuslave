@@ -32,17 +32,17 @@ async def auto_route(everything: CommonEverything):
 
     if current_state in [SETTINGS.II_GROUP, SETTINGS.III_UNKNOWN_GROUP]:
         return await to_broadcast(everything)
-    
+
     if (
-        current_state == SETTINGS.II_BROADCAST 
-        and ctx.settings.broadcast 
+        current_state == SETTINGS.II_BROADCAST
+        and ctx.settings.broadcast
         and everything.is_group_chat
     ):
         return await to_should_pin(everything)
-    
+
     if current_state in [SETTINGS.II_BROADCAST, SETTINGS.III_SHOULD_PIN]:
         return await to_add_zoom(everything)
-    
+
     if current_state in [SETTINGS.II_ZOOM]:
         from src.svc.common.bps import init
         return await init.to_finish(everything)
@@ -51,14 +51,14 @@ async def auto_route(everything: CommonEverything):
 """ ZOOM ACTIONS """
 
 @r.on_callback(
-    StateFilter(SETTINGS.II_ZOOM), 
+    StateFilter(SETTINGS.II_ZOOM),
     PayloadFilter(Payload.NEXT_ZOOM)
 )
 async def next_add_zoom(everything: CommonEverything):
     return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(SETTINGS.II_ZOOM), 
+    StateFilter(SETTINGS.II_ZOOM),
     PayloadFilter(Payload.SKIP)
 )
 async def skip_add_zoom(everything: CommonEverything):
@@ -67,8 +67,8 @@ async def skip_add_zoom(everything: CommonEverything):
     # reset the container
     ctx.settings.zoom = zoom_data.Container()
 
-    # remove back traced zoom browse state, 
-    # since after container reset 
+    # remove back traced zoom browse state,
+    # since after container reset
     # we can't go there with "next" button
     ctx.navigator.delete_back_trace(ZOOM.II_BROWSE)
 
@@ -79,14 +79,14 @@ async def skip_add_zoom(everything: CommonEverything):
     return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(SETTINGS.II_ZOOM), 
+    StateFilter(SETTINGS.II_ZOOM),
     PayloadFilter(Payload.MANUALLY_HUB)
 )
 async def add_zoom_manually_hub(everything: CommonEverything):
     return await zoom_bp.to_name(everything)
 
 @r.on_callback(
-    StateFilter(SETTINGS.II_ZOOM), 
+    StateFilter(SETTINGS.II_ZOOM),
     PayloadFilter(Payload.FROM_TEXT)
 )
 async def add_zoom_from_text(everything: CommonEverything):
@@ -94,7 +94,7 @@ async def add_zoom_from_text(everything: CommonEverything):
 
 
 @r.on_callback(
-    StateFilter(ZOOM.I_MASS), 
+    StateFilter(ZOOM.I_MASS),
     PayloadFilter(Payload.CONTINUE)
 )
 async def continue_mass_adding(everything: CommonEverything):
@@ -102,7 +102,7 @@ async def continue_mass_adding(everything: CommonEverything):
 
 
 @r.on_callback(
-    StateFilter(SETTINGS.II_ZOOM), 
+    StateFilter(SETTINGS.II_ZOOM),
     PayloadFilter(Payload.MANUALLY_INIT)
 )
 async def add_zoom_manually(everything: CommonEverything):
@@ -181,7 +181,7 @@ async def to_browse_zoom(everything: CommonEverything):
 """ PIN ACTIONS """
 
 @r.on_callback(
-    StateFilter(SETTINGS.III_SHOULD_PIN), 
+    StateFilter(SETTINGS.III_SHOULD_PIN),
     PayloadFilter(Payload.DO_PIN)
 )
 async def check_do_pin(everything: CommonEverything):
@@ -199,7 +199,7 @@ async def check_do_pin(everything: CommonEverything):
         return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(SETTINGS.III_SHOULD_PIN), 
+    StateFilter(SETTINGS.III_SHOULD_PIN),
     PayloadFilter(Payload.SKIP)
 )
 async def skip_pin(everything: CommonEverything):
@@ -217,7 +217,7 @@ async def deny_pin(everything: CommonEverything):
     return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(SETTINGS.III_SHOULD_PIN), 
+    StateFilter(SETTINGS.III_SHOULD_PIN),
     PayloadFilter(Payload.TRUE)
 )
 async def approve_pin(everything: CommonEverything):
@@ -253,7 +253,7 @@ async def should_pin(everything: CommonEverything):
             answer_keyboard.assign_next(
                 kb.NEXT_BUTTON.only_if(is_should_pin_set)
             )
-    
+
         # simply ask if user wants to pin
         answer_text.add(messages.format_do_pin())
 
@@ -265,7 +265,7 @@ async def should_pin(everything: CommonEverything):
         answer_keyboard = Keyboard([
             [kb.DO_PIN_BUTTON],
         ])
-        
+
         if not is_from_hub:
             answer_keyboard.assign_next(kb.SKIP_BUTTON)
 
@@ -301,7 +301,7 @@ async def to_should_pin(everything: CommonEverything):
 """ BROADCAST ACTIONS """
 
 @r.on_callback(
-    StateFilter(SETTINGS.II_BROADCAST), 
+    StateFilter(SETTINGS.II_BROADCAST),
     PayloadFilter(Payload.FALSE)
 )
 async def deny_broadcast(everything: CommonEverything):
@@ -317,14 +317,14 @@ async def deny_broadcast(everything: CommonEverything):
     return await auto_route(everything)
 
 @r.on_callback(
-    StateFilter(SETTINGS.II_BROADCAST), 
+    StateFilter(SETTINGS.II_BROADCAST),
     PayloadFilter(Payload.TRUE)
 )
 async def approve_broadcast(everything: CommonEverything):
     ctx = everything.ctx
 
     ctx.settings.broadcast = True
-    
+
     return await auto_route(everything)
 
 
@@ -368,7 +368,7 @@ async def to_broadcast(everything: CommonEverything):
 """ UNKNOWN_GROUP ACTIONS """
 
 @r.on_callback(
-    StateFilter(SETTINGS.III_UNKNOWN_GROUP), 
+    StateFilter(SETTINGS.III_UNKNOWN_GROUP),
     PayloadFilter(Payload.TRUE)
 )
 async def confirm_unknown_group(everything: CommonEverything):
@@ -377,7 +377,7 @@ async def confirm_unknown_group(everything: CommonEverything):
 
     # set it as confirmed
     everything.ctx.settings.group.confirmed = valid_group
-    
+
     everything.navigator.jump_back_to_or_append(SETTINGS.II_GROUP)
 
     return await auto_route(everything)
@@ -418,7 +418,7 @@ async def to_unknown_group(everything: CommonEverything):
 """ GROUP STATE """
 
 @r.on_everything(UnionFilter([
-    StateFilter(SETTINGS.II_GROUP), 
+    StateFilter(SETTINGS.II_GROUP),
     StateFilter(SETTINGS.III_UNKNOWN_GROUP)
 ]))
 async def group(everything: CommonEverything):
@@ -429,7 +429,7 @@ async def group(everything: CommonEverything):
 
     if ctx.navigator.current != SETTINGS.II_GROUP:
         ctx.navigator.jump_back_to_or_append(SETTINGS.II_GROUP)
-    
+
     answer_keyboard = Keyboard().assign_next(
         kb.NEXT_BUTTON.only_if(is_group_set and not is_from_hub)
     )
@@ -448,7 +448,7 @@ async def group(everything: CommonEverything):
                 groups_fmt = messages.format_groups(await SCHEDULE_API.groups())
             else:
                 groups_fmt = messages.format_cant_connect_to_schedule_server()
-            
+
             # send a message saying "your input is invalid"
             answer_text = (
                 messages.Builder()
@@ -476,7 +476,7 @@ async def group(everything: CommonEverything):
         # add validated group to context as valid group
         ctx.settings.group.valid = group_caps
 
-        
+
         if SCHEDULE_API.is_online:
             groups = await SCHEDULE_API.groups()
         else:
@@ -543,7 +543,8 @@ async def main(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-                .add(messages.format_settings_main(is_group_chat=everything.is_group_chat))
+            .add(messages.format_settings_main(is_group_chat=everything.is_group_chat))
+            .add(messages.format_not_maintained_anymore())
     )
     answer_keyboard = Keyboard([
         [kb.GROUP_BUTTON.with_value(ctx.settings.group.confirmed)],
