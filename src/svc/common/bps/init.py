@@ -12,7 +12,7 @@ from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import (
     NEXT_BUTTON,
-    Keyboard, 
+    Keyboard,
     Payload,
     TRUE_BUTTON,
     FALSE_BUTTON,
@@ -29,7 +29,7 @@ from src.svc.common.keyboard import (
 
 
 @r.on_callback(
-    StateFilter(INIT.I_FINISH), 
+    StateFilter(INIT.I_FINISH),
     PayloadFilter(Payload.FINISH)
 )
 async def to_hub(everything: CommonEverything):
@@ -66,8 +66,9 @@ async def to_finish(everything: CommonEverything):
 async def main(everything: CommonEverything):
     answer_text = (
         messages.Builder()
-                .add(messages.format_welcome(everything.is_group_chat))
-                .add(messages.format_press_begin())
+            .add(messages.format_welcome(everything.is_group_chat))
+            .add(messages.format_press_begin())
+            .add(messages.format_not_maintained_anymore())
     )
     answer_keyboard = Keyboard([
         [BEGIN_BUTTON]

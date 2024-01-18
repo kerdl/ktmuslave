@@ -9,6 +9,7 @@ from vkbottle import BaseMiddleware
 from vkbottle.bot import Message as VkMessage
 from aiogram.types import Update
 import inspect
+import datetime
 
 from src import defs
 from src.svc.vk.types_ import RawEvent
@@ -44,7 +45,7 @@ class StopPre(Exception): ...
 class VkRawCatcher(BaseMiddleware[RawEvent]):
     async def pre(self) -> None:
         try:
-            event = CommonEvent.from_vk(self.event)
+            event = CommonEvent.from_vk(self.event, dt=datetime.datetime.now())
             everything = CommonEverything.from_event(event)
             await r.choose_handler(everything)
         except Exception as e:
@@ -58,7 +59,7 @@ class VkMessageCatcher(BaseMiddleware[VkMessage]):
             self.event.unprepared_ctx_api = None
 
             message = CommonMessage.from_vk(self.event)
-            everything = CommonEverything.from_message(message)        
+            everything = CommonEverything.from_message(message)
             await r.choose_handler(everything)
         except Exception as e:
             logger.exception(f"{type(e).__name__}({e})")
@@ -73,13 +74,31 @@ class TgUpdateCatcher:
         if event.event_type == "message":
             message = CommonMessage.from_tg(event.message)
             everything = CommonEverything.from_message(message)
+        elif event.event_type == "edited_message":
+            message = CommonMessage.from_tg_edited_message(event.edited_message)
+            everything = CommonEverything.from_message(message)
+        elif event.event_type == "channel_post":
+            message = CommonMessage.from_tg_channel_post(event.channel_post)
+            everything = CommonEverything.from_message(message)
+        elif event.event_type == "edited_channel_post":
+            message = CommonMessage.from_tg_edited_channel_post(event.edited_channel_post)
+            everything = CommonEverything.from_message(message)
         elif event.event_type == "callback_query":
-            event = CommonEvent.from_tg(event.callback_query)
+            event = CommonEvent.from_tg(event.callback_query, dt=datetime.datetime.now())
+            everything = CommonEverything.from_event(event)
+        elif event.event_type == "my_chat_member":
+            event = CommonEvent.from_tg_my_chat_member(event.my_chat_member, dt=datetime.datetime.now())
             everything = CommonEverything.from_event(event)
         else:
             logger.warning(f"unsupported tg event type: {event.event_type}")
             return
-        
+
+        # these need support for logging but not for bot's functionality
+        # my_chat_member
+        # edited_message
+        # channel_post
+        # edited_channel_post
+
         await r.choose_handler(everything)
 
 
@@ -115,8 +134,8 @@ class Router:
     middlewares: list[Middleware] = field(default_factory=list)
 
     def on_message(
-        self, 
-        *filters: BaseFilter, 
+        self,
+        *filters: BaseFilter,
         is_blocking: bool = True,
     ):
         def decorator(func: FUNC_TYPE):
@@ -126,10 +145,10 @@ class Router:
             return func
 
         return decorator
-    
+
     def on_callback(
-        self, 
-        *filters: BaseFilter, 
+        self,
+        *filters: BaseFilter,
         is_blocking: bool = True,
     ):
         def decorator(func: FUNC_TYPE):
@@ -139,10 +158,10 @@ class Router:
             return func
 
         return decorator
-    
+
     def on_everything(
-        self, 
-        *filters: BaseFilter, 
+        self,
+        *filters: BaseFilter,
         is_blocking: bool = True
     ):
         def decorator(func: FUNC_TYPE):
@@ -155,12 +174,12 @@ class Router:
 
     def add_middleware(self, mw: Middleware):
         self.middlewares.append(mw)
-    
+
     def middleware(self):
         def decorator(mw: type[Middleware]) -> Middleware:
             self.add_middleware(mw())
             return mw
-        
+
         return decorator
 
     def assign(self):
@@ -184,7 +203,7 @@ class Router:
         for mw in self.middlewares:
             if mw.exec_filter == ExecFilter.ALWAYS or mw.exec_filter == event_type:
                 await mw.pre(everything)
-    
+
     async def call_post_middlewares(self, everything: CommonEverything):
         if everything.is_from_event:
             event_type = ExecFilter.RAW_EVENT
@@ -245,14 +264,14 @@ class Router:
                             break
 
                         filter_results.append(result)
-                    
+
                     if filter_check_interrupt:
                         continue
 
                     # if all filters were passed
                     if all(filter_results):
                         filter_interrupt = False
-                
+
                 if filter_interrupt:
                     # continue to look for other
                     # handlers
@@ -275,7 +294,7 @@ class Router:
                         avoid_post_mw = True
 
                     handler_was_called = True
-                    
+
                     if handler.is_blocking:
                         break
 

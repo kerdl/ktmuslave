@@ -19,6 +19,8 @@ class Log(Middleware):
             logger.opt(colors=True).info(
                 f"<W><k><d>{src} {event_src} from {first_name} {last_name} ({nickname}) at {chat_id}</></></>: {event_str}"
             )
+
+            await defs.logger.log_everything(everything)
         
         defs.create_task(log())
 

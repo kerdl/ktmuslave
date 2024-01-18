@@ -1,5 +1,7 @@
 [🇷🇺 Русский](/README-RU.md)
 
+# This bot is not maintained anymore
+
 Running in production:
 <p float="left">
   <a title="VK" href="https://vk.com/ktmuslave">
