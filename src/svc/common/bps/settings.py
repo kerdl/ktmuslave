@@ -544,7 +544,6 @@ async def main(everything: CommonEverything):
     answer_text = (
         messages.Builder()
             .add(messages.format_settings_main(is_group_chat=everything.is_group_chat))
-            .add(messages.format_not_maintained_anymore())
     )
     answer_keyboard = Keyboard([
         [kb.GROUP_BUTTON.with_value(ctx.settings.group.confirmed)],

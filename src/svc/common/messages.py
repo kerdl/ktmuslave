@@ -482,6 +482,20 @@ def format_dump_explain():
     return DUMP_EXPLAIN
 
 
+REMOVE_CONFIRMATION = (
+    "🗑️ | Точно {removal_type} все записи?"
+)
+def format_remove_confirmation(removal_type: str):
+    return REMOVE_CONFIRMATION.format(removal_type=removal_type)
+
+
+YOU_CAN_DUMP_ENTRIES_BEFORE_REMOVAL = (
+    "💾 | Ты можешь сделать дамп перед удалением, чтобы не потерять их"
+)
+def format_you_can_dump_entries_before_removal():
+    return YOU_CAN_DUMP_ENTRIES_BEFORE_REMOVAL
+
+
 FINISH = (
     f"👍 | Фпринципи фсё, можешь перепроверить или нажать {Text.FINISH}"
 )

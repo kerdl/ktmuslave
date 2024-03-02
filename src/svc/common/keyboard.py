@@ -57,6 +57,7 @@ class Payload:
     REMOVE        = "remove"
     REMOVE_ALL    = "remove_all"
     DUMP          = "dump"
+    DUMP_AND_REMOVE_ALL = "dump_and_remove_all"
     CLEAR         = "clear"
     NEXT_ZOOM     = "next_zoom"
 
@@ -97,16 +98,17 @@ class Text:
     RESET      = "🗑️ Сбросить всё"
 
     # Zoom buttons
-    FROM_TEXT  = "💬 Из сообщения"
-    MANUALLY   = "✍️ Вручную"
-    ADD        = "+ Добавить"
-    ADD_ALL    = "✓ Добавить всё"
-    CONFIRM    = "✓ Подтвердить"
-    NULL       = "✕ Обнулить"
-    REMOVE     = "✕ Удалить"
-    REMOVE_ALL = "✕ Удалить всё"
-    DUMP       = "💾 Дамп"
-    CLEAR      = "✕ Очистить"
+    FROM_TEXT           = "💬 Из сообщения"
+    MANUALLY            = "✍️ Вручную"
+    ADD                 = "+ Добавить"
+    ADD_ALL             = "✓ Добавить всё"
+    CONFIRM             = "✓ Подтвердить"
+    NULL                = "✕ Обнулить"
+    REMOVE              = "✕ Удалить"
+    REMOVE_ALL          = "✕ Удалить всё"
+    DUMP                = "💾 Дамп"
+    CLEAR               = "✕ Очистить"
+    DUMP_AND_REMOVE_ALL = f"{DUMP} и {REMOVE_ALL}"
 
     # Hub buttons
     RESEND     = "✉️ Новое сообщение"
@@ -435,43 +437,44 @@ class Keyboard(BaseModel):
         return tg_kb
 
 
-TRUE_BUTTON          = Button(text = Text.TRUE,       callback = Payload.TRUE,          color = Color.GREEN)
-FALSE_BUTTON         = Button(text = Text.FALSE,      callback = Payload.FALSE,         color = Color.RED)
-BACK_BUTTON          = Button(text = Text.BACK,       callback = Payload.BACK)
-NEXT_BUTTON          = Button(text = Text.NEXT,       callback = Payload.NEXT)
-SKIP_BUTTON          = Button(text = Text.SKIP,       callback = Payload.SKIP)
-ADD_INIT_BUTTON      = Button(text = Text.ADD,        callback = Payload.ADD_INIT,      color = Color.GREEN)
-ADD_HUB_BUTTON       = Button(text = Text.ADD,        callback = Payload.ADD_HUB,       color = Color.GREEN)
-CONTINUE_BUTTON      = Button(text = Text.CONTINUE,   callback = Payload.CONTINUE,      color = Color.BLUE)
-ADD_ALL_BUTTON       = Button(text = Text.ADD_ALL,    callback = Payload.ADD_ALL,       color = Color.GREEN)
-CONFIRM_BUTTON       = Button(text = Text.CONFIRM,    callback = Payload.CONFIRM,       color = Color.GREEN)
-NULL_BUTTON          = Button(text = Text.NULL,       callback = Payload.NULL,          color = Color.RED)
-REMOVE_BUTTON        = Button(text = Text.REMOVE,     callback = Payload.REMOVE,        color = Color.RED)
-REMOVE_ALL_BUTTON    = Button(text = Text.REMOVE_ALL, callback = Payload.REMOVE_ALL,    color = Color.RED)
-DUMP_BUTTON          = Button(text = Text.DUMP,       callback = Payload.DUMP,          color = Color.BLUE)
-CLEAR_BUTTON         = Button(text = Text.CLEAR,      callback = Payload.CLEAR,         color = Color.RED)
+TRUE_BUTTON = Button(text = Text.TRUE, callback = Payload.TRUE, color = Color.GREEN)
+FALSE_BUTTON = Button(text = Text.FALSE, callback = Payload.FALSE, color = Color.RED)
+BACK_BUTTON = Button(text = Text.BACK, callback = Payload.BACK)
+NEXT_BUTTON = Button(text = Text.NEXT, callback = Payload.NEXT)
+SKIP_BUTTON = Button(text = Text.SKIP, callback = Payload.SKIP)
+ADD_INIT_BUTTON = Button(text = Text.ADD, callback = Payload.ADD_INIT, color = Color.GREEN)
+ADD_HUB_BUTTON = Button(text = Text.ADD, callback = Payload.ADD_HUB, color = Color.GREEN)
+CONTINUE_BUTTON = Button(text = Text.CONTINUE, callback = Payload.CONTINUE, color = Color.BLUE)
+ADD_ALL_BUTTON = Button(text = Text.ADD_ALL, callback = Payload.ADD_ALL, color = Color.GREEN)
+CONFIRM_BUTTON = Button(text = Text.CONFIRM, callback = Payload.CONFIRM, color = Color.GREEN)
+NULL_BUTTON = Button(text = Text.NULL, callback = Payload.NULL, color = Color.RED)
+REMOVE_BUTTON = Button(text = Text.REMOVE, callback = Payload.REMOVE, color = Color.RED)
+REMOVE_ALL_BUTTON = Button(text = Text.REMOVE_ALL, callback = Payload.REMOVE_ALL, color = Color.RED)
+DUMP_BUTTON = Button(text = Text.DUMP, callback = Payload.DUMP, color = Color.BLUE)
+DUMP_AND_REMOVE_ALL_BUTTON = Button(text = Text.DUMP_AND_REMOVE_ALL, callback = Payload.DUMP_AND_REMOVE_ALL, color = Color.BLUE)
+CLEAR_BUTTON = Button(text = Text.CLEAR, callback = Payload.CLEAR, color = Color.RED)
 
-BEGIN_BUTTON         = Button(text = Text.BEGIN,      callback = Payload.BEGIN)
-DO_PIN_BUTTON        = Button(text = Text.DO_PIN,     callback = Payload.DO_PIN,        color = Color.GREEN)
-FROM_TEXT_BUTTON     = Button(text = Text.FROM_TEXT,  callback = Payload.FROM_TEXT,     color = Color.GREEN)
-MANUALLY_INIT_BUTTON = Button(text = Text.MANUALLY,   callback = Payload.MANUALLY_INIT, color = Color.BLUE)
-MANUALLY_HUB_BUTTON  = Button(text = Text.MANUALLY,   callback = Payload.MANUALLY_HUB,  color = Color.BLUE)
-NEXT_ZOOM_BUTTON     = Button(text = Text.NEXT,       callback = Payload.NEXT_ZOOM)
-FINISH_BUTTON        = Button(text = Text.FINISH,     callback = Payload.FINISH)
+BEGIN_BUTTON = Button(text = Text.BEGIN, callback = Payload.BEGIN)
+DO_PIN_BUTTON = Button(text = Text.DO_PIN, callback = Payload.DO_PIN, color = Color.GREEN)
+FROM_TEXT_BUTTON = Button(text = Text.FROM_TEXT, callback = Payload.FROM_TEXT, color = Color.GREEN)
+MANUALLY_INIT_BUTTON = Button(text = Text.MANUALLY, callback = Payload.MANUALLY_INIT, color = Color.BLUE)
+MANUALLY_HUB_BUTTON = Button(text = Text.MANUALLY, callback = Payload.MANUALLY_HUB, color = Color.BLUE)
+NEXT_ZOOM_BUTTON = Button(text = Text.NEXT, callback = Payload.NEXT_ZOOM)
+FINISH_BUTTON = Button(text = Text.FINISH, callback = Payload.FINISH)
 
-RESEND_BUTTON        = Button(text = Text.RESEND,     callback = Payload.RESEND,        color = Color.BLUE)
-WEEKLY_BUTTON        = Button(text = Text.WEEKLY,     callback = Payload.WEEKLY,        color = Color.BLUE)
-DAILY_BUTTON         = Button(text = Text.DAILY,      callback = Payload.DAILY,         color = Color.BLUE)
-FOLD_BUTTON          = Button(text = Text.FOLD,       callback = Payload.FOLD,          color = Color.BLUE)
-UNFOLD_BUTTON        = Button(text = Text.UNFOLD,     callback = Payload.UNFOLD,        color = Color.BLUE)
-UPDATE_BUTTON        = Button(text = Text.UPDATE,     callback = Payload.UPDATE,        color = Color.BLUE)
-SETTINGS_BUTTON      = Button(text = Text.SETTINGS,   callback = Payload.SETTINGS)
+RESEND_BUTTON = Button(text = Text.RESEND, callback = Payload.RESEND, color = Color.BLUE)
+WEEKLY_BUTTON = Button(text = Text.WEEKLY, callback = Payload.WEEKLY, color = Color.BLUE)
+DAILY_BUTTON = Button(text = Text.DAILY, callback = Payload.DAILY, color = Color.BLUE)
+FOLD_BUTTON = Button(text = Text.FOLD, callback = Payload.FOLD, color = Color.BLUE)
+UNFOLD_BUTTON = Button(text = Text.UNFOLD, callback = Payload.UNFOLD, color = Color.BLUE)
+UPDATE_BUTTON = Button(text = Text.UPDATE, callback = Payload.UPDATE, color = Color.BLUE)
+SETTINGS_BUTTON = Button(text = Text.SETTINGS, callback = Payload.SETTINGS)
 
-GROUP_BUTTON         = Button(text = Text.GROUP,      callback = Payload.GROUP,         color = Color.BLUE)
-BROADCAST_BUTTON     = Button(text = Text.BROADCAST,  callback = Payload.BROADCAST,     color = Color.BLUE)
-PIN_BUTTON           = Button(text = Text.PIN,        callback = Payload.PIN,           color = Color.BLUE)
-ZOOM_BUTTON          = Button(text = Text.ZOOM,       callback = Payload.ZOOM,          color = Color.BLUE)
-RESET_BUTTON         = Button(text = Text.RESET,      callback = Payload.RESET,         color = Color.RED)
+GROUP_BUTTON = Button(text = Text.GROUP, callback = Payload.GROUP, color = Color.BLUE)
+BROADCAST_BUTTON = Button(text = Text.BROADCAST, callback = Payload.BROADCAST, color = Color.BLUE)
+PIN_BUTTON = Button(text = Text.PIN, callback = Payload.PIN, color = Color.BLUE)
+ZOOM_BUTTON = Button(text = Text.ZOOM, callback = Payload.ZOOM, color = Color.BLUE)
+RESET_BUTTON = Button(text = Text.RESET, callback = Payload.RESET, color = Color.RED)
 
-MATERIALS_BUTTON     = Button(text = Text.MATERIALS,  url = schedule.MATERIALS_URL)
-JOURNALS_BUTTON      = Button(text = Text.JOURNALS,   url = schedule.JOURNALS_URL)
+MATERIALS_BUTTON = Button(text = Text.MATERIALS, url = schedule.MATERIALS_URL)
+JOURNALS_BUTTON = Button(text = Text.JOURNALS, url = schedule.JOURNALS_URL)

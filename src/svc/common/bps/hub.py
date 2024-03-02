@@ -120,7 +120,6 @@ async def hub(
     answer_text = (
         messages.Builder()
             .add(schedule_text)
-            .add(messages.format_not_maintained_anymore())
     )
     answer_keyboard = kb.Keyboard.hub_default(ctx.schedule.message.type)
 

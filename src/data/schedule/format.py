@@ -1,15 +1,15 @@
 import datetime
 import difflib
-from typing import Optional, Any, Union
-from pydantic import BaseModel
+from typing import Optional, Union, Literal
 from dataclasses import dataclass
 
 from src.svc.common import messages
-from src.data.schedule.compare import GroupCompare, DetailedChanges, PrimitiveChange
-from src.data.schedule import Page, Group, Day, Subject, Format, FORMAT_LITERAL
-from src.data.range import Range
+from src.data.schedule.compare import DetailedChanges, PrimitiveChange
+from src.data.schedule import Group, Day, Subject, Format, FORMAT_LITERAL
 from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt
 from src import text
+from src import util
+
 
 KEYCAPS = {
     0: "0️⃣",
@@ -24,6 +24,19 @@ KEYCAPS = {
     9: "9️⃣",
 }
 
+CIRCLE_KEYCAPS = {
+    0: "🄌",
+    1: "➊",
+    2: "➋",
+    3: "➌",
+    4: "➍",
+    5: "➎",
+    6: "➏",
+    7: "➐",
+    8: "➑",
+    9: "➒",
+}
+
 FORMAT_EMOJIS = {
     Format.FULLTIME: "🏫",
     Format.REMOTE: "🛌"
@@ -35,8 +48,6 @@ LITERAL_FORMAT = {
 }
 
 WINDOW = "🪟 ОКНО ЕБАТЬ (хотя я бы не стал, тыж нехочеш как сын мияги?)"
-UNKNOWN_WINDOW = "🔸 {}"
-
 
 # HAHAHAHA PENIS HAHAHAHHAHAHAHAHAHAHHAHAHAHAHA
 APPEAR     = "+ {}"
@@ -63,6 +74,17 @@ def keycap_num(num: int) -> str:
     for char in num_str:
         char_int = int(char)
         keycap = KEYCAPS.get(char_int)
+        output += keycap
+    
+    return output
+
+def circle_keycap_num(num: int) -> str:
+    num_str = str(num)
+    output = ""
+
+    for char in num_str:
+        char_int = int(char)
+        keycap = CIRCLE_KEYCAPS.get(char_int)
         output += keycap
     
     return output
@@ -123,18 +145,18 @@ def teachers(
     return fmt_teachers
 
 def subject(
-    subject: Subject,
+    subj: Subject,
     format: FORMAT_LITERAL,
     entries: set[zoom.Data]
 ) -> str:
-    if subject.is_unknown_window():
-        return UNKNOWN_WINDOW.format(subject.raw)
+    if subj.is_unknown_window():
+        return f"{circle_keycap_num(subj.num)} {subj.name}"
     
-    num     = keycap_num(subject.num)
-    time    = str(subject.time)
-    name    = subject.name
-    tchrs   = teachers(subject.teachers, format, entries)
-    cabinet = subject.cabinet
+    num     = keycap_num(subj.num)
+    time    = str(subj.time)
+    name    = subj.name
+    tchrs   = teachers(subj.teachers, format, entries)
+    cabinet = subj.cabinet
 
     joined_tchrs = ", ".join(tchrs)
 
@@ -160,47 +182,49 @@ def days(
         weekday = day.weekday
         dt = date(day.date)
 
-        fmt_subjs: list[tuple[int, FORMAT_LITERAL, str]] = []
+        fmt_subjs: list[tuple[Subject, str]] = []
 
         for subj in day.subjects:
             fmt_subj = subject(subj, subj.format, entries)
-            fmt_subjs.append((subj.num, subj.format, fmt_subj))
+            fmt_subjs.append((
+                subj,
+                fmt_subj
+            ))
         
         rows: list[str] = []
 
         last_format = None
         last_num = None
 
-        for (num, format, fmt) in fmt_subjs:
-            emoji = FORMAT_EMOJIS.get(format)
-            literal_format = LITERAL_FORMAT.get(format)
+        for (subj, fmt) in fmt_subjs:
+            emoji = FORMAT_EMOJIS.get(subj.format)
+            literal_format = LITERAL_FORMAT.get(subj.format)
 
-            is_duplicate_num = last_num == num if last_num else None
+            is_duplicate_num = last_num == subj.num if last_num else None
             normally_predicted_num = last_num + 1 if last_num else None
 
             if last_num is not None and (
-                not is_duplicate_num and (normally_predicted_num != num)
+                not is_duplicate_num and (normally_predicted_num != subj.num)
             ):
                 fmt_window = text.indent(WINDOW, add_dropdown = True)
                 rows.append(fmt_window)
 
-            if last_format != format:
-                last_format = format
+            if last_format != subj.format:
+                last_format = subj.format
 
                 if len(rows) > 0:
-                    rows.append("\n")
+                    rows[-1] += "\n"
 
                 fmt_day = f"{emoji} | {weekday} ({literal_format}) {dt}:"
                 fmt = text.indent(fmt, add_dropdown = True)
 
                 rows.append(fmt_day)
                 rows.append(fmt)
-
-            elif last_format == format:
+            else:
                 fmt = text.indent(fmt, add_dropdown = True)
                 rows.append(fmt)
-            
-            last_num = num
+
+            last_num = subj.num
         
         fmt_days.append("\n".join(rows))
     

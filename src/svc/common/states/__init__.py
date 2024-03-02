@@ -317,6 +317,12 @@ ZOOM_EDIT_NOTES = {
 ZOOM_DUMP = {
     "name": "Дамп",
 }
+ZOOM_CONFIRM_REMOVE_ALL = {
+    "name": "Подтверждение удаления"
+}
+ZOOM_CONFIRM_CLEAR_ALL = {
+    "name": "Подтверждение удаления"
+}
 RESET_MAIN = {
     "name": "Сброс"
 }
@@ -341,6 +347,8 @@ __all__ = (
     "ZOOM_EDIT_PWD",
     "ZOOM_EDIT_NOTES",
     "ZOOM_DUMP",
+    "ZOOM_CONFIRM_REMOVE_ALL",
+    "ZOOM_CONFIRM_CLEAR_ALL",
     "RESET_MAIN",
     "Tree",
     "State",

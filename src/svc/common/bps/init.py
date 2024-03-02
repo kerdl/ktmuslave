@@ -68,7 +68,6 @@ async def main(everything: CommonEverything):
         messages.Builder()
             .add(messages.format_welcome(everything.is_group_chat))
             .add(messages.format_press_begin())
-            .add(messages.format_not_maintained_anymore())
     )
     answer_keyboard = Keyboard([
         [BEGIN_BUTTON]
