@@ -112,6 +112,7 @@ class Text:
 
     # Hub buttons
     RESEND     = "✉️ Новое сообщение"
+    GO_HOME    = "🏠 Вернуться"
     WEEKLY     = "⇋ Недельное"
     DAILY      = "⇋ Дневное"
     FOLD       = "⮟ Свернуть"
@@ -263,7 +264,7 @@ class Keyboard(BaseModel):
                 WEEKLY_BUTTON.only_if(is_daily),
                 DAILY_BUTTON.only_if(is_weekly)
             ],
-            [RESEND_BUTTON],
+            [GO_HOME_BUTTON],
             [
                 SCHEDULE_API.ft_daily_url_button(),
                 SCHEDULE_API.ft_weekly_url_button()
@@ -482,6 +483,7 @@ NEXT_ZOOM_BUTTON = Button(text = Text.NEXT, callback = Payload.NEXT_ZOOM)
 FINISH_BUTTON = Button(text = Text.FINISH, callback = Payload.FINISH)
 
 RESEND_BUTTON = Button(text = Text.RESEND, callback = Payload.RESEND, color = Color.BLUE)
+GO_HOME_BUTTON = Button(text = Text.GO_HOME, callback = Payload.RESEND, color = Color.BLUE)
 WEEKLY_BUTTON = Button(text = Text.WEEKLY, callback = Payload.WEEKLY, color = Color.BLUE)
 DAILY_BUTTON = Button(text = Text.DAILY, callback = Payload.DAILY, color = Color.BLUE)
 FOLD_BUTTON = Button(text = Text.FOLD, callback = Payload.FOLD, color = Color.BLUE)

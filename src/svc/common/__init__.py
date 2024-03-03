@@ -639,6 +639,7 @@ class Ctx:
         )
 
         for chat in sorted_chats_that_need_broadcast:
+            chat.schedule.temp_group = None
             chat_group = chat.settings.group.confirmed
             chat_relative_mappings = BroadcastGroup.filter_for_group(chat_group, mappings)
 
