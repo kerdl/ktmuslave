@@ -61,6 +61,7 @@ class Message(BaseModel):
 class Schedule(BaseModel):
     message: Message = PydField(default_factory=Message)
     last_update: Optional[float] = 0.0
+    temp_group: Optional[str] = None
 
     
     @property

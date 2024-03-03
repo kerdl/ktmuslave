@@ -466,15 +466,7 @@ async def group(everything: CommonEverything):
 
         # add user's group to context as typed group
         ctx.settings.group.typed = group_match.group()
-
-        # remove nonword from group (separators like "-")
-        group_nonword = pattern.NON_LETTER.sub("", group_match.group())
-
-        # make group all caps
-        group_caps = group_nonword.upper()
-
-        # add validated group to context as valid group
-        ctx.settings.group.valid = group_caps
+        ctx.settings.group.generate_valid()
 
 
         if SCHEDULE_API.is_online:
@@ -483,12 +475,12 @@ async def group(everything: CommonEverything):
             groups = []
 
         # if this group not in list of all available groups
-        if group_caps not in groups:
+        if ctx.settings.group.valid not in groups:
             # ask if we should still set this unknown group
             return await to_unknown_group(everything)
 
         # everything is ok, set this group as confirmed
-        everything.ctx.settings.group.confirmed = group_caps
+        everything.ctx.settings.group.set_valid_as_confirmed()
 
         return await auto_route(everything)
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import datetime
 from typing import Generic, TypeVar
 from pydantic.generics import GenericModel
@@ -22,3 +23,9 @@ class Range(GenericModel, Generic[T]):
             return f"{start} - {end}"
 
         return f"{self.start} - {self.end}"
+    
+    def __eq__(self, value: object) -> bool:
+        if isinstance(value, Range):
+            return self.start == value.start and self.end == value.end
+        else:
+            return False

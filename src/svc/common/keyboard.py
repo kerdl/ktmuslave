@@ -241,10 +241,29 @@ class Keyboard(BaseModel):
                 DAILY_BUTTON.only_if(is_weekly),
                 UPDATE_BUTTON
             ],
-            #[kb.FOLD_BUTTON.only_if(is_unfolded)],
-            #[kb.UNFOLD_BUTTON.only_if(is_folded)],
             [RESEND_BUTTON],
             [SETTINGS_BUTTON],
+            [
+                SCHEDULE_API.ft_daily_url_button(),
+                SCHEDULE_API.ft_weekly_url_button()
+            ],
+            [SCHEDULE_API.r_weekly_url_button()],
+            [MATERIALS_BUTTON, JOURNALS_BUTTON],
+        ], add_back=False)
+
+    @classmethod
+    def temp_group_hub(cls: Keyboard, sc_type: schedule.TYPE_LITERAL) -> Keyboard:
+        from src.api.schedule import SCHEDULE_API
+
+        is_daily = sc_type == schedule.Type.DAILY
+        is_weekly = sc_type == schedule.Type.WEEKLY
+
+        return cls([
+            [
+                WEEKLY_BUTTON.only_if(is_daily),
+                DAILY_BUTTON.only_if(is_weekly)
+            ],
+            [RESEND_BUTTON],
             [
                 SCHEDULE_API.ft_daily_url_button(),
                 SCHEDULE_API.ft_weekly_url_button()

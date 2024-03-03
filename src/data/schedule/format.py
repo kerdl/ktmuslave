@@ -5,10 +5,10 @@ from dataclasses import dataclass
 
 from src.svc.common import messages
 from src.data.schedule.compare import DetailedChanges, PrimitiveChange
-from src.data.schedule import Group, Day, Subject, Format, FORMAT_LITERAL
+from src.data.schedule import Group, Day, Subject, Format, FORMAT_LITERAL, compare
+from src.data.range import Range
 from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt
 from src import text
-from src import util
 
 
 KEYCAPS = {
@@ -36,6 +36,8 @@ CIRCLE_KEYCAPS = {
     8: "➑",
     9: "➒",
 }
+
+CIRCLE_KEYCAPS_RANGE_DASH = "-"
 
 FORMAT_EMOJIS = {
     Format.FULLTIME: "🏫",
@@ -88,6 +90,15 @@ def circle_keycap_num(num: int) -> str:
         output += keycap
     
     return output
+
+def circle_keycap_num_range(range: Range[int]) -> str:
+    if range.start == range.end:
+        return circle_keycap_num(range.start)
+
+    start = circle_keycap_num(range.start)
+    end = circle_keycap_num(range.end)
+    
+    return f"{start}{CIRCLE_KEYCAPS_RANGE_DASH}{end}"
 
 def date(dt: datetime.date) -> str:
     str_day = fmt.zero_at_start(dt.day)
@@ -146,16 +157,27 @@ def teachers(
 
 def subject(
     subj: Subject,
-    format: FORMAT_LITERAL,
-    entries: set[zoom.Data]
+    entries: set[zoom.Data],
+    rng: Optional[Range[Subject]] = None
 ) -> str:
     if subj.is_unknown_window():
+        if rng is not None:
+            num_range = Range(
+                start=rng.start.num,
+                end=rng.end.num
+            )
+            time_range = Range(
+                start=rng.start.time.start,
+                end=rng.end.time.end
+            )
+            return f"{circle_keycap_num_range(num_range)} {time_range}: {subj.name}"
+        
         return f"{circle_keycap_num(subj.num)} {subj.name}"
     
     num     = keycap_num(subj.num)
     time    = str(subj.time)
     name    = subj.name
-    tchrs   = teachers(subj.teachers, format, entries)
+    tchrs   = teachers(subj.teachers, subj.format, entries)
     cabinet = subj.cabinet
 
     joined_tchrs = ", ".join(tchrs)
@@ -182,14 +204,77 @@ def days(
         weekday = day.weekday
         dt = date(day.date)
 
-        fmt_subjs: list[tuple[Subject, str]] = []
+        hold: list[Subject] = []
+        holden_ranges: list[Range[Subject]] = []
+        fmt_subjs: list[tuple[Union[Subject, Range[Subject]], str]] = []
+
+        def get_holden_ranges():
+            nonlocal holden_ranges
+
+            ranges = []
+            start = None
+            end = None
+            prev: Subject = None
+
+            for holden in hold:
+                if prev is None:
+                    prev = holden
+                    start = holden
+                    continue
+                
+                if prev.num == holden.num - 1:
+                    prev = holden
+                    continue
+
+                end = prev
+                ranges.append(Range(start=start, end=end))
+
+                start = holden
+                end = None
+
+                prev = holden
+            
+            if end is None and len(hold) > 0:
+                end = hold[-1]
+
+            if start is not None and end is not None:
+                ranges.append(Range(start=start, end=end))
+
+            holden_ranges = ranges
+
+        def format_holden_ranges():
+            for rng in holden_ranges:
+                subj_fmt = subject(
+                    rng.start,
+                    entries,
+                    rng
+                )
+                fmt_subjs.append((rng, subj_fmt))
 
         for subj in day.subjects:
-            fmt_subj = subject(subj, subj.format, entries)
+            if (
+                subj.is_unknown_window() and
+                compare.cmp_subjects(
+                    hold, ignored_keys=["raw", "num", "time"]
+                )
+            ):
+                hold.append(subj)
+                continue
+            else:
+                get_holden_ranges()
+                format_holden_ranges()
+                hold = []
+
+            fmt_subj = subject(subj, entries)
             fmt_subjs.append((
                 subj,
                 fmt_subj
             ))
+        
+        if len(hold) > 0:
+            get_holden_ranges()
+            format_holden_ranges()
+            hold = []
         
         rows: list[str] = []
 
@@ -197,6 +282,12 @@ def days(
         last_num = None
 
         for (subj, fmt) in fmt_subjs:
+            subj_end = None
+
+            if isinstance(subj, Range):
+                subj_end = subj.end
+                subj = subj.start                
+
             emoji = FORMAT_EMOJIS.get(subj.format)
             literal_format = LITERAL_FORMAT.get(subj.format)
 
@@ -224,7 +315,11 @@ def days(
                 fmt = text.indent(fmt, add_dropdown = True)
                 rows.append(fmt)
 
-            last_num = subj.num
+
+            if subj_end is None:
+                last_num = subj.num
+            else:
+                last_num = subj_end.num
         
         fmt_days.append("\n".join(rows))
     

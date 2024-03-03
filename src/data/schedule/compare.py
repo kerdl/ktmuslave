@@ -80,3 +80,34 @@ class PageCompare(BaseModel):
     raw: Optional[str]
     date: PrimitiveChange[Range[datetime.date]]
     groups: DetailedChanges[GroupCompare, Group]
+
+def cmp_subject(a: Subject, b: Subject, ignored_keys: list[str]) -> bool:
+    mapping = {}
+    mapping["raw"] = a.raw == b.raw
+    mapping["num"] = a.num == b.num
+    mapping["time"] = a.time == b.time
+    mapping["name"] = a.name == b.name
+    mapping["format"] = a.format == b.format
+    mapping["teachers"] = a.teachers == b.teachers
+    mapping["cabinet"] = a.cabinet == b.cabinet
+
+    checks = [mapping[key] for key in mapping.keys() if key not in ignored_keys]
+
+    return all(checks)
+
+def cmp_subjects(subjects: list[Subject], ignored_keys: list[str]) -> bool:
+    if len(subjects) < 2:
+        return True
+    if len(subjects) == 2:
+        return cmp_subject(subjects[0], subjects[1], ignored_keys)
+
+    compares = []
+
+    for i in range(0, len(subjects)-1):
+        curr_subj = subjects[i]
+        next_subj = subjects[i+1] if len(subjects)-1 >= i+1 else None
+
+        if next_subj is not None:
+            compares.append(cmp_subject(curr_subj, next_subj, ignored_keys)) 
+
+    return all(compares)    
