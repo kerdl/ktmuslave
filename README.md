@@ -1,6 +1,6 @@
 [🇷🇺 Русский](/README-RU.md)
 
-### This bot is in "I don't care" state
+# This bot is in "I don't care" state
 New features and fixes after breaking changes
 will only be implemented on huge demand,
 and yet it is not guaranteed.
