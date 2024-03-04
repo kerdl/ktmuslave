@@ -277,7 +277,7 @@ class Defs:
             middlewares.r.assign()
         
         if init_handlers:
-            from src.svc.common.bps import reset, settings, init, zoom, hub
+            from src.svc.common.bps import admin, reset, settings, init, zoom, hub
         
         from src.svc.common import Ctx
 

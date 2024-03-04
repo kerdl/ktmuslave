@@ -74,18 +74,26 @@ class Zoom(Tree):
     I_MASS_CHECK            = State(**ZOOM_MASS_CHECK)
 
 
+class Admin(Tree):
+    __space__ = Space.RESET
+
+    I_EXECUTE_CODE = State(**EXECUTE_CODE)
+
+
 INIT = Init()
 HUB = Hub()
 ZOOM = Zoom()
 SETTINGS = Settings()
 RESET = Reset()
+ADMIN = Admin()
 
 STR_MAP = {
     Init.__name__: INIT,
     Hub.__name__: HUB,
     Zoom.__name__: ZOOM,
     Settings.__name__: SETTINGS,
-    Reset.__name__: RESET
+    Reset.__name__: RESET,
+    Admin.__name__: ADMIN,
 }
 
 def from_str(tree: str) -> Optional[Tree]:

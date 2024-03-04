@@ -42,6 +42,7 @@ class Payload:
     BROADCAST     = "broadcast"
     PIN           = "pin"
     ZOOM          = "zoom"
+    EXECUTE_CODE  = "execute_code"
     RESET         = "reset"
 
     # Zoom buttons
@@ -69,6 +70,7 @@ class Payload:
 
     # Hub buttons
     RESEND        = "resend"
+    GO_TO_HUB     = "go_to_hub"
     WEEKLY        = "weekly"
     DAILY         = "daily"
     FOLD          = "fold"
@@ -91,11 +93,12 @@ class Text:
     FINISH     = "→ Закончить"
 
     # Settings buttons
-    GROUP      = "👥 Группа"
-    BROADCAST  = "✉️ Рассылка"
-    PIN        = "📌 Закрепление"
-    ZOOM       = "🖥️ Zoom"
-    RESET      = "🗑️ Сбросить всё"
+    GROUP        = "👥 Группа"
+    BROADCAST    = "✉️ Рассылка"
+    PIN          = "📌 Закрепление"
+    ZOOM         = "🖥️ Zoom"
+    EXECUTE_CODE = "🛠️ Выполнить код"
+    RESET        = "🗑️ Сбросить всё"
 
     # Zoom buttons
     FROM_TEXT           = "💬 Из сообщения"
@@ -113,6 +116,7 @@ class Text:
     # Hub buttons
     RESEND     = "✉️ Новое сообщение"
     GO_HOME    = "🏠 Вернуться"
+    GO_TO_HUB  = "🏠 В хаб"
     WEEKLY     = "⇋ Недельное"
     DAILY      = "⇋ Дневное"
     FOLD       = "⮟ Свернуть"
@@ -484,6 +488,7 @@ FINISH_BUTTON = Button(text = Text.FINISH, callback = Payload.FINISH)
 
 RESEND_BUTTON = Button(text = Text.RESEND, callback = Payload.RESEND, color = Color.BLUE)
 GO_HOME_BUTTON = Button(text = Text.GO_HOME, callback = Payload.RESEND, color = Color.BLUE)
+GO_TO_HUB_BUTTON = Button(text = Text.GO_TO_HUB, callback = Payload.GO_TO_HUB, color = Color.BLUE)
 WEEKLY_BUTTON = Button(text = Text.WEEKLY, callback = Payload.WEEKLY, color = Color.BLUE)
 DAILY_BUTTON = Button(text = Text.DAILY, callback = Payload.DAILY, color = Color.BLUE)
 FOLD_BUTTON = Button(text = Text.FOLD, callback = Payload.FOLD, color = Color.BLUE)
@@ -495,6 +500,7 @@ GROUP_BUTTON = Button(text = Text.GROUP, callback = Payload.GROUP, color = Color
 BROADCAST_BUTTON = Button(text = Text.BROADCAST, callback = Payload.BROADCAST, color = Color.BLUE)
 PIN_BUTTON = Button(text = Text.PIN, callback = Payload.PIN, color = Color.BLUE)
 ZOOM_BUTTON = Button(text = Text.ZOOM, callback = Payload.ZOOM, color = Color.BLUE)
+EXECUTE_CODE_BUTTON = Button(text = Text.EXECUTE_CODE, callback = Payload.EXECUTE_CODE, color = Color.BLUE)
 RESET_BUTTON = Button(text = Text.RESET, callback = Payload.RESET, color = Color.RED)
 
 MATERIALS_BUTTON = Button(text = Text.MATERIALS, url = schedule.MATERIALS_URL)

@@ -323,6 +323,9 @@ ZOOM_CONFIRM_REMOVE_ALL = {
 ZOOM_CONFIRM_CLEAR_ALL = {
     "name": "Подтверждение удаления"
 }
+EXECUTE_CODE = {
+    "name": "Выполнить код",
+}
 RESET_MAIN = {
     "name": "Сброс"
 }
@@ -349,6 +352,7 @@ __all__ = (
     "ZOOM_DUMP",
     "ZOOM_CONFIRM_REMOVE_ALL",
     "ZOOM_CONFIRM_CLEAR_ALL",
+    "EXECUTE_CODE",
     "RESET_MAIN",
     "Tree",
     "State",

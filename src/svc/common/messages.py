@@ -101,7 +101,7 @@ def format_sent_as_new_message():
     return SENT_AS_NEW_MESSAGE
 
 EMPTY_PAGE = (
-    "🤔 | Пока сюда нихуя не завезли"
+    "🤔 | Пусто. Можешь добавить записи с помощью кнопки ниже."
 )
 def format_empty_page():
     return EMPTY_PAGE
@@ -167,7 +167,7 @@ def format_press_buttons_to_change():
 
 
 NO_TEXT = (
-    "❌ | Ну ты быдло, тут нет текста"
+    "❌ | Тут нет текста"
 )
 def format_no_text():
     return NO_TEXT
@@ -265,10 +265,10 @@ def format_permit_pin(src: common.MESSENGER_OR_EVT_SOURCE):
 
 
 CANT_PIN_VK = (
-    "❌ Нет у меня нихуя, перепроверь мою админку"
+    "❌ Нихуя нет, перепроверь мою админку"
 )
 CANT_PIN_TG = (
-    "❌ Нет у меня нихуя, перепроверь моё право \"Закрепление сообщений\""
+    "❌ Нихуя нет, перепроверь моё право \"Закрепление сообщений\""
 )
 def format_cant_pin(src: common.MESSENGER_OR_EVT_SOURCE):
     if src == common.Source.VK:
@@ -359,7 +359,7 @@ def format_mass_zoom_data_explain():
 
 
 DOESNT_CONTAIN_ZOOM = (
-    f"❌ | Eblan? Посмотри формат, по нему тут нихуя нет 🤨\n"
+    f"❌ | По формату тут ничего нет 🤨\n"
     f"   ╰ 🤔 Блоки без ФИО игнорируются\n"
     f"   ╰ 🤔 Имена больше {zoom.NAME_LIMIT} символов игнорируются"
 )
@@ -376,7 +376,7 @@ def format_you_can_add_more():
 
 
 VALUE_TOO_BIG = (
-    "❌ | Да я не про длину хуя в твоей жопе, сократи до {limit} символов"
+    "❌ | Сократи до {limit} символов"
 )
 def format_value_too_big(limit: int):
     return VALUE_TOO_BIG.format(limit=limit)
@@ -541,6 +541,47 @@ RESET_EXPLAIN = (
 )
 def format_reset_explain() -> str:
     return RESET_EXPLAIN
+
+
+LOGS_EMPTY = (
+    "<Empty logs>"
+)
+def format_logs_empty() -> str:
+    return LOGS_EMPTY
+
+
+EXECUTION_ERROR = (
+    "❌ Error: {error}"
+)
+def format_execution_error(error: str, traceback: Optional[str] = None) -> str:
+    exec_error_message = EXECUTION_ERROR
+    if traceback is not None:
+        exec_error_message += "\n\n"
+        exec_error_message += traceback
+
+    return exec_error_message.format(error=error)
+
+
+EXECUTE_CODE_EXPLAIN = (
+    "🛠️ | Напиши код для выполнения в асинхронном рантайме\n\n"
+    "Для вывода сообщений: {print_example}\n\n"
+    "Полезные пути:\n"
+    "src.defs (defs -> (redis, ctx -> get_everyone))\n"
+    "src.svc.common.keyboard (Keyboard, *_BUTTON)\n"
+    "src.svc.common.states.tree (HUB, SETTINGS, ...)\n"
+)
+def format_execute_code_explain(exposed_vars: list[str], print_example: str) -> str:
+    return EXECUTE_CODE_EXPLAIN.format(
+        exposed_vars=", ".join(exposed_vars),
+        print_example=print_example
+    )
+
+
+NO_RIGHTS = (
+    "Хуй знает как у тебя это получилось, но тебе это недоступно"
+)
+def format_no_rights() -> str:
+    return NO_RIGHTS
 
 
 NO_SCHEDULE = (

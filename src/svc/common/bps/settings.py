@@ -544,6 +544,7 @@ async def main(everything: CommonEverything):
             SETTINGS.III_SHOULD_PIN not in ctx.navigator.ignored
         )],
         [kb.ZOOM_BUTTON.with_value(len(ctx.settings.zoom.entries))],
+        [kb.EXECUTE_CODE_BUTTON.only_if(everything.ctx.is_admin)],
         [kb.RESET_BUTTON]
     ])
 
