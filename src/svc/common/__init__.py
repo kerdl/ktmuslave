@@ -119,6 +119,7 @@ class BroadcastGroup:
 class DbBaseCtx(BaseModel):
     chat_id: int
     is_registered: bool
+    is_admin: Optional[bool]
 
     navigator: DbNavigator
     settings: Settings
@@ -147,6 +148,7 @@ class DbBaseCtx(BaseModel):
         return cls(
             chat_id=ctx.chat_id,
             is_registered=ctx.is_registered,
+            is_admin=ctx.is_admin,
             navigator=ctx.navigator.to_db(),
             settings=ctx.settings,
             schedule=ctx.schedule,
@@ -166,6 +168,7 @@ class DbBaseCtx(BaseModel):
 class BaseCtx:
     chat_id: int
     is_registered: bool = field(default_factory=lambda: False)
+    is_admin: bool = field(default_factory=lambda: False)
 
     navigator: Navigator = field(default_factory=Navigator)
     """ # `Back`, `next` buttons tracer """
@@ -219,6 +222,7 @@ class BaseCtx:
     def from_db(cls: type[BaseCtx], db: DbBaseCtx) -> BaseCtx:
         self = cls(
             chat_id=db.chat_id,
+            is_admin=db.is_admin if db.is_admin is not None else False,
             is_registered=db.is_registered,
             navigator=db.navigator.to_runtime(db.last_everything),
             settings=db.settings,
@@ -553,6 +557,12 @@ class Ctx:
 
         return response
 
+    async def get_everyone(self) -> Optional[list]:
+        all_keys = await defs.redis.keys()
+        all_raw_ctxs = await defs.redis.json().mget(all_keys, "$")
+        
+        return all_raw_ctxs
+
     async def parse_redis_result(self, result: list) -> list[BaseCtx]:
         ctxs: list[BaseCtx] = []
 
@@ -594,6 +604,32 @@ class Ctx:
             return []
 
         return await self.parse_redis_result(raw_result)
+    
+    async def get_everyone_parsed(self) -> list[BaseCtx]:
+        parsed = []
+        raw_result = await self.get_everyone()
+
+        if raw_result is None:
+            return []
+
+        for raw_ctx in raw_result:
+            # convert [dict -> DbBaseCtx]
+            # in executor
+            db_ctx = await defs.loop.run_in_executor(
+                None,
+                DbBaseCtx.parse_obj,
+                raw_ctx[0]
+            )
+            # convert [DbBaseCtx -> BaseCtx]
+            # in executor
+            ctx = await defs.loop.run_in_executor(
+                None,
+                db_ctx.to_runtime
+            )
+
+            parsed.append(ctx)
+
+        return parsed
 
     @staticmethod
     def sort_first_by_db_keys(keys: list[str], ctxs: list[BaseCtx]) -> list[BaseCtx]:
@@ -639,6 +675,7 @@ class Ctx:
         )
 
         for chat in sorted_chats_that_need_broadcast:
+            chat.schedule.temp_group = None
             chat_group = chat.settings.group.confirmed
             chat_relative_mappings = BroadcastGroup.filter_for_group(chat_group, mappings)
 
@@ -1123,7 +1160,8 @@ class CommonMessage(BaseCommonEvent):
         text: str,
         keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
-        tree_values: Optional[Values] = None
+        tree_values: Optional[Values] = None,
+        set_as_last: bool = True
     ):
         base_lvl = 1
 
@@ -1175,7 +1213,8 @@ class CommonMessage(BaseCommonEvent):
             tree_values = tree_values
         )
 
-        await self.ctx.set_last_bot_message(bot_message)
+        if set_as_last:
+            await self.ctx.set_last_bot_message(bot_message)
 
 class CommonBotMessage(BaseModel):
     """
@@ -1188,7 +1227,7 @@ class CommonBotMessage(BaseModel):
     """
 
     text: str
-    keyboard: kb.Keyboard
+    keyboard: Optional[kb.Keyboard] = None
 
     can_edit: bool = True
 
@@ -1600,7 +1639,8 @@ class CommonEvent(BaseCommonEvent):
         text: str,
         keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
-        tree_values: Optional[Values] = None
+        tree_values: Optional[Values] = None,
+        set_as_last: bool = True
     ):
         """
         ## Send message by id inside event
@@ -1658,7 +1698,8 @@ class CommonEvent(BaseCommonEvent):
             tree_values = tree_values
         )
 
-        await self.ctx.set_last_bot_message(bot_message)
+        if set_as_last:
+            await self.ctx.set_last_bot_message(bot_message)
 
 class CommonEverything(BaseCommonEvent):
     """
@@ -1906,7 +1947,8 @@ class CommonEverything(BaseCommonEvent):
         text: str,
         keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
-        tree_values: Optional[Values] = None
+        tree_values: Optional[Values] = None,
+        set_as_last: bool = True
     ):
         if self.is_from_event:
             event = self.event
@@ -1915,7 +1957,8 @@ class CommonEverything(BaseCommonEvent):
                 text        = text,
                 keyboard    = keyboard,
                 add_tree    = add_tree,
-                tree_values = tree_values
+                tree_values = tree_values,
+                set_as_last = set_as_last
             )
 
         if self.is_from_message:
@@ -1925,7 +1968,8 @@ class CommonEverything(BaseCommonEvent):
                 text        = text,
                 keyboard    = keyboard,
                 add_tree    = add_tree,
-                tree_values = tree_values
+                tree_values = tree_values,
+                set_as_last = set_as_last
             )
 
     async def send_message(
@@ -1935,19 +1979,40 @@ class CommonEverything(BaseCommonEvent):
         chunker: Callable[[str, Optional[int]], list[str]] = text.chunks
     ):
         if self.is_from_vk:
-            return await vk.chunked_send(
+            result = await vk.chunked_send(
                 peer_id  = self.chat_id,
                 message  = text,
-                keyboard = keyboard,
+                keyboard = keyboard.to_vk().get_json() if keyboard else None,
                 chunker  = chunker
             )
+        
+            chat_id = result[-1].peer_id
+            id = result[-1].conversation_message_id
+            was_split = len(result) > 1
         if self.is_from_tg:
-            return await tg.chunked_send(
+            result = await tg.chunked_send(
                 chat_id      = self.chat_id,
                 text         = text,
-                reply_markup = keyboard,
+                reply_markup = keyboard.to_tg() if keyboard else None,
                 chunker      = chunker
             )
+
+            chat_id = result[-1].chat.id
+            id = result[-1].message_id
+            was_split = len(result) > 1
+
+        bot_message = CommonBotMessage(
+            src         = self.src,
+            chat_id     = chat_id,
+            id          = id,
+            was_split   = was_split,
+            text        = text,
+            keyboard    = keyboard,
+            add_tree    = False,
+            tree_values = None
+        )
+        
+        return bot_message
 
 def run_forever():
     """

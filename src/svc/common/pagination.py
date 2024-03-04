@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, Field as PydField
 
 from src.svc.common.keyboard import BACK_BUTTON, Keyboard, Button, Color, Payload
-from src.svc.common.template import CommonBotTemplate
+from src.svc.common.template import CommonBotTemplate, MetadataKeys
 from src.svc.common import error, messages
 from src.data import zoom
 
@@ -57,7 +57,6 @@ def from_zoom(
     keyboard_header: list[list[Button]] = [[]],
     keyboard_footer: list[list[Button]] = [[BACK_BUTTON]]
 ) -> list[CommonBotTemplate]:
-
     if isinstance(data, set):
         data = list(data)
 
@@ -71,8 +70,13 @@ def from_zoom(
     if len(pages) < 1:
         pages = [[]]
 
+    page_num_names_map: dict[int, list[str]] = {}
+
     # iterate for each chunk, a list of zoom data classes
     for (page_num, page) in enumerate(pages):
+        this_page_names = [entry.name.value for entry in page]
+        page_num_names_map[page_num] = this_page_names
+
         is_first_page = page_num == 0
         is_last_page = page_num + 1 == len(pages)
 
@@ -155,7 +159,8 @@ def from_zoom(
 
         message = CommonBotTemplate(
             text     = text,
-            keyboard = Keyboard(kb_schema, add_back=False)
+            keyboard = Keyboard(kb_schema, add_back=False),
+            metadata = {MetadataKeys.PAGE_NUM_NAMES_MAP: page_num_names_map}
         )
         msgs.append(message)
 

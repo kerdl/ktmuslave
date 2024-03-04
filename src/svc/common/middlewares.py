@@ -68,8 +68,10 @@ class OldMessagesBlock(EventMiddleware):
         this_message_id = common_event.message_id
         if common_event.ctx.last_bot_message is None:
             last_message_id = None
+            last_message_can_edit = False
         else:
             last_message_id = common_event.ctx.last_bot_message.id
+            last_message_can_edit = common_event.ctx.last_bot_message.can_edit
 
         if this_message_id != last_message_id:
             if everything.ctx.is_registered:
@@ -84,7 +86,10 @@ class OldMessagesBlock(EventMiddleware):
                     user_ctx.last_bot_message.can_edit = False
 
                     return
-
+                elif not last_message_can_edit:
+                    user_ctx.navigator.jump_back_to_or_append(HUB.I_MAIN)
+                    await hub.hub(everything, allow_edit=False)
+                    self.stop_pre()
                 else:
                     await resend_last_bot_message()
                     self.stop_pre()

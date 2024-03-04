@@ -1,15 +1,15 @@
 import datetime
 import difflib
-from typing import Optional, Any, Union
-from pydantic import BaseModel
+from typing import Optional, Union, Literal
 from dataclasses import dataclass
 
 from src.svc.common import messages
-from src.data.schedule.compare import GroupCompare, DetailedChanges, PrimitiveChange
-from src.data.schedule import Page, Group, Day, Subject, Format, FORMAT_LITERAL
+from src.data.schedule.compare import DetailedChanges, PrimitiveChange
+from src.data.schedule import Group, Day, Subject, Format, FORMAT_LITERAL, compare
 from src.data.range import Range
 from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt
 from src import text
+
 
 KEYCAPS = {
     0: "0️⃣",
@@ -24,6 +24,21 @@ KEYCAPS = {
     9: "9️⃣",
 }
 
+CIRCLE_KEYCAPS = {
+    0: "🄌",
+    1: "➊",
+    2: "➋",
+    3: "➌",
+    4: "➍",
+    5: "➎",
+    6: "➏",
+    7: "➐",
+    8: "➑",
+    9: "➒",
+}
+
+CIRCLE_KEYCAPS_RANGE_DASH = "-"
+
 FORMAT_EMOJIS = {
     Format.FULLTIME: "🏫",
     Format.REMOTE: "🛌"
@@ -35,8 +50,6 @@ LITERAL_FORMAT = {
 }
 
 WINDOW = "🪟 ОКНО ЕБАТЬ (хотя я бы не стал, тыж нехочеш как сын мияги?)"
-UNKNOWN_WINDOW = "🔸 {}"
-
 
 # HAHAHAHA PENIS HAHAHAHHAHAHAHAHAHAHHAHAHAHAHA
 APPEAR     = "+ {}"
@@ -66,6 +79,26 @@ def keycap_num(num: int) -> str:
         output += keycap
     
     return output
+
+def circle_keycap_num(num: int) -> str:
+    num_str = str(num)
+    output = ""
+
+    for char in num_str:
+        char_int = int(char)
+        keycap = CIRCLE_KEYCAPS.get(char_int)
+        output += keycap
+    
+    return output
+
+def circle_keycap_num_range(range: Range[int]) -> str:
+    if range.start == range.end:
+        return circle_keycap_num(range.start)
+
+    start = circle_keycap_num(range.start)
+    end = circle_keycap_num(range.end)
+    
+    return f"{start}{CIRCLE_KEYCAPS_RANGE_DASH}{end}"
 
 def date(dt: datetime.date) -> str:
     str_day = fmt.zero_at_start(dt.day)
@@ -123,18 +156,29 @@ def teachers(
     return fmt_teachers
 
 def subject(
-    subject: Subject,
-    format: FORMAT_LITERAL,
-    entries: set[zoom.Data]
+    subj: Subject,
+    entries: set[zoom.Data],
+    rng: Optional[Range[Subject]] = None
 ) -> str:
-    if subject.is_unknown_window():
-        return UNKNOWN_WINDOW.format(subject.raw)
+    if subj.is_unknown_window():
+        if rng is not None:
+            num_range = Range(
+                start=rng.start.num,
+                end=rng.end.num
+            )
+            time_range = Range(
+                start=rng.start.time.start,
+                end=rng.end.time.end
+            )
+            return f"{circle_keycap_num_range(num_range)} {time_range}: {subj.name}"
+        
+        return f"{circle_keycap_num(subj.num)} {subj.name}"
     
-    num     = keycap_num(subject.num)
-    time    = str(subject.time)
-    name    = subject.name
-    tchrs   = teachers(subject.teachers, format, entries)
-    cabinet = subject.cabinet
+    num     = keycap_num(subj.num)
+    time    = str(subj.time)
+    name    = subj.name
+    tchrs   = teachers(subj.teachers, subj.format, entries)
+    cabinet = subj.cabinet
 
     joined_tchrs = ", ".join(tchrs)
 
@@ -160,47 +204,122 @@ def days(
         weekday = day.weekday
         dt = date(day.date)
 
-        fmt_subjs: list[tuple[int, FORMAT_LITERAL, str]] = []
+        hold: list[Subject] = []
+        holden_ranges: list[Range[Subject]] = []
+        fmt_subjs: list[tuple[Union[Subject, Range[Subject]], str]] = []
+
+        def get_holden_ranges():
+            nonlocal holden_ranges
+
+            ranges = []
+            start = None
+            end = None
+            prev: Subject = None
+
+            for holden in hold:
+                if prev is None:
+                    prev = holden
+                    start = holden
+                    continue
+                
+                if prev.num == holden.num - 1:
+                    prev = holden
+                    continue
+
+                end = prev
+                ranges.append(Range(start=start, end=end))
+
+                start = holden
+                end = None
+
+                prev = holden
+            
+            if end is None and len(hold) > 0:
+                end = hold[-1]
+
+            if start is not None and end is not None:
+                ranges.append(Range(start=start, end=end))
+
+            holden_ranges = ranges
+
+        def format_holden_ranges():
+            for rng in holden_ranges:
+                subj_fmt = subject(
+                    rng.start,
+                    entries,
+                    rng
+                )
+                fmt_subjs.append((rng, subj_fmt))
 
         for subj in day.subjects:
-            fmt_subj = subject(subj, subj.format, entries)
-            fmt_subjs.append((subj.num, subj.format, fmt_subj))
+            if (
+                subj.is_unknown_window() and
+                compare.cmp_subjects(
+                    hold, ignored_keys=["raw", "num", "time"]
+                )
+            ):
+                hold.append(subj)
+                continue
+            else:
+                get_holden_ranges()
+                format_holden_ranges()
+                hold = []
+
+            fmt_subj = subject(subj, entries)
+            fmt_subjs.append((
+                subj,
+                fmt_subj
+            ))
+        
+        if len(hold) > 0:
+            get_holden_ranges()
+            format_holden_ranges()
+            hold = []
         
         rows: list[str] = []
 
         last_format = None
         last_num = None
 
-        for (num, format, fmt) in fmt_subjs:
-            emoji = FORMAT_EMOJIS.get(format)
-            literal_format = LITERAL_FORMAT.get(format)
+        for (subj, fmt) in fmt_subjs:
+            subj_end = None
 
-            is_duplicate_num = last_num == num if last_num else None
+            if isinstance(subj, Range):
+                subj_end = subj.end
+                subj = subj.start                
+
+            emoji = FORMAT_EMOJIS.get(subj.format)
+            literal_format = LITERAL_FORMAT.get(subj.format)
+
+            is_duplicate_num = last_num == subj.num if last_num else None
             normally_predicted_num = last_num + 1 if last_num else None
 
             if last_num is not None and (
-                not is_duplicate_num and (normally_predicted_num != num)
+                not is_duplicate_num and (normally_predicted_num != subj.num)
             ):
                 fmt_window = text.indent(WINDOW, add_dropdown = True)
                 rows.append(fmt_window)
 
-            if last_format != format:
-                last_format = format
+            if last_format != subj.format:
+                last_format = subj.format
 
                 if len(rows) > 0:
-                    rows.append("\n")
+                    rows[-1] += "\n"
 
                 fmt_day = f"{emoji} | {weekday} ({literal_format}) {dt}:"
                 fmt = text.indent(fmt, add_dropdown = True)
 
                 rows.append(fmt_day)
                 rows.append(fmt)
-
-            elif last_format == format:
+            else:
                 fmt = text.indent(fmt, add_dropdown = True)
                 rows.append(fmt)
-            
-            last_num = num
+
+
+            if subj_end is None:
+                last_num = subj.num
+            else:
+                last_num = subj_end.num
         
         fmt_days.append("\n".join(rows))
     

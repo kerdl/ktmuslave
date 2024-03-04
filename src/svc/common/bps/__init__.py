@@ -6,6 +6,7 @@ from src.svc.common import CommonEverything, Navigator, messages
 from src.svc.common.filters import PayloadFilter
 from src.svc.common.keyboard import Payload
 from src.svc.common.states import SPACE_LITERAL, Space, State
+from src.svc.common.states.tree import HUB
 from src.svc.common.router import r
 
 
@@ -38,6 +39,12 @@ async def auto_execute(everything: CommonEverything):
     handler = choose_handler(space, ctx.navigator.current)
 
     return await handler(everything)
+
+
+@r.on_callback(PayloadFilter(Payload.GO_TO_HUB))
+async def to_hub(everything: CommonEverything):
+    from . import hub
+    return await hub.to_hub(everything, allow_edit=False)
 
 
 @r.on_callback(PayloadFilter(Payload.PAGE_BACK))

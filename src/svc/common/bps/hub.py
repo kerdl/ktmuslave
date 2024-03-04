@@ -10,6 +10,7 @@ from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
+from src.data.settings import Group
 from src.data.schedule import format as sc_format
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import INIT, ZOOM, HUB
@@ -79,6 +80,7 @@ async def switch_to_daily(everything: CommonEverything):
 
 @r.on_callback(PayloadFilter(kb.Payload.RESEND))
 async def resend(everything: CommonEverything):
+    everything.ctx.schedule.temp_group = None
     return await to_hub(everything, allow_edit=False)
 
 @r.on_everything(StateFilter(HUB.I_MAIN))
@@ -89,26 +91,32 @@ async def hub(
 ):
     ctx = everything.ctx
 
-    if everything.is_from_message and not everything.did_user_mentioned_bot():
-        return
+    group = everything.ctx.settings.group.valid
+    temp_group = everything.ctx.schedule.temp_group
 
-    is_daily = ctx.schedule.message.is_daily
-    is_weekly = ctx.schedule.message.is_weekly
-    is_folded = ctx.schedule.message.is_folded
-    is_unfolded = not is_folded
+    if everything.is_from_message:
+        group_match = pattern.GROUP.match(everything.message.text)
+        if not group_match and not everything.did_user_mentioned_bot():
+            return
+        group_match = group_match.group()
 
-    schedule_text = "ЫЫ ЧО ЗА ХУЙНЯ???"
+        group_object = Group(typed=group_match)
+        group_object.generate_valid()
 
-    group = ctx.settings.group.confirmed
+        if group_object.valid != group:
+            everything.ctx.schedule.temp_group = group_object.valid
+            temp_group = everything.ctx.schedule.temp_group
+
+    schedule_text = "None"
 
     if SCHEDULE_API.is_online:
         if ctx.schedule.message.is_weekly:
-            weekly_page = await SCHEDULE_API.weekly(group)
-            users_group = weekly_page.get_group(group) if weekly_page is not None else None
+            weekly_page = await SCHEDULE_API.weekly(temp_group if temp_group else group)
+            users_group = weekly_page.get_group(temp_group if temp_group else group) if weekly_page is not None else None
 
         elif ctx.schedule.message.is_daily:
-            daily_page = await SCHEDULE_API.daily(group)
-            users_group = daily_page.get_group(group) if daily_page is not None else None
+            daily_page = await SCHEDULE_API.daily(temp_group if temp_group else group)
+            users_group = daily_page.get_group(temp_group if temp_group else group) if daily_page is not None else None
 
         schedule_text = await sc_format.group(
             users_group,
@@ -120,9 +128,15 @@ async def hub(
     answer_text = (
         messages.Builder()
             .add(schedule_text)
-            .add(messages.format_not_maintained_anymore())
     )
-    answer_keyboard = kb.Keyboard.hub_default(ctx.schedule.message.type)
+    if temp_group:
+        answer_keyboard = kb.Keyboard.temp_group_hub(
+            ctx.schedule.message.type
+        )
+    else:
+        answer_keyboard = kb.Keyboard.hub_default(
+            ctx.schedule.message.type
+        )
 
     if (
         everything.is_from_event and (

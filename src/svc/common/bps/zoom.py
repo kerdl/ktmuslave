@@ -8,8 +8,25 @@ from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import ZOOM, Space
 from src.svc.common.router import r
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
-from src.svc.common import keyboard as kb
+from src.svc.common import keyboard as kb, template
 from src.data import zoom, Field, error
+
+
+@r.on_callback(StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL), PayloadFilter(kb.Payload.DUMP_AND_REMOVE_ALL))
+async def dump_when_removing_all(everything: CommonEverything):
+    ctx = everything.ctx
+
+    await everything.send_message(
+        text = ctx.settings.zoom.entries.dump(),
+        chunker = text.double_newline_chunks
+    )
+
+    everything.ctx.settings.zoom.focused.clear()
+
+    everything.force_send = True
+
+    everything.navigator.jump_back_to_or_append(ZOOM.II_BROWSE)
+    return await browse(everything)
 
 
 @r.on_callback(StateFilter(ZOOM.III_DUMP), PayloadFilter(kb.Payload.DUMP))
@@ -40,7 +57,12 @@ async def going_to_dump(everything: CommonEverything):
         keyboard = answer_keyboard
     )
 
-@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.DUMP))
+@r.on_callback(
+    UnionFilter((
+        StateFilter(ZOOM.II_BROWSE),
+    )),
+    PayloadFilter(kb.Payload.DUMP)
+)
 async def to_going_to_dump(everything: CommonEverything):
     everything.navigator.append(ZOOM.III_DUMP)
     return await going_to_dump(everything)
@@ -156,7 +178,8 @@ async def set_attribute(
             keyboard = answer_keyboard
         )
 
-@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.CLEAR))
+
+@r.on_callback(StateFilter(ZOOM.IIII_CONFIRM_CLEAR_ALL), PayloadFilter(kb.Payload.CLEAR))
 async def clear_new_entries(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -165,13 +188,56 @@ async def clear_new_entries(everything: CommonEverything):
     ctx.navigator.jump_back_to(ZOOM.I_MASS)
     return await mass(everything)
 
-@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.REMOVE_ALL))
+async def confirm_clear_new_entries(everything: CommonEverything):
+    answer_text = (
+        messages.Builder()
+            .add(messages.format_remove_confirmation(removal_type="очистить"))
+    )
+    answer_keyboard = kb.Keyboard([
+        [kb.CLEAR_BUTTON]
+    ])
+
+    return await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard,
+    )
+
+@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.CLEAR))
+async def to_confirm_clear_new_entries(everything: CommonEverything):
+    everything.ctx.navigator.append(ZOOM.IIII_CONFIRM_CLEAR_ALL)
+    return await confirm_clear_new_entries(everything)
+
+
+@r.on_callback(StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL), PayloadFilter(kb.Payload.REMOVE_ALL))
 async def remove_entries(everything: CommonEverything):
     ctx = everything.ctx
 
     ctx.settings.zoom.entries.clear()
 
+    ctx.navigator.jump_back_to(ZOOM.II_BROWSE)
     return await browse(everything)
+
+async def confirm_remove_entries(everything: CommonEverything):
+    answer_text = (
+        messages.Builder()
+            .add(messages.format_remove_confirmation(removal_type="удалить"))
+            .add(messages.format_you_can_dump_entries_before_removal())
+    )
+    answer_keyboard = kb.Keyboard([
+        [kb.DUMP_AND_REMOVE_ALL_BUTTON],
+        [kb.REMOVE_ALL_BUTTON]
+    ])
+
+    return await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard,
+    )
+
+@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.REMOVE_ALL))
+async def to_confirm_remove_entries(everything: CommonEverything):
+    everything.ctx.navigator.append(ZOOM.IIII_CONFIRM_REMOVE_ALL)
+    return await confirm_remove_entries(everything)
+
 
 @r.on_callback(
     StateFilter(ZOOM.I_MASS_CHECK), 
@@ -210,7 +276,7 @@ async def mass_check(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-                .add(messages.format_zoom_mass_adding_overview(adding, overwriting))
+            .add(messages.format_zoom_mass_adding_overview(adding, overwriting))
     )
     answer_keyboard = kb.Keyboard([
         [kb.CONFIRM_BUTTON]
@@ -384,8 +450,8 @@ async def entry(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-                .add(selected.format())
-                .add(messages.format_press_buttons_to_change())
+            .add(selected.format())
+            .add(messages.format_press_buttons_to_change())
     )
     answer_keyboard = kb.Keyboard.from_dataclass(
         dataclass = selected,
@@ -414,7 +480,8 @@ async def add_init_entry(everything: CommonEverything):
 async def browse(
     everything: CommonEverything, 
     text_footer: Optional[str] = None,
-    first_call: bool = True,
+    is_first_call: bool = True,
+    is_jump_call: bool = False,
 ):
     ctx = everything.ctx
     has_entries = ctx.settings.zoom.entries.has_something
@@ -436,10 +503,48 @@ async def browse(
 
             return await to_entry(everything)
 
+    # if used used jump by number or entry name
+    if everything.is_from_message and not is_jump_call:
+        number = pattern.NUMBER.match(everything.message.text)
+        if number:
+            try: number = int(number.group())
+            except ValueError: number = None
+        
+        requested_entry = None
+        if number is None:
+            requested_entry = ctx.settings.zoom.focused.get(everything.message.text)
+        
+        if number is not None:
+            if number > 0:
+                everything.ctx.pages.current_num = number - 1
+            else:
+                everything.ctx.pages.current_num = number
+            return await browse(everything, is_jump_call=True)
+        if requested_entry:
+            everything.ctx.settings.zoom.focused.selected_name = requested_entry.name.value
+
+            # jump to the page where the entry is located
+            for page in everything.ctx.pages.list:
+                if page.metadata is None:
+                    continue
+
+                page_num_names_map: dict[int, list[str]] = page.metadata.get(
+                    template.MetadataKeys.PAGE_NUM_NAMES_MAP
+                )
+
+                if page_num_names_map is None:
+                    continue
+
+                for (page_num, page_map) in page_num_names_map.items():
+                    if requested_entry.name.value in page_map:
+                        everything.ctx.pages.current_num = page_num
+
+            return await to_entry(everything)
+
     if ctx.settings.zoom.is_focused_on_new_entries:
         # user came here from adding mass zoom data
 
-        if everything.is_from_message and first_call:
+        if everything.is_from_message and is_first_call:
             return await mass(everything)
         
         ctx.pages.list = pagination.from_zoom(

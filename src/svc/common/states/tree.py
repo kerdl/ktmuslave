@@ -60,16 +60,24 @@ class Reset(Tree):
 class Zoom(Tree):
     __space__ = Space.ZOOM
 
-    I_MASS       = State(**ZOOM_MASS)
-    II_BROWSE    = State(**ZOOM_BROWSE)
-    III_ENTRY    = State(**ZOOM_ENTRY)
-    IIII_NAME    = State(**ZOOM_EDIT_NAME)
-    IIII_URL     = State(**ZOOM_EDIT_URL)
-    IIII_ID      = State(**ZOOM_EDIT_ID)
-    IIII_PWD     = State(**ZOOM_EDIT_PWD)
-    IIII_NOTES   = State(**ZOOM_EDIT_NOTES)
-    III_DUMP     = State(**ZOOM_DUMP)
-    I_MASS_CHECK = State(**ZOOM_MASS_CHECK)
+    I_MASS                  = State(**ZOOM_MASS)
+    II_BROWSE               = State(**ZOOM_BROWSE)
+    III_ENTRY               = State(**ZOOM_ENTRY)
+    IIII_NAME               = State(**ZOOM_EDIT_NAME)
+    IIII_URL                = State(**ZOOM_EDIT_URL)
+    IIII_ID                 = State(**ZOOM_EDIT_ID)
+    IIII_PWD                = State(**ZOOM_EDIT_PWD)
+    IIII_NOTES              = State(**ZOOM_EDIT_NOTES)
+    III_DUMP                = State(**ZOOM_DUMP)
+    IIII_CONFIRM_REMOVE_ALL = State(**ZOOM_CONFIRM_REMOVE_ALL)
+    IIII_CONFIRM_CLEAR_ALL  = State(**ZOOM_CONFIRM_CLEAR_ALL)
+    I_MASS_CHECK            = State(**ZOOM_MASS_CHECK)
+
+
+class Admin(Tree):
+    __space__ = Space.RESET
+
+    I_EXECUTE_CODE = State(**EXECUTE_CODE)
 
 
 INIT = Init()
@@ -77,13 +85,15 @@ HUB = Hub()
 ZOOM = Zoom()
 SETTINGS = Settings()
 RESET = Reset()
+ADMIN = Admin()
 
 STR_MAP = {
     Init.__name__: INIT,
     Hub.__name__: HUB,
     Zoom.__name__: ZOOM,
     Settings.__name__: SETTINGS,
-    Reset.__name__: RESET
+    Reset.__name__: RESET,
+    Admin.__name__: ADMIN,
 }
 
 def from_str(tree: str) -> Optional[Tree]:
