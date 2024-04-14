@@ -96,8 +96,10 @@ async def hub(
 
     if everything.is_from_message:
         group_match = pattern.GROUP.match(everything.message.text)
-        if not group_match and not everything.did_user_mentioned_bot():
+
+        if group_match is None:
             return
+       
         group_match = group_match.group()
 
         group_object = Group(typed=group_match)
