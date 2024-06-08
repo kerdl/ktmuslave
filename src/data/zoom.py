@@ -60,9 +60,10 @@ def format_section(name: str, fields: list[str]):
 
 class Data(BaseModel, Translated, Emojized):
     name: Field[str]
-    url: Field[Optional[str]]   = PydField(default_factory = lambda: Field(value=None))
-    id: Field[Optional[str]]    = PydField(default_factory = lambda: Field(value=None))
-    pwd: Field[Optional[str]]   = PydField(default_factory = lambda: Field(value=None))
+    url: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
+    id: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
+    pwd: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
+    host_key: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
     notes: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
 
     __translation__: ClassVar[dict[str, str]] = {
@@ -70,6 +71,7 @@ class Data(BaseModel, Translated, Emojized):
         "url": "Ссылка",
         "id": "ID",
         "pwd": "Пароль",
+        "host_key": "Ключ хоста",
         "notes": "Заметки",
     }
     __emojis__: ClassVar[dict[str, str]] = {
@@ -77,6 +79,7 @@ class Data(BaseModel, Translated, Emojized):
         "url": "🌐",
         "id": "📍",
         "pwd": "🔑",
+        "host_key": "🔒",
         "notes": "📝"
     }
     __keys__: ClassVar[dict[str, str]] = {
@@ -84,6 +87,7 @@ class Data(BaseModel, Translated, Emojized):
         "url": zoom.Key.URL,
         "id": zoom.Key.ID,
         "pwd": zoom.Key.PWD,
+        "host_key": zoom.Key.HOST_KEY,
         "notes": zoom.Key.NOTES
     }
 
@@ -204,7 +208,6 @@ class Data(BaseModel, Translated, Emojized):
         mode: "MODE_LITERAL",
         warn_sources: Callable[[Data], list[Field]] = lambda self: [self.name]
     ) -> str:
-
         any_warns = any([field.has_warnings for field in warn_sources(self)])
 
         if any_warns:
@@ -298,8 +301,6 @@ class Data(BaseModel, Translated, Emojized):
 
     def __setattr__(self, __name: str, __value: Any) -> None:
         super().__setattr__(__name, __value)
-
-        self.check()
 
     def __hash__(self):
         return hash(self.name.value)
@@ -546,10 +547,6 @@ class Container(BaseModel):
 
     def has(self, name: str) -> bool:
         """ ## If `name` is in some container """
-        from src.data.settings import Mode
-
-        if self.mode == Mode.TEACHER:
-            return False
 
         # list of all results
         # that `has()` returned
@@ -616,12 +613,19 @@ class Container(BaseModel):
     
 def focus_auto(everything: common.CommonEverything):
     from src.svc.common.states import tree
+    from src.data.settings import Mode
 
     # if "adding mass zoom" state in trace
     if tree.ZOOM.I_MASS in everything.ctx.navigator.trace:
-        return focus_to_new_entries(everything)
+        if everything.ctx.settings.mode == Mode.GROUP:
+            return focus_to_new_entries(everything)
+        elif everything.ctx.settings.mode == Mode.TEACHER:
+            return focus_to_tchr_new_entries(everything)
     
-    return focus_to_entries(everything)
+    if everything.ctx.settings.mode == Mode.GROUP:
+        return focus_to_entries(everything)
+    elif everything.ctx.settings.mode == Mode.TEACHER:
+        return focus_to_tchr_entries(everything)
 
 def focus_to_entries(everything: common.CommonEverything):
     everything.ctx.settings.zoom.focus(Storage.ENTRIES)
@@ -629,8 +633,19 @@ def focus_to_entries(everything: common.CommonEverything):
 def focus_to_new_entries(everything: common.CommonEverything):
     everything.ctx.settings.zoom.focus(Storage.NEW_ENTRIES)
 
+def focus_to_tchr_entries(everything: common.CommonEverything):
+    everything.ctx.settings.tchr_zoom.focus(Storage.ENTRIES)
+
+def focus_to_tchr_new_entries(everything: common.CommonEverything):
+    everything.ctx.settings.tchr_zoom.focus(Storage.NEW_ENTRIES)
+
 def unfocus(everything: common.CommonEverything):
-    everything.ctx.settings.zoom.unfocus()
+    from src.data.settings import Mode
+    if everything.ctx.settings.mode == Mode.GROUP:
+        everything.ctx.settings.zoom.unfocus()
+    if everything.ctx.settings.mode == Mode.TEACHER:
+        everything.ctx.settings.tchr_zoom.unfocus()
+    
 
 def unselect(everything: common.CommonEverything):
     if everything.ctx.settings.zoom.focused is None:

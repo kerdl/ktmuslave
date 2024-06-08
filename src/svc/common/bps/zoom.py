@@ -16,13 +16,17 @@ from src.data import zoom, Field, error
 @r.on_callback(StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL), PayloadFilter(kb.Payload.DUMP_AND_REMOVE_ALL))
 async def dump_when_removing_all(everything: CommonEverything):
     ctx = everything.ctx
+    if ctx.settings.mode == Mode.GROUP:
+        storage = ctx.settings.zoom
+    elif ctx.settings.mode == Mode.TEACHER:
+        storage = ctx.settings.tchr_zoom
 
     await everything.send_message(
-        text = ctx.settings.zoom.entries.dump(),
+        text = storage.entries.dump(),
         chunker = text.double_newline_chunks
     )
 
-    everything.ctx.settings.zoom.focused.clear()
+    storage.focused.clear()
 
     everything.force_send = True
 
@@ -33,9 +37,13 @@ async def dump_when_removing_all(everything: CommonEverything):
 @r.on_callback(StateFilter(ZOOM.III_DUMP), PayloadFilter(kb.Payload.DUMP))
 async def dump(everything: CommonEverything):
     ctx = everything.ctx
+    if ctx.settings.mode == Mode.GROUP:
+        storage = ctx.settings.zoom
+    elif ctx.settings.mode == Mode.TEACHER:
+        storage = ctx.settings.tchr_zoom
 
     await everything.send_message(
-        text = ctx.settings.zoom.entries.dump(),
+        text = storage.entries.dump(),
         chunker = text.double_newline_chunks
     )
 
@@ -71,7 +79,13 @@ async def to_going_to_dump(everything: CommonEverything):
 
 @r.on_callback(PayloadFilter(kb.Payload.REMOVE))
 async def remove_entry(everything: CommonEverything):
-    focused = everything.ctx.settings.zoom.focused
+    ctx = everything.ctx
+    if ctx.settings.mode == Mode.GROUP:
+        storage = ctx.settings.zoom
+    elif ctx.settings.mode == Mode.TEACHER:
+        storage = ctx.settings.tchr_zoom
+    
+    focused = storage.focused
     selected = focused.selected
 
     if selected is None:
@@ -183,8 +197,12 @@ async def set_attribute(
 @r.on_callback(StateFilter(ZOOM.IIII_CONFIRM_CLEAR_ALL), PayloadFilter(kb.Payload.CLEAR))
 async def clear_new_entries(everything: CommonEverything):
     ctx = everything.ctx
+    if ctx.settings.mode == Mode.GROUP:
+        storage = ctx.settings.zoom
+    elif ctx.settings.mode == Mode.TEACHER:
+        storage = ctx.settings.tchr_zoom
 
-    ctx.settings.zoom.new_entries.clear()
+    storage.new_entries.clear()
 
     ctx.navigator.jump_back_to(ZOOM.I_MASS)
     return await mass(everything)
@@ -212,8 +230,12 @@ async def to_confirm_clear_new_entries(everything: CommonEverything):
 @r.on_callback(StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL), PayloadFilter(kb.Payload.REMOVE_ALL))
 async def remove_entries(everything: CommonEverything):
     ctx = everything.ctx
+    if ctx.settings.mode == Mode.GROUP:
+        storage = ctx.settings.zoom
+    elif ctx.settings.mode == Mode.TEACHER:
+        storage = ctx.settings.tchr_zoom
 
-    ctx.settings.zoom.entries.clear()
+    storage.entries.clear()
 
     ctx.navigator.jump_back_to(ZOOM.II_BROWSE)
     return await browse(everything)
@@ -246,12 +268,16 @@ async def to_confirm_remove_entries(everything: CommonEverything):
 )
 async def confirm_mass_add(everything: CommonEverything):
     ctx = everything.ctx
+    if ctx.settings.mode == Mode.GROUP:
+        storage = ctx.settings.zoom
+    elif ctx.settings.mode == Mode.TEACHER:
+        storage = ctx.settings.tchr_zoom
 
     is_init_space = Space.INIT in ctx.navigator.spaces
     is_hub_space = Space.HUB in ctx.navigator.spaces
 
     # move everything from `new_entries` to `entries`
-    ctx.settings.zoom.confirm_new_entries()
+    storage.confirm_new_entries()
 
     if is_init_space:
         # jump back to space that is different from current one
@@ -271,13 +297,17 @@ async def confirm_mass_add(everything: CommonEverything):
 
 async def mass_check(everything: CommonEverything):
     ctx = everything.ctx
+    if ctx.settings.mode == Mode.GROUP:
+        storage = ctx.settings.zoom
+    elif ctx.settings.mode == Mode.TEACHER:
+        storage = ctx.settings.tchr_zoom
 
-    adding = ctx.settings.zoom.adding
-    overwriting = ctx.settings.zoom.overwriting
+    adding = storage.adding
+    overwriting = storage.overwriting
 
     answer_text = (
         messages.Builder()
-            .add(messages.format_zoom_mass_adding_overview(adding, overwriting, ctx.settings.mode))
+            .add(messages.format_zoom_mass_adding_overview(adding, overwriting, storage.mode))
     )
     answer_keyboard = kb.Keyboard([
         [kb.CONFIRM_BUTTON]
@@ -305,6 +335,7 @@ async def notes(everything: CommonEverything):
 
     def setter(value: Any):
         storage.focused.selected.notes = Field(value=value)
+        storage.focused.selected.check(storage.mode)
 
     def nuller():
         storage.focused.selected.notes = Field(value=None)
@@ -322,7 +353,7 @@ async def to_notes(everything: CommonEverything):
     everything.navigator.append(ZOOM.IIII_NOTES)
     return await notes(everything)
 
-@r.on_everything(StateFilter(ZOOM.IIII_PWD))
+@r.on_everything(StateFilter(ZOOM.IIII_HOST_KEY))
 async def host_key(everything: CommonEverything):
     if everything.ctx.settings.mode == Mode.GROUP:
         storage = everything.ctx.settings.zoom
@@ -330,26 +361,27 @@ async def host_key(everything: CommonEverything):
         storage = everything.ctx.settings.tchr_zoom
     
     def getter():
-        return storage.focused.selected.pwd.value
+        return storage.focused.selected.host_key.value
 
     def setter(value: Any):
-        storage.focused.selected.pwd = Field(value=value)
+        storage.focused.selected.host_key = Field(value=value)
+        storage.focused.selected.check(storage.mode)
 
     def nuller():
-        storage.focused.selected.pwd = Field(value=None)
+        storage.focused.selected.host_key = Field(value=None)
 
     return await set_attribute(
         everything   = everything,
-        main_message = messages.format_enter_pwd(),
+        main_message = messages.format_enter_host_key(),
         getter       = getter,
         setter       = setter,
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.PWD))
+@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.HOST_KEY))
 async def to_host_key(everything: CommonEverything):
-    everything.navigator.append(ZOOM.IIII_PWD)
-    return await pwd(everything)
+    everything.navigator.append(ZOOM.IIII_HOST_KEY)
+    return await host_key(everything)
 
 @r.on_everything(StateFilter(ZOOM.IIII_PWD))
 async def pwd(everything: CommonEverything):
@@ -363,6 +395,7 @@ async def pwd(everything: CommonEverything):
 
     def setter(value: Any):
         storage.focused.selected.pwd = Field(value=value)
+        storage.focused.selected.check(storage.mode)
 
     def nuller():
         storage.focused.selected.pwd = Field(value=None)
@@ -393,6 +426,7 @@ async def id_(everything: CommonEverything):
 
     def setter(value: Any):
         storage.focused.selected.id = Field(value=value)
+        storage.focused.selected.check(storage.mode)
 
     def nuller():
         storage.focused.selected.id = Field(value=None)
@@ -423,6 +457,7 @@ async def url(everything: CommonEverything):
 
     def setter(value: Any):
         storage.focused.selected.url = Field(value=value)
+        storage.focused.selected.check(storage.mode)
 
     def nuller():
         storage.focused.selected.url = Field(value=None)
@@ -445,8 +480,10 @@ async def to_url(everything: CommonEverything):
 async def name(everything: CommonEverything):
     if everything.ctx.settings.mode == Mode.GROUP:
         storage = everything.ctx.settings.zoom
+        main_message = messages.format_enter_name()
     elif everything.ctx.settings.mode == Mode.TEACHER:
         storage = everything.ctx.settings.tchr_zoom
+        main_message = messages.format_tchr_enter_name()
 
     def getter():
         focused = storage.focused
@@ -469,15 +506,15 @@ async def name(everything: CommonEverything):
             return None
 
         old = focused.selected.name.value
-
         focused.change_name(old, value)
-
         # select this backup
         focused.select(value)
 
+        storage.focused.selected.check(storage.mode)
+
     return await set_attribute(
         everything   = everything,
-        main_message = messages.format_enter_name(),
+        main_message = main_message,
         getter       = getter,
         setter       = setter,
         limit        = zoom.NAME_LIMIT
@@ -490,8 +527,12 @@ async def to_name(everything: CommonEverything):
 
 @r.on_everything(StateFilter(ZOOM.III_ENTRY))
 async def entry(everything: CommonEverything):
+    ignored_keys = []
+    field_filter = lambda field: field[0] not in ["name"]
     if everything.ctx.settings.mode == Mode.GROUP:
         storage = everything.ctx.settings.zoom
+        ignored_keys = ["host_key"]
+        field_filter = lambda field: field[0] not in ["name", "host_key"]
     elif everything.ctx.settings.mode == Mode.TEACHER:
         storage = everything.ctx.settings.tchr_zoom
 
@@ -499,11 +540,12 @@ async def entry(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-            .add(selected.format(everything.ctx.settings.mode))
+            .add(selected.format(everything.ctx.settings.mode, field_filter))
             .add(messages.format_press_buttons_to_change())
     )
     answer_keyboard = kb.Keyboard.from_dataclass(
-        dataclass = selected,
+        dataclass=selected,
+        ignored_keys=ignored_keys,
         footer=[[kb.REMOVE_BUTTON]]
     )
 
@@ -554,7 +596,6 @@ async def browse(
         if related_to_entry:
             # user really selected someone
             storage.focused.select(payload)
-
             return await to_entry(everything)
 
     # if used used jump by number or entry name
@@ -718,8 +759,8 @@ async def mass(everything: CommonEverything):
         # may contain the `footer_addition`
         text_footer = (
             messages.Builder()
-                    .add(messages.format_you_can_add_more())
-                    .add(footer_addition)
+                .add(messages.format_you_can_add_more())
+                .add(footer_addition)
         )
 
         # parse from text

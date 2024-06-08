@@ -113,7 +113,9 @@ class Parser:
     def remove_newline_spaces(self, text: str) -> str:
         return SPACE_NEWLINE.sub("\n\n", text)
 
-    def split_sections(self, text: str) -> list[str]:
+    def split_sections(self, text: str, mode: "MODE_LITERAL") -> list[str]:
+        from src.data.settings import Mode
+
         newline_split = text.split("\n")
         sections: list[str] = []
         
@@ -125,7 +127,10 @@ class Parser:
         for (index, line) in enumerate(newline_split):
             is_last = (index + 1) == len(newline_split)
 
-            this_line_key = Key.group_find(line)
+            if mode == Mode.GROUP:
+                this_line_key = Key.group_find(line)
+            elif mode == Mode.TEACHER:
+                this_line_key = Key.tchr_find(line)
 
             if this_line_key == Key.NAME and first_name_occurrence_found is False:
                 first_name_occurrence_found = True
@@ -235,7 +240,7 @@ class Parser:
             
             # if that is a host key key
             elif relevance_fn(Key.HOST_KEY, line):
-                host_key.value = remove_fn(Key, Key.HOST_KEY, line)
+                host_key.value = remove_fn(Key.HOST_KEY, line)
 
             # if that is a notes key
             elif relevance_fn(Key.NOTES, line):
@@ -294,7 +299,7 @@ class Parser:
         from src.data.settings import Mode
 
         self.no_newline_spaces = self.remove_newline_spaces(self.text)
-        self.sections = self.split_sections(self.no_newline_spaces)
+        self.sections = self.split_sections(self.no_newline_spaces, Mode.GROUP)
         self.models: list[zoom.Data] = []
 
         for section in self.sections:
@@ -314,7 +319,7 @@ class Parser:
     def teacher_parse(self) -> list[zoom.Data]:
         from src.data.settings import Mode
         
-        self.sections = self.split_sections(self.text)
+        self.sections = self.split_sections(self.text, Mode.TEACHER)
         self.models: list[zoom.Data] = []
 
         for section in self.sections:

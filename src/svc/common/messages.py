@@ -535,8 +535,8 @@ ENTER_HOST_KEY = (
     "🔒 | Отправь новый ключ хоста для этой записи\n"
     "  └ 👉 Например: 0oChKo или др."
 )
-def format_enter_pwd():
-    return ENTER_PWD
+def format_enter_host_key():
+    return ENTER_HOST_KEY
 
 
 ENTER_NOTES = (

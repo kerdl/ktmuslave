@@ -71,6 +71,7 @@ class Payload:
     URL           = "url"
     ID            = "id"
     PWD           = "pwd"
+    HOST_KEY      = "host_key"
     NOTES         = "notes"
 
     # Hub buttons
@@ -305,6 +306,7 @@ class Keyboard(BaseModel):
     def from_dataclass(
         cls: type[Keyboard],
         dataclass: Union[Translated, Emojized, Repred], 
+        ignored_keys: list[str] = [],
         footer: list[list[Button]] = [[]],
         add_back: bool = True, 
         next_button: Optional[Button] = None,
@@ -314,6 +316,9 @@ class Keyboard(BaseModel):
         schema: list[Button] = []
 
         for index, (key, value) in enumerate(dataclass.__dict__.items()):
+            if key in ignored_keys:
+                continue
+            
             is_last = index + 1 == len(dataclass.__dict__)
             emoji = None
 

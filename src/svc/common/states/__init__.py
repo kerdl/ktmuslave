@@ -349,6 +349,9 @@ ZOOM_EDIT_ID = {
 ZOOM_EDIT_PWD = {
     "name": "Пароль",
 }
+ZOOM_EDIT_HOST_KEY = {
+    "name": "Ключ хоста",
+}
 ZOOM_EDIT_NOTES = {
     "name": "Заметки",
 }
@@ -390,6 +393,7 @@ __all__ = (
     "ZOOM_EDIT_URL",
     "ZOOM_EDIT_ID",
     "ZOOM_EDIT_PWD",
+    "ZOOM_EDIT_HOST_KEY",
     "ZOOM_EDIT_NOTES",
     "ZOOM_DUMP",
     "ZOOM_CONFIRM_REMOVE_ALL",

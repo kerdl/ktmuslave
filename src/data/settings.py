@@ -107,13 +107,20 @@ class Settings(Values):
     should_pin: Optional[bool] = None
 
     def get_from_state(self, state: State) -> Any:
+        storage = None
+
+        if self.mode == Mode.GROUP:
+            storage = self.zoom
+        elif self.mode == Mode.TEACHER:
+            storage = self.tchr_zoom
+        
         VALUES = {
             SettingsTree.II_MODE:        self.mode,
             SettingsTree.II_GROUP:       self.group.confirmed,
             SettingsTree.II_TEACHER:     self.teacher.confirmed,
             SettingsTree.II_BROADCAST:   self.broadcast,
             SettingsTree.III_SHOULD_PIN: self.should_pin,
-            SettingsTree.II_ZOOM:        len(self.zoom.entries) if self.zoom.is_finished else None
+            SettingsTree.II_ZOOM:        len(storage.entries) if storage and storage.is_finished else None
         }
 
         return VALUES.get(state)

@@ -61,8 +61,15 @@ def from_zoom(
     keyboard_header: list[list[Button]] = [[]],
     keyboard_footer: list[list[Button]] = [[BACK_BUTTON]]
 ) -> list[CommonBotTemplate]:
+    from src.data.settings import Mode
+
     if isinstance(data, set):
         data = list(data)
+    
+    if mode == Mode.GROUP:
+        field_filter = lambda field: field[0] not in ["name", "host_key"]
+    elif mode == Mode.TEACHER:
+        field_filter = lambda field: field[0] not in ["name"]
 
     # the output of this function
     msgs = []
@@ -86,7 +93,7 @@ def from_zoom(
 
         if len(page) > 0:
             # call `format()` on each zoom data and separate them with "\n\n"
-            text = "\n\n".join([section.format(mode) for section in page])
+            text = "\n\n".join([section.format(mode, field_filter) for section in page])
         else:
             text = messages.format_empty_page()
 
