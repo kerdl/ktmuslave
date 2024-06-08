@@ -8,6 +8,14 @@ PRIMITIVE_VALUE_REPR = {
 }
 
 def value_repr(value: Any) -> str:
+    from src.data.settings import Mode
+    
+    if value == Mode.GROUP:
+        return "группа"
+    
+    if value == Mode.TEACHER:
+        return "препод"
+
     if type(value) == int:
         return value
     

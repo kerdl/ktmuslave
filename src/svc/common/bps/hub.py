@@ -173,7 +173,7 @@ async def to_hub(
     allow_edit: bool = True,
     allow_send: bool = True
 ):
-    everything.navigator.clear()
+    everything.navigator.clear_all()
     everything.navigator.append(HUB.I_MAIN)
 
     everything.navigator.auto_ignored()

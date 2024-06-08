@@ -4,7 +4,7 @@ from typing import Optional, Union, Literal
 from dataclasses import dataclass
 
 from src.svc.common import messages
-from src.data.schedule.compare import DetailedChanges, PrimitiveChange
+from src.data.schedule.compare import Changes, DetailedChanges, PrimitiveChange
 from src.data.schedule import Group, Day, Subject, Format, FORMAT_LITERAL, compare
 from src.data.range import Range
 from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt
@@ -49,7 +49,7 @@ LITERAL_FORMAT = {
     Format.REMOTE: "дристант"
 }
 
-WINDOW = "🪟 ОКНО ЕБАТЬ (хотя я бы не стал, тыж нехочеш как сын мияги?)"
+WINDOW = "🪟 ОКНО ЕБАТЬ"
 
 # HAHAHAHA PENIS HAHAHAHHAHAHAHAHAHAHHAHAHAHAHA
 APPEAR     = "+ {}"
@@ -375,7 +375,7 @@ def cmp(
         key = field[0]
         value = field[1]
 
-        if isinstance(value, DetailedChanges):
+        if isinstance(value, (Changes, DetailedChanges)):
             local_translation = None if not is_translated else compare.translate(key)
             local_rows: list[str] = []
 
@@ -410,7 +410,7 @@ def cmp(
                 else:
                     compared = CompareFormatted(text="", has_detailed=False)
 
-                indented_compared = text.indent(compared.text, width = 2, add_dropdown = True)
+                indented_compared = text.indent(compared.text, width=1, add_dropdown=True)
                 
                 name = changed
                 

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Union
+from typing import Optional, Callable
 from dataclasses import dataclass, field
 from pydantic import BaseModel
 
@@ -200,6 +200,33 @@ class Navigator:
         
         return False
 
+    def delete_back_trace_fn(self, fn: Callable[[State], bool], do_short: bool = True) -> bool:
+        result = False
+        for (i, traced_state) in enumerate(self.back_trace):
+            if fn(traced_state):
+                # MOTHERFUCKER GETS EJECTED
+                traced_state.on_delete(self.everything)
+    
+                del self.back_trace[i]
+                result = True
+                if do_short:
+                    return result
+        
+        return result
+    
+    def replace_back_trace(self, map: dict[str, State]):
+        result = False
+        for (i, traced_state) in enumerate(self.back_trace):
+            target = map.get(traced_state.anchor)
+
+            if not target:
+                continue
+            
+            self.back_trace[i] = target
+            result = True
+        
+        return result
+
     @property
     def spaces(self) -> set[SPACE_LITERAL]:
         unique_spaces: set[SPACE_LITERAL] = set()
@@ -254,10 +281,13 @@ class Navigator:
         except error.ThisStateNotInTrace:
             self.append(state)
     
-    def clear(self) -> None:
+    def clear_all(self) -> None:
         self.trace = []
         self.back_trace = []
         self.ignored = set()
+
+    def clear_back_trace(self) -> None:
+        self.back_trace = []
     
     def set_everything(self, everything: common.CommonEverything):
         should_auto_ignore = False

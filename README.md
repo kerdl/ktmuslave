@@ -17,6 +17,13 @@ Running in production:
   </a>
 </p>
 
+#### Funny little note
+- I acknowledge the shittiness of this code
+- Couldn't fucking care less
+- Not willing to maintain this anymore (but have to)
+- No one pays me for that
+- L + Ratio
+
 # KTMU slave
 ### A bot for schedule from https://ktmu-sutd.ru/
 

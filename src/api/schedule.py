@@ -17,7 +17,7 @@ import time
 from src import defs, ENV_PATH
 from src.api.base import Api
 from src.data import RepredBaseModel, Duration
-from src.data.schedule import Page, compare
+from src.data.schedule import Page, TchrPage, compare
 from src.svc.common import keyboard as kb
 
 
@@ -108,10 +108,16 @@ class ScheduleApi(Api):
     _ft_daily_friendly_url: Optional[str] = None
     _ft_weekly_friendly_url: Optional[str] = None
     _r_weekly_friendly_url: Optional[str] = None
+    _tchr_ft_daily_friendly_url: Optional[str] = None
+    _tchr_ft_weekly_friendly_url: Optional[str] = None
+    _tchr_r_weekly_friendly_url: Optional[str] = None
 
     _ft_daily_url_button: Optional[kb.Button] = None
     _ft_weekly_url_button: Optional[kb.Button] = None
     _r_weekly_url_button: Optional[kb.Button] = None
+    _tchr_ft_daily_url_button: Optional[kb.Button] = None
+    _tchr_ft_weekly_url_button: Optional[kb.Button] = None
+    _tchr_r_weekly_url_button: Optional[kb.Button] = None
 
     _update_period: Optional[Duration] = None
     _last_update: Optional[datetime.datetime] = None
@@ -163,6 +169,32 @@ class ScheduleApi(Api):
         
         return groups
 
+    async def daily_teachers(self) -> list[str]:
+        teachers: list[str] = []
+
+        daily = await self.tchr_daily()
+
+        if daily is None:
+            return teachers
+
+        for teacher in daily.teachers:
+            teachers.append(teacher.name)
+        
+        return teachers
+
+    async def weekly_teachers(self) -> list[str]:
+        teachers: list[str] = []
+
+        weekly = await self.tchr_weekly()
+
+        if weekly is None:
+            return teachers
+
+        for teacher in weekly.teachers:
+            teachers.append(teacher.name)
+        
+        return teachers
+
     async def groups(self) -> list[str]:
         groups_list: list[str] = []
 
@@ -179,6 +211,22 @@ class ScheduleApi(Api):
 
         return groups_list
     
+    async def teachers(self) -> list[str]:
+        teacher_list: list[str] = []
+
+        daily = await self.daily_teachers()
+        weekly = await self.weekly_teachers()
+
+        # fuck off about ""sets"", i want shit sorted
+        for weekly_teacher in weekly:
+            teacher_list.append(weekly_teacher)
+        
+        for daily_teacher in daily:
+            if daily_teacher not in teacher_list:
+                teacher_list.append(daily_teacher)
+
+        return teacher_list
+
     async def wait_for_schedule_server(self):
         retry_period = 5
         is_connect_error_logged = False
@@ -215,6 +263,13 @@ class ScheduleApi(Api):
 
         return response.data.page
 
+    async def tchr_schedule(self, url: str) -> Optional[TchrPage]:
+        response = await self._get(url)
+        if response.data is None:
+            return None
+
+        return response.data.tchr_page
+
     async def daily(self, group: Optional[str] = None) -> Page:
         url = "http://" + self.url + "/daily"
 
@@ -230,6 +285,22 @@ class ScheduleApi(Api):
             url += f"?group={group}"
 
         return await self.schedule(url)
+    
+    async def tchr_daily(self, teacher: Optional[str] = None) -> TchrPage:
+        url = "http://" + self.url + "/tchr_daily"
+
+        if teacher is not None:
+            url += f"?teacher={teacher}"
+
+        return await self.tchr_schedule(url)
+    
+    async def tchr_weekly(self, teacher: Optional[str] = None) -> TchrPage:
+        url = "http://" + self.url + "/tchr_weekly"
+
+        if teacher is not None:
+            url += f"?teacher={teacher}"
+
+        return await self.tchr_schedule(url)
 
     async def get_url(self, url: str) -> str:
         return (await self._get(url)).data.url
@@ -271,6 +342,30 @@ class ScheduleApi(Api):
 
         return self._r_weekly_friendly_url
 
+    async def tchr_ft_daily_friendly_url(self) -> str:
+        url = "http://" + self.url + "/raw/tchr_ft_daily/friendly_url"
+
+        if self._tchr_ft_daily_friendly_url is None:
+            self._tchr_ft_daily_friendly_url = await self.get_url(url)
+
+        return self._tchr_ft_daily_friendly_url
+
+    async def tchr_ft_weekly_friendly_url(self) -> str:
+        url = "http://" + self.url + "/raw/tchr_ft_weekly/friendly_url"
+
+        if self._tchr_ft_weekly_friendly_url is None:
+            self._tchr_ft_weekly_friendly_url = await self.get_url(url)
+
+        return self._tchr_ft_weekly_friendly_url
+
+    async def tchr_r_weekly_friendly_url(self) -> str:
+        url = "http://" + self.url + "/raw/tchr_r_weekly/friendly_url"
+
+        if self._tchr_r_weekly_friendly_url is None:
+            self._tchr_r_weekly_friendly_url = await self.get_url(url)
+
+        return self._tchr_r_weekly_friendly_url
+
     def ft_daily_url_button(self) -> kb.Button:
         if self._ft_daily_url_button is None:
             self._ft_daily_url_button = kb.Button(
@@ -296,7 +391,34 @@ class ScheduleApi(Api):
                 url  = self._r_weekly_friendly_url
             )
         
-        return self._r_weekly_url_button    
+        return self._r_weekly_url_button
+
+    def tchr_ft_daily_url_button(self) -> kb.Button:
+        if self._tchr_ft_daily_url_button is None:
+            self._tchr_ft_daily_url_button = kb.Button(
+                text = kb.Text.FT_DAILY,
+                url  = self._tchr_ft_daily_friendly_url
+            )
+        
+        return self._tchr_ft_daily_url_button
+
+    def tchr_ft_weekly_url_button(self) -> kb.Button:
+        if self._tchr_ft_weekly_url_button is None:
+            self._tchr_ft_weekly_url_button = kb.Button(
+                text = kb.Text.FT_WEEKLY,
+                url  = self._tchr_ft_weekly_friendly_url
+            )
+        
+        return self._tchr_ft_weekly_url_button
+
+    def tchr_r_weekly_url_button(self) -> kb.Button:
+        if self._tchr_r_weekly_url_button is None:
+            self._tchr_r_weekly_url_button = kb.Button(
+                text = kb.Text.R_WEEKLY,
+                url  = self._tchr_r_weekly_friendly_url
+            )
+        
+        return self._tchr_r_weekly_url_button
     
     async def interact(self) -> Interactor:
         from src.api import Response
@@ -356,6 +478,7 @@ class ScheduleApi(Api):
                             await self.daily()
                             await self.weekly()
 
+                            await defs.check_redisearch_index()
                             await defs.ctx.broadcast(notify)
                     except exceptions.ConnectionClosedError as e:
                         logger.info(e)

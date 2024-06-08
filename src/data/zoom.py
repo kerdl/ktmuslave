@@ -7,7 +7,7 @@ if __name__ == "__main__":
     sys.path.append(".")
 
 from loguru import logger
-from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar
+from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar, TYPE_CHECKING
 from dataclasses import dataclass, field
 from pydantic import BaseModel, Field as PydField
 from urllib.parse import urlparse
@@ -19,6 +19,8 @@ from src.parse import pattern, zoom
 
 
 T = TypeVar("T")
+if TYPE_CHECKING:
+    from src.data.settings import MODE_LITERAL
 
 NAME_LIMIT = 30
 VALUE_LIMIT = 500
@@ -100,7 +102,7 @@ class Data(BaseModel, Translated, Emojized):
     @classmethod
     def parse(cls: type[Data], text: str) -> list[Data]:
         from src.parse import zoom
-        return zoom.Parser(text).parse()
+        return zoom.Parser(text).group_parse()
     
     @staticmethod
     def check_name(name: str) -> list[Warning]:
@@ -146,9 +148,12 @@ class Data(BaseModel, Translated, Emojized):
 
         return warns
     
-    def check(self):
-        for warn in self.check_name(self.name.value):
-            self.name.warnings.append(warn)
+    def check(self, mode: "MODE_LITERAL"):
+        from src.data.settings import Mode
+
+        if mode == Mode.GROUP:
+            for warn in self.check_name(self.name.value):
+                self.name.warnings.append(warn)
 
         if hasattr(self, "url") and self.url.value is not None:
             for warn in self.check_url(self.url.value):
@@ -165,8 +170,13 @@ class Data(BaseModel, Translated, Emojized):
         #        tuple    tuple     generator of tuples       condition
         return [field for field in self.__dict__.items() if filter_(field)]
 
-    def all_fields_are_set(self) -> bool:
-        ignored = ["notes"]
+    def all_fields_are_set(self, mode: "MODE_LITERAL") -> bool:
+        from src.data.settings import Mode
+
+        if mode == Mode.GROUP:
+            ignored = ["notes"]
+        elif mode == Mode.TEACHER:
+            ignored = ["host_key", "notes"]
 
         return all([field[1].value for field in self.fields() if field[0] not in ignored])
 
@@ -434,9 +444,9 @@ class Entries(BaseModel):
         
         return "\n\n".join(entries_dumps)
     
-    def check_all(self):
+    def check_all(self, mode: "MODE_LITERAL"):
         for entry in self.list:
-            entry.check()
+            entry.check(mode)
 
     def __len__(self):
         return len(self.list)
@@ -500,6 +510,8 @@ class Container(BaseModel):
     """
     focused_at: Optional[STORAGE] = None
     """ ## Tells which container to use """
+    mode: Optional["MODE_LITERAL"] = None
+    """ ## Container mode """
 
 
     @property
@@ -527,6 +539,10 @@ class Container(BaseModel):
 
     def has(self, name: str) -> bool:
         """ ## If `name` is in some container """
+        from src.data.settings import Mode
+
+        if self.mode == Mode.TEACHER:
+            return False
 
         # list of all results
         # that `has()` returned
@@ -574,9 +590,23 @@ class Container(BaseModel):
         self.focused_at = None
 
     def check_all(self):
-        self.entries.check_all()
-        self.new_entries.check_all()
+        self.entries.check_all(self.mode)
+        self.new_entries.check_all(self.mode)
 
+    @classmethod
+    def as_group(cls) -> Container:
+        from src.data.settings import Mode
+        this = cls()
+        this.mode = Mode.GROUP
+        return this
+    
+    @classmethod
+    def as_tchr(cls) -> Container:
+        from src.data.settings import Mode
+        this = cls()
+        this.mode = Mode.TEACHER
+        return this
+    
 def focus_auto(everything: common.CommonEverything):
     from src.svc.common.states import tree
 

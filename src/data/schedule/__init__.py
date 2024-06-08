@@ -85,6 +85,8 @@ class Schedule(BaseModel):
 
         return response.data.notify
 
+# groups
+
 class Subject(RepredBaseModel):
     raw: str
     num: int
@@ -134,5 +136,70 @@ class Page(BaseModel):
         for group in self.groups:
             if group.name == name:
                 return group
+        
+        return None
+
+# teachers
+
+class Subgroup(RepredBaseModel):
+    group: str
+    subgroup: Optional[str]
+
+    @property
+    def repr_name(self) -> str:
+        if self.subgroup:
+            return self.group + self.subgroup
+        else:
+            return self.group
+
+class TchrSubject(RepredBaseModel):
+    raw: str
+    num: int
+    time: Range[datetime.time]
+    name: str
+    format: FORMAT_LITERAL
+    groups: list[Subgroup]
+    cabinet: Optional[str]
+
+    def is_unknown_window(self) -> bool:
+        return self.raw != "" and len(self.groups) < 1
+
+    @property
+    def repr_name(self) -> str:
+        return self.name
+
+
+class TchrDay(RepredBaseModel):
+    raw: str
+    weekday: WEEKDAY_LITERAL
+    date: datetime.date
+    subjects: list[TchrSubject]
+
+    @property
+    def repr_name(self) -> str:
+        return self.weekday
+
+
+class TchrTeacher(RepredBaseModel):
+    raw: str
+    name: str
+    days: list[TchrDay]
+
+    @property
+    def repr_name(self) -> str:
+        return self.name
+
+
+class TchrPage(BaseModel):
+    raw: str
+    raw_types: list[raw.TYPE_LITERAL]
+    sc_type: TYPE_LITERAL
+    date: Range[datetime.date]
+    teachers: list[TchrTeacher]
+
+    def get_teacher(self, name: str) -> Optional[TchrTeacher]:
+        for teacher in self.teachers:
+            if teacher.name == name:
+                return teacher
         
         return None

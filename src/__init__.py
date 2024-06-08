@@ -29,9 +29,12 @@ COLOR_ESCAPE_REGEX = re.compile(r"\x1b[[]\d{1,}m")
 
 
 class RedisName:
-    IS_REGISTERED = "is_registered"
     BROADCAST = "broadcast"
+    TCHR_BROADCAST = "tchr_broadcast"
+    IS_REGISTERED = "is_registered"
+    MODE = "mode"
     GROUP = "group"
+    TEACHER = "teacher"
 
 
 def sink(message: Message):
@@ -148,10 +151,16 @@ class Defs:
         await SCHEDULE_API.ft_daily_friendly_url()
         await SCHEDULE_API.ft_weekly_friendly_url()
         await SCHEDULE_API.r_weekly_friendly_url()
+        await SCHEDULE_API.tchr_ft_daily_friendly_url()
+        await SCHEDULE_API.tchr_ft_weekly_friendly_url()
+        await SCHEDULE_API.tchr_r_weekly_friendly_url()
 
         SCHEDULE_API.ft_daily_url_button()
         SCHEDULE_API.ft_weekly_url_button()
         SCHEDULE_API.r_weekly_url_button()
+        SCHEDULE_API.tchr_ft_daily_url_button()
+        SCHEDULE_API.tchr_ft_weekly_url_button()
+        SCHEDULE_API.tchr_r_weekly_url_button()
 
         self.create_task(SCHEDULE_API.updates())
 
@@ -199,9 +208,23 @@ class Defs:
             "ON",
             "JSON",
             "SCHEMA",
-            "$.settings.group.confirmed", "AS", "group", "TEXT",
-            "$.settings.broadcast", "AS", "broadcast", "TAG",
-            "$.is_registered", "AS", "is_registered", "TAG",
+            "$.settings.mode", "AS", RedisName.MODE, "TEXT",
+            "$.settings.group.confirmed", "AS", RedisName.GROUP, "TEXT",
+            "$.settings.broadcast", "AS", RedisName.BROADCAST, "TAG",
+            "$.is_registered", "AS", RedisName.IS_REGISTERED, "TAG",
+        )
+    
+    async def create_redisearch_tchr_index(self):
+        await self.redis.execute_command(
+            "FT.CREATE",
+            RedisName.TCHR_BROADCAST,
+            "ON",
+            "JSON",
+            "SCHEMA",
+            "$.settings.mode", "AS", RedisName.MODE, "TEXT",
+            "$.settings.teacher.confirmed", "AS", RedisName.TEACHER, "TEXT",
+            "$.settings.broadcast", "AS", RedisName.BROADCAST, "TAG",
+            "$.is_registered", "AS", RedisName.IS_REGISTERED, "TAG",
         )
 
     async def check_redisearch_index(self):
@@ -212,7 +235,16 @@ class Defs:
             # Unknown Index name
             # it doesn't exist, create this index
             await self.create_redisearch_index()
-            logger.info("created redis \"broadcast\" index")
+            logger.info(f"created redis \"{RedisName.BROADCAST}\" index")
+
+        try:
+            # try getting info about broadcast index
+            await self.redis.ft(RedisName.TCHR_BROADCAST).info()
+        except rexeptions.ResponseError:
+            # Unknown Index name
+            # it doesn't exist, create this index
+            await self.create_redisearch_tchr_index()
+            logger.info(f"created redis \"{RedisName.TCHR_BROADCAST}\" index")
 
     def init_redis(self):
         no_addr_error = ValueError("put redis connection details to the .env file like this: REDIS_ADDR = \"127.0.0.1:6379\"")
@@ -234,7 +266,10 @@ class Defs:
         self.loop.run_until_complete(self.check_redisearch_index())
         
         from src.svc.common import DbBaseCtx
+        from src.data.zoom import Container
+        from src.data.settings import MODE_LITERAL
         DbBaseCtx.ensure_update_forward_refs()
+        Container.update_forward_refs(**locals())
 
     async def init_logger_svc(self) -> None:
         from src.svc.common.logsvc import Logger

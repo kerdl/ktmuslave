@@ -38,7 +38,12 @@ class Payload:
     FINISH        = "finish"
 
     # Settings buttons
+    MODE          = "mode"
+    ME_STUDENT    = "me_student"
+    ME_TEACHER    = "me_teacher"
     GROUP         = "group"
+    TEACHER       = "teacher"
+    SHOW_NAMES    = "show_names"
     BROADCAST     = "broadcast"
     PIN           = "pin"
     ZOOM          = "zoom"
@@ -93,7 +98,12 @@ class Text:
     FINISH     = "→ Закончить"
 
     # Settings buttons
+    MODE         = "⛓️ Режим"
+    ME_STUDENT   = "🧑‍🎓 Группа"
+    ME_TEACHER   = "🧑‍🏫 Препод"
     GROUP        = "👥 Группа"
+    SHOW_NAMES   = "👀 Показать имена"
+    TEACHER      = "👤 Препод"
     BROADCAST    = "✉️ Рассылка"
     PIN          = "📌 Закрепление"
     ZOOM         = "🖥️ Zoom"
@@ -243,8 +253,7 @@ class Keyboard(BaseModel):
         return cls([
             [
                 WEEKLY_BUTTON.only_if(is_daily),
-                DAILY_BUTTON.only_if(is_weekly),
-                UPDATE_BUTTON
+                DAILY_BUTTON.only_if(is_weekly)
             ],
             [RESEND_BUTTON],
             [SETTINGS_BUTTON],
@@ -282,7 +291,6 @@ class Keyboard(BaseModel):
         from src.api.schedule import SCHEDULE_API
 
         return cls([
-            [UPDATE_BUTTON],
             [RESEND_BUTTON],
             [SETTINGS_BUTTON],
             [
@@ -441,7 +449,6 @@ class Keyboard(BaseModel):
             current_row: list[TgInlineButton] = []
 
             for button in row:
-
                 if button is None:
                     continue
 
@@ -496,7 +503,12 @@ UNFOLD_BUTTON = Button(text = Text.UNFOLD, callback = Payload.UNFOLD, color = Co
 UPDATE_BUTTON = Button(text = Text.UPDATE, callback = Payload.UPDATE, color = Color.BLUE)
 SETTINGS_BUTTON = Button(text = Text.SETTINGS, callback = Payload.SETTINGS)
 
+MODE_BUTTON = Button(text = Text.MODE, callback = Payload.MODE)
+ME_STUDENT_BUTTON = Button(text = Text.ME_STUDENT, callback = Payload.ME_STUDENT)
+ME_TEACHER_BUTTON = Button(text = Text.ME_TEACHER, callback = Payload.ME_TEACHER)
 GROUP_BUTTON = Button(text = Text.GROUP, callback = Payload.GROUP, color = Color.BLUE)
+TEACHER_BUTTON = Button(text = Text.TEACHER, callback = Payload.TEACHER, color = Color.BLUE)
+SHOW_NAMES_BUTTON = Button(text = Text.SHOW_NAMES, callback = Payload.SHOW_NAMES, color = Color.BLUE)
 BROADCAST_BUTTON = Button(text = Text.BROADCAST, callback = Payload.BROADCAST, color = Color.BLUE)
 PIN_BUTTON = Button(text = Text.PIN, callback = Payload.PIN, color = Color.BLUE)
 ZOOM_BUTTON = Button(text = Text.ZOOM, callback = Payload.ZOOM, color = Color.BLUE)

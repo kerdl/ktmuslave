@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import datetime
 
 from src.data import Duration
-from src.data.schedule import Page
+from src.data.schedule import Page, TchrPage
 from src.api import schedule
 
 
@@ -12,6 +12,7 @@ class Error(BaseModel):
 
 class Data(BaseModel):
     page: Optional[Page]
+    tchr_page: Optional[TchrPage]
     interactor: Optional[schedule.Interactor]
     notify: Optional[schedule.Notify]
     url: Optional[str]

@@ -816,6 +816,7 @@ class BaseCommonEvent(HiddenVars):
         self,
         text: str,
         add_tree: bool,
+        everything: CommonEverything,
         base_lvl: int = 1,
         tree_values: Values = None
     ) -> str:
@@ -826,9 +827,10 @@ class BaseCommonEvent(HiddenVars):
         """
         if add_tree:
             text = states_fmt.tree(
-                navigator = self.ctx.navigator,
-                values    = tree_values,
-                base_lvl  = base_lvl
+                navigator  = self.ctx.navigator,
+                everything = everything,
+                values     = tree_values,
+                base_lvl   = base_lvl
             ) + "\n\n" + text
 
         if messages.DEBUGGING:
@@ -1172,7 +1174,8 @@ class CommonMessage(BaseCommonEvent):
             text        = text,
             add_tree    = add_tree,
             tree_values = tree_values,
-            base_lvl    = base_lvl
+            base_lvl    = base_lvl,
+            everything  = CommonEverything.from_message(self)
         )
 
         if self.is_from_vk:
@@ -1537,7 +1540,8 @@ class CommonEvent(BaseCommonEvent):
             text        = text,
             add_tree    = add_tree,
             tree_values = tree_values,
-            base_lvl    = base_lvl
+            base_lvl    = base_lvl,
+            everything  = CommonEverything.from_event(self)
         )
 
         was_split = False
@@ -1655,7 +1659,8 @@ class CommonEvent(BaseCommonEvent):
             text        = text,
             add_tree    = add_tree,
             tree_values = tree_values,
-            base_lvl    = base_lvl
+            base_lvl    = base_lvl,
+            everything  = CommonEverything.from_event(self)
         )
 
         was_split = False

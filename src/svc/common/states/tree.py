@@ -31,12 +31,16 @@ class Settings(Tree):
 
     __space__ = Space.SETTINGS
 
-    I_MAIN            = State(**SETTINGS_MAIN)
-    II_GROUP          = State(**GROUP)
-    III_UNKNOWN_GROUP = State(**UNKNOWN_GROUP)
-    II_BROADCAST      = State(**BROADCAST)
-    III_SHOULD_PIN    = State(**SHOULD_PIN)
-    II_ZOOM           = State(**INIT_ZOOM)
+    I_MAIN              = State(**SETTINGS_MAIN)
+    II_MODE             = State(**MODE)
+    II_IDENTIFICATION   = State(**IDENTIFICATION)
+    II_GROUP            = State(**GROUP)
+    III_UNKNOWN_GROUP   = State(**UNKNOWN_GROUP)
+    II_TEACHER          = State(**TEACHER)
+    III_UNKNOWN_TEACHER = State(**UNKNOWN_TEACHER)
+    II_BROADCAST        = State(**BROADCAST)
+    III_SHOULD_PIN      = State(**SHOULD_PIN)
+    II_ZOOM             = State(**INIT_ZOOM)
 
 
 class Hub(Tree):

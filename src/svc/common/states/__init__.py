@@ -48,6 +48,7 @@ class Values(BaseModel):
     def get_from_state(self, state: State): ...
 
 def default_action(everything: common.CommonEverything) -> None: ...
+def default_condition(everything: common.CommonEverything) -> bool: return True
 
 
 @dataclass
@@ -101,6 +102,14 @@ class State:
     - `III_FUCKME` -> no childs
     - `II_GARBAGE` -> no childs
     """
+    tags: Optional[list[str]] = None
+    """
+    # Identification tags
+
+    - `["teacher"]`: this state is teacher-specific
+    - `["group"]`: this state is group-specific
+    - `["common"]`: this state is common
+    """
 
     on_enter: Callable[[common.CommonEverything], None] = default_action
     """
@@ -132,6 +141,7 @@ class State:
     - when `navigator` deletes this state
     from trace, no matter where it was
     """
+    should_display_in_tree: Callable[[common.CommonEverything], bool] = default_condition
 
     def __str__(self) -> str:
         return f"{self.tree}:{self.anchor}"
@@ -262,12 +272,40 @@ SETTINGS_MAIN = {
     "name": "Настройки",
     "back_trace": False,
 }
+MODE = {
+    "name": "Режим",
+}
+def should_show_identification_state(everything: common.CommonEverything) -> bool:
+    return everything.ctx.settings.mode is None
+IDENTIFICATION = {
+    "name": "Идентификация",
+    "should_display_in_tree": should_show_identification_state
+}
+def should_show_group_state(everything: common.CommonEverything) -> bool:
+    from src.data.settings import Mode
+    return everything.ctx.settings.mode == Mode.GROUP
 GROUP = {
     "name": "Группа",
+    "should_display_in_tree": should_show_group_state,
+    "tags": ["group"]
 }
 UNKNOWN_GROUP = {
     "name": "Неизвестная группа",
     "back_trace": False,
+    "tags": ["group"]
+}
+def should_show_teacher_state(everything: common.CommonEverything) -> bool:
+    from src.data.settings import Mode
+    return everything.ctx.settings.mode == Mode.TEACHER
+TEACHER = {
+    "name": "Препод",
+    "should_display_in_tree": should_show_teacher_state,
+    "tags": ["teacher"]
+}
+UNKNOWN_TEACHER = {
+    "name": "Неизвестный препод",
+    "back_trace": False,
+    "tags": ["teacher"]
 }
 BROADCAST = {
     "name": "Рассылка расписания",
@@ -334,8 +372,12 @@ __all__ = (
     "INIT_MAIN",
     "HUB_MAIN",
     "SETTINGS_MAIN",
+    "MODE",
+    "IDENTIFICATION",
     "GROUP",
+    "TEACHER",
     "UNKNOWN_GROUP",
+    "UNKNOWN_TEACHER",
     "BROADCAST",
     "SHOULD_PIN",
     "INIT_ZOOM",

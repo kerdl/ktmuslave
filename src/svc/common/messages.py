@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Any, Optional
 from dotenv import get_key
 
+from src import defs, ENV_PATH
 from src.data.settings import Settings
 from src.svc import common
 from src.data import zoom, format as fmt, schedule
@@ -11,7 +12,7 @@ from src.svc.common.states import State
 from src.svc.common.keyboard import Text, Payload
 
 
-DEBUGGING = False
+DEBUGGING = True
 
 
 class Builder:
@@ -23,7 +24,7 @@ class Builder:
         self.components: list[str] = []
 
     def add(self, text: str) -> Builder:
-        if text == "":
+        if text == "" or text is None:
             return self
 
         self.components.append(text)
@@ -88,7 +89,7 @@ def format_debug(trace: list[State], back_trace: list[State], last_bot_message: 
 
 
 CANT_PRESS_OLD_BUTTONS = (
-    "Пососи 😒 Вот тебе новое сообщение, "
+    "Вот тебе новое сообщение, "
     "на нём и тыкай куда тебе надо"
 )
 def format_cant_press_old_buttons():
@@ -122,12 +123,20 @@ def format_press_begin():
 
 
 GROUPS = (
-    "🖕 | Группы в расписании:\n"
-    "   ╰ {groups}"
+    "📋 | Группы в расписании:\n"
+    "  └ {groups}"
 )
 def format_groups(groups: list[str]):
     groups_str = ", ".join(groups)
     return GROUPS.format(groups=groups_str)
+
+TEACHERS = (
+    "📋 | Преподы в расписании:\n"
+    "  └ {teachers}"
+)
+def format_teachers(teachers: list[str]):
+    teachers_str = ", ".join(teachers)
+    return TEACHERS.format(teachers=teachers_str)
 
 
 MENTION_ME = (
@@ -202,29 +211,72 @@ def format_welcome(is_group_chat: bool):
     else:
         return WELCOME.format(count="тобой")
 
+CHOOSE_SCHEDULE_MODE = (
+    "⛓️ | Выбери режим расписания"
+)
+def format_choose_schedule_mode():
+    return CHOOSE_SCHEDULE_MODE
 
 GROUP_INPUT = (
     "💅 | Напиши свою группу\n"
-    "   ╰ Формат: 1кдд69, 1-кдд-69, 1КДД69, 1-КДД-69\n"
-    "   ╰ Можешь написать ту, которой нет в списке"
+    "📌 | Формат:\n"
+    "  └ 1кдд69\n"
+    "  └ 1-кдд-69\n"
+    "  └ 1КДД69\n"
+    "  └ 1-КДД-69\n"
 )
 def format_group_input():
     return GROUP_INPUT
 
-
-UNKNOWN_GROUP = (
-    "❓ | {group} пока нет, всё равно поставить?"
+TEACHER_INPUT = (
+    "💅 | Напиши свою фамилию\n"
+    "📌 | Формат:\n"
+    "  └ Говновоз Ж.Д.\n"
+    "  └ Говновоз жд\n"
+    "  └ Говновоз\n"
 )
-def format_unknown_group(group: str):
-    return UNKNOWN_GROUP.format(group=group)
+def format_teacher_input():
+    return TEACHER_INPUT
+
+
+UNKNOWN_IDENTIFIER = (
+    "❓ | {identifier} пока нет, всё равно поставить?"
+)
+def format_unknown_identifier(identifier: str):
+    return UNKNOWN_IDENTIFIER.format(identifier=identifier)
 
 
 INVALID_GROUP = (
-    "❌ | Эта хуйня не подходит под формат: 1кдд69, 1-кдд-69, 1КДД69, 1-КДД-69\n"
-    "Напиши ещё раз по формату"
+    "❌ | Эта хуйня не подходит под формат:\n"
+    "  └ 1кдд69\n"
+    "  └ 1-кдд-69\n"
+    "  └ 1КДД69\n"
+    "  └ 1-КДД-69\n"
+    "💡 | Напиши ещё раз по формату"
 )
 def format_invalid_group():
     return INVALID_GROUP
+
+
+INVALID_TEACHER = (
+    "❌ | Эта хуйня не подходит под формат:\n"
+    "  └ Говновоз Ж.Д.\n"
+    "  └ Говновоз жд\n"
+    "  └ Говновоз\n"
+    "💡 | Напиши ещё раз по формату"
+)
+def format_invalid_teacher():
+    return INVALID_TEACHER
+
+
+FORBIDDEN_FORMAT_TEACHER = (
+    "❌ | Препода нет в расписании, такой формат использовать нельзя"
+    "💡 | Используй:\n"
+    "  └ Говновоз Ж.Д.\n"
+    "  └ Говновоз жд\n"
+)
+def format_forbidden_format_teacher():
+    return FORBIDDEN_FORMAT_TEACHER
 
 
 BROADCAST = (
@@ -232,6 +284,13 @@ BROADCAST = (
 )
 def format_broadcast():
     return BROADCAST
+
+
+TCHR_BROADCAST = (
+    "🔔 | Хочешь получать здесь рассылку, когда у препода меняется расписание?"
+)
+def format_tchr_broadcast():
+    return TCHR_BROADCAST
 
 
 DO_PIN = (
@@ -293,7 +352,7 @@ def format_choose_adding_type():
 
 
 ZOOM_ADD_FROM_TEXT_EXPLAIN = (
-    f"{Text.FROM_TEXT} - пишешь одно большое сообщение по формату, "
+    f"{Text.FROM_TEXT} - пишешь одно сообщение по формату, "
     f"автоматом берёт все данные"
 )
 def format_zoom_add_from_text_explain():
@@ -328,11 +387,24 @@ ZOOM_DATA_FORMAT = (
     f"   ↵ {Key.URL}: <Ссылка>\n"
     f"   ↵ {Key.ID}: <ID>\n"
     f"   ↵ {'/'.join(Key.PWD)}: <Код>\n"
-    f"   ↵ {Key.NOTES}: <Любой текст, например твой мини-фанфик, ссыль на фурри порно или в крайнем случае почта и Google Drive>\n"
+    f"   ↵ {Key.NOTES}: <Любой текст>\n"
     f"   ↵ ..."
 )
 def format_zoom_data_format():
     return ZOOM_DATA_FORMAT
+
+
+TCHR_ZOOM_DATA_FORMAT = (
+    f"📝 | Формат:\n"
+    f"   ↵ {Key.URL}: <Ссылка>\n"
+    f"   ↵ {Key.ID}: <ID>\n"
+    f"   ↵ {'/'.join(Key.PWD)}: <Код>\n"
+    f"   ↵ {Key.HOST_KEY}: <Ключ хоста>\n"
+    f"   ↵ {Key.NOTES}: <Любой текст>\n"
+    f"   ↵ ..."
+)
+def format_tchr_zoom_data_format():
+    return TCHR_ZOOM_DATA_FORMAT
 
 
 ZOOM_EXAMPLE = (
@@ -350,8 +422,22 @@ def format_zoom_example():
     return ZOOM_EXAMPLE
 
 
+TCHR_ZOOM_EXAMPLE = (
+    "🔖 | Например:\n"
+    "ссылка: https://pornhub.com\n"
+    "Ид: 22813376969\n"
+    "Код: 0oChK0\n"
+    "ключ: hostkey\n"
+    "\n"
+    "Ид: 22813376969\n"
+    "заметки: для 1кдд69"
+)
+def format_tchr_zoom_example():
+    return TCHR_ZOOM_EXAMPLE
+
+
 MASS_ZOOM_DATA_EXPLAIN = (
-    "❗ Обязательно ставь префикс в начале строки (\"Имя:\", \"ссылка:\", \"Ид:\"), можно с большой буквы\n"
+    "❗ Обязательно ставь префикс в начале строки, регистр неважен\n"
     "💡 Можешь писать в разной последовательности и пропускать некоторые поля"
 )
 def format_mass_zoom_data_explain():
@@ -359,12 +445,20 @@ def format_mass_zoom_data_explain():
 
 
 DOESNT_CONTAIN_ZOOM = (
-    f"❌ | По формату тут ничего нет 🤨\n"
-    f"   ╰ 🤔 Блоки без ФИО игнорируются\n"
-    f"   ╰ 🤔 Имена больше {zoom.NAME_LIMIT} символов игнорируются"
+    f"❌ | По формату тут ничего нет\n"
+    f"  └ 💡 Блоки без ФИО игнорируются\n"
+    f"  └ 💡 Имена больше {zoom.NAME_LIMIT} символов игнорируются"
 )
 def format_doesnt_contain_zoom():
     return DOESNT_CONTAIN_ZOOM
+
+
+TCHR_DOESNT_CONTAIN_ZOOM = (
+    f"❌ | По формату тут ничего нет\n"
+    f"  └ 💡 Блоки должны быть разделены пустой строкой"
+)
+def format_tchr_doesnt_contain_zoom():
+    return TCHR_DOESNT_CONTAIN_ZOOM
 
 
 YOU_CAN_ADD_MORE = (
@@ -384,7 +478,7 @@ def format_value_too_big(limit: int):
 
 ENTER_NAME = (
     "🐷 | Отправь новое имя этой записи\n"
-    "   ╰ 👉 Например: Ебанько Х.Й., Ебанько Х."
+    "  └ 👉 Например: Ебанько Х.Й., Ебанько Х."
 )
 def format_enter_name():
     return ENTER_NAME
@@ -399,7 +493,7 @@ def format_name_in_database():
 
 ENTER_URL = (
     "🌐 | Отправь новую ссылку для этой записи\n"
-    "   ╰ 👉 Например: https://us04web.zoom.us/j/2281337300?pwd=p0s0siMOEpotn0e0CHKOmudilaEBANYA"
+    "  └ 👉 Например: https://us04web.zoom.us/j/2281337300?pwd=p0s0siMOEpotn0e0CHKOmudilaEBANYA"
 )
 def format_enter_url():
     return ENTER_URL
@@ -407,7 +501,7 @@ def format_enter_url():
 
 ENTER_ID = (
     "📍 | Отправь новый ID для этой записи\n"
-    "   ╰ 👉 Например: 2281337300"
+    "  └ 👉 Например: 2281337300"
 )
 def format_enter_id():
     return ENTER_ID
@@ -415,14 +509,21 @@ def format_enter_id():
 
 ENTER_PWD = (
     "🔑 | Отправь новый пароль для этой записи\n"
-    "   ╰ 👉 Например: 0oChKo или др."
+    "  └ 👉 Например: 0oChKo или др."
+)
+def format_enter_pwd():
+    return ENTER_PWD
+
+ENTER_HOST_KEY = (
+    "🔒 | Отправь новый ключ хоста для этой записи\n"
+    "  └ 👉 Например: 0oChKo или др."
 )
 def format_enter_pwd():
     return ENTER_PWD
 
 ENTER_NOTES = (
     "📝 | Отправь заметки для этой записи\n"
-    "   ╰ 👉 Например: твой мини-фанфик, ссыль на фурри порно или в крайнем случае почта и Google Drive"
+    "  └ 👉 Например: почта и Google Drive"
 )
 def format_enter_notes():
     return ENTER_NOTES
@@ -506,14 +607,23 @@ def format_finish():
 GROUP_SETTING_EXPLAIN = (
     f"{Text.GROUP} - настройки группы, с которой работает негр"
 )
+TEACHER_SETTING_EXPLAIN = (
+    f"{Text.TEACHER} - настройки препода, с которым работает негр"
+)
 BROADCAST_SETTING_EXPLAIN = (
     f"{Text.BROADCAST} - получишь ли ты новое сообщение при обновлении расписания для установленной группы"
+)
+TCHR_BROADCAST_SETTING_EXPLAIN = (
+    f"{Text.BROADCAST} - получишь ли ты новое сообщение при обновлении расписания для установленного препода"
 )
 PIN_SETTING_EXPLAIN = (
     f"{Text.PIN} - закрепит ли негр рассылку расписания"
 )
 ZOOM_SETTING_EXPLAIN = (
     f"{Text.ZOOM} - настройки данных преподов: их имена, ссылки, ID, пароли и заметки, которые показываются в расписании"
+)
+TCHR_ZOOM_SETTING_EXPLAIN = (
+    f"{Text.ZOOM} - настройки данных Zoom: ссылки, ID, пароли и заметки, которые показываются в расписании"
 )
 RESET_SETTING_EXPLAIN = (
     f"{Text.RESET} - сбросить все данные и начать первоначальную настройку"
@@ -620,7 +730,6 @@ UPDATES_TIMEOUT = (
 def format_updates_timeout():
     return UPDATES_TIMEOUT
 
-
 TOO_FAST_RETRY_AFTER = (
     "Лее куда торопишься, повтори через {secs}"
 )
@@ -630,6 +739,11 @@ def format_too_fast_retry_after(secs: int):
     return TOO_FAST_RETRY_AFTER.format(
         secs = fmt_secs
     )
+MANUAL_UPDATES_ARE_DISABLED = (
+    "Ручные обновления теперь недоступны"
+)
+def format_manual_updates_are_disabled():
+    return MANUAL_UPDATES_ARE_DISABLED
 
 
 NOT_IMPLEMENTED_ERROR = (
@@ -650,6 +764,29 @@ def format_group_changed_in_sc_type(
         repr_change = "появилась"
     elif change == compare.ChangeType.CHANGED:
         repr_change = "изменилась"
+
+    if sc_type == schedule.Type.DAILY:
+        repr_sc_type = "дневном"
+    elif sc_type == schedule.Type.WEEKLY:
+        repr_sc_type = "недельном"
+
+    return GROUP_CHANGED_IN_SC_TYPE.format(
+        change  = repr_change,
+        sc_type = repr_sc_type
+    )
+
+
+TEACHER_CHANGED_IN_SC_TYPE = (
+    "Препод {change} в {sc_type}"
+)
+def format_teacher_changed_in_sc_type(
+    change: compare.ChangeType,
+    sc_type: schedule.Type
+):
+    if change == compare.ChangeType.APPEARED:
+        repr_change = "появился"
+    elif change == compare.ChangeType.CHANGED:
+        repr_change = "изменился"
 
     if sc_type == schedule.Type.DAILY:
         repr_sc_type = "дневном"
@@ -702,7 +839,7 @@ NOT_MAINTAINED_ANYMORE = (
     "Формат дистант расписания поменялся, в будущем возможно поменяется и очка, а переписывать код желания нет.\n"
     "Создателя отчислили летом 2023-го, и ему больше нет дела до этого.\n\n"
     "🔧 Кто хочет переделать/доработать бота сам, сюда: https://github.com/kerdl/ktmuslave.\n"
-    f"💼 Кто хочет задать вопрос или что-то предложить: {get_key('.env', 'ADMIN_CONTACT_MAIL')}."
+    f"💼 Кто хочет задать вопрос или что-то предложить: {get_key(ENV_PATH, 'ADMIN_CONTACT_MAIL')}."
 )
 def format_not_maintained_anymore():
     return NOT_MAINTAINED_ANYMORE
