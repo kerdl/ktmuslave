@@ -103,6 +103,11 @@ class Data(BaseModel, Translated, Emojized):
     def parse(cls: type[Data], text: str) -> list[Data]:
         from src.parse import zoom
         return zoom.Parser(text).group_parse()
+
+    @classmethod
+    def tchr_parse(cls: type[Data], text: str) -> list[Data]:
+        from src.parse import zoom
+        return zoom.Parser(text).teacher_parse()
     
     @staticmethod
     def check_name(name: str) -> list[Warning]:
@@ -186,16 +191,17 @@ class Data(BaseModel, Translated, Emojized):
     ) -> bool:
         return all([not field[1].has_warnings for field in self.fields(filter_)])
 
-    def completeness_emoji(self) -> str:
+    def completeness_emoji(self, mode: "MODE_LITERAL") -> str:
         completeness = data.Emoji.COMPLETE
 
-        if not self.all_fields_are_set():
+        if not self.all_fields_are_set(mode):
             completeness = data.Emoji.INCOMPLETE
         
         return completeness
     
     def name_emoji(
         self,
+        mode: "MODE_LITERAL",
         warn_sources: Callable[[Data], list[Field]] = lambda self: [self.name]
     ) -> str:
 
@@ -204,7 +210,7 @@ class Data(BaseModel, Translated, Emojized):
         if any_warns:
             return data.Emoji.WARN
         
-        return self.completeness_emoji()
+        return self.completeness_emoji(mode)
 
     def choose_emoji(self, key: str, field: Field) -> str:
         if field.has_warnings:
@@ -214,8 +220,8 @@ class Data(BaseModel, Translated, Emojized):
         else:
             return data.Emoji.NONE
 
-    def format_name(self) -> str:
-        emoji = self.name_emoji()
+    def format_name(self, mode: "MODE_LITERAL") -> str:
+        emoji = self.name_emoji(mode)
 
         fmt_name = self.name.format(
             emoji         = emoji, 
@@ -256,11 +262,12 @@ class Data(BaseModel, Translated, Emojized):
 
     def format(
         self,
+        mode: "MODE_LITERAL",
         field_filter: Callable[[tuple[str, Any]], bool] = (
             lambda field: field[0] != "name"
         )
     ) -> str:
-        fmt_name = self.format_name()
+        fmt_name = self.format_name(mode)
 
         fmt_fields = self.format_fields(field_filter)
         fmt_fields = common.text.indent(fmt_fields, add_dropdown = True)
@@ -413,7 +420,7 @@ class Entries(BaseModel):
 
             return None
     
-    def format_compact(self) -> str:
+    def format_compact(self, mode: "MODE_LITERAL") -> str:
         names: list[str] = []
 
         for entry in self.list:
@@ -423,7 +430,7 @@ class Entries(BaseModel):
                 warns_text = entry.format_fields_with_warns()
                 warns_text = common.text.indent(warns_text, add_dropdown = True)
             
-            name = entry.format_name()
+            name = entry.format_name(mode)
 
             if warns_text:
                 name = name + "\n" + warns_text

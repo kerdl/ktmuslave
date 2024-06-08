@@ -4,7 +4,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append(".")
 
-from typing import Generator, Union, TypeVar, Optional
+from typing import Generator, Union, TypeVar, Optional, TYPE_CHECKING
 from dataclasses import dataclass
 from pydantic import BaseModel, Field as PydField
 
@@ -12,6 +12,9 @@ from src.svc.common.keyboard import BACK_BUTTON, Keyboard, Button, Color, Payloa
 from src.svc.common.template import CommonBotTemplate, MetadataKeys
 from src.svc.common import error, messages
 from src.data import zoom
+
+if TYPE_CHECKING:
+    from src.data.settings import MODE_LITERAL
 
 T = TypeVar("T")
 
@@ -51,6 +54,7 @@ class Container(BaseModel):
 
 def from_zoom(
     data: Union[list[zoom.Data], set[zoom.Data]], 
+    mode: "MODE_LITERAL",
     per_page: int = 4, 
     text_footer: Optional[str] = None,
     keyboard_width: int = 2,
@@ -82,7 +86,7 @@ def from_zoom(
 
         if len(page) > 0:
             # call `format()` on each zoom data and separate them with "\n\n"
-            text = "\n\n".join([section.format() for section in page])
+            text = "\n\n".join([section.format(mode) for section in page])
         else:
             text = messages.format_empty_page()
 
@@ -127,6 +131,7 @@ def from_zoom(
             is_last_section = section_i + 1 == len(page)
 
             name_emoji = section.name_emoji(
+                mode,
                 warn_sources = lambda entry: [
                     entry.name,
                     entry.url,

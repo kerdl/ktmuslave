@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 from dotenv import get_key
 
 from src import defs, ENV_PATH
@@ -10,6 +10,10 @@ from src.data.schedule import compare
 from src.parse.zoom import Key
 from src.svc.common.states import State
 from src.svc.common.keyboard import Text, Payload
+
+
+if TYPE_CHECKING:
+    from src.data.settings import MODE_LITERAL
 
 
 DEBUGGING = True
@@ -396,6 +400,7 @@ def format_zoom_data_format():
 
 TCHR_ZOOM_DATA_FORMAT = (
     f"📝 | Формат:\n"
+    f"   ↵ {Key.NAME}: <Имя записи>\n"
     f"   ↵ {Key.URL}: <Ссылка>\n"
     f"   ↵ {Key.ID}: <ID>\n"
     f"   ↵ {'/'.join(Key.PWD)}: <Код>\n"
@@ -424,13 +429,15 @@ def format_zoom_example():
 
 TCHR_ZOOM_EXAMPLE = (
     "🔖 | Например:\n"
+    "имя: Для 1КДД69\n"
     "ссылка: https://pornhub.com\n"
     "Ид: 22813376969\n"
     "Код: 0oChK0\n"
-    "ключ: hostkey\n"
+    "ключ: h0stk3y\n"
     "\n"
+    "Имя: Доп. занятия\n"
     "Ид: 22813376969\n"
-    "заметки: для 1кдд69"
+    "заметки: впускать только 2КДД69"
 )
 def format_tchr_zoom_example():
     return TCHR_ZOOM_EXAMPLE
@@ -455,7 +462,8 @@ def format_doesnt_contain_zoom():
 
 TCHR_DOESNT_CONTAIN_ZOOM = (
     f"❌ | По формату тут ничего нет\n"
-    f"  └ 💡 Блоки должны быть разделены пустой строкой"
+    f"  └ 💡 Блоки без имён игнорируются\n"
+    f"  └ 💡 Имена больше {zoom.NAME_LIMIT} символов игнорируются"
 )
 def format_tchr_doesnt_contain_zoom():
     return TCHR_DOESNT_CONTAIN_ZOOM
@@ -482,6 +490,14 @@ ENTER_NAME = (
 )
 def format_enter_name():
     return ENTER_NAME
+
+
+TCHR_ENTER_NAME = (
+    "🐷 | Отправь новое имя этой записи\n"
+    "  └ 👉 Например: Для 1КДД69, Доп. занятия"
+)
+def format_tchr_enter_name():
+    return TCHR_ENTER_NAME
 
 
 NAME_IN_DATABASE = (
@@ -514,6 +530,7 @@ ENTER_PWD = (
 def format_enter_pwd():
     return ENTER_PWD
 
+
 ENTER_HOST_KEY = (
     "🔒 | Отправь новый ключ хоста для этой записи\n"
     "  └ 👉 Например: 0oChKo или др."
@@ -521,12 +538,20 @@ ENTER_HOST_KEY = (
 def format_enter_pwd():
     return ENTER_PWD
 
+
 ENTER_NOTES = (
     "📝 | Отправь заметки для этой записи\n"
     "  └ 👉 Например: почта и Google Drive"
 )
 def format_enter_notes():
     return ENTER_NOTES
+
+
+TCHR_ENTER_NOTES = (
+    "📝 | Отправь заметки для этой записи"
+)
+def format_thcr_enter_notes():
+    return TCHR_ENTER_NOTES
 
 
 WILL_BE_ADDED = (
@@ -549,13 +574,13 @@ def format_will_be_overwritten(count: int):
 
 def format_zoom_mass_adding_overview(
     adding: zoom.Entries,
-    overwriting: zoom.Entries
+    overwriting: zoom.Entries,
+    mode: "MODE_LITERAL"
 ):
-
     sections: list[str] = []
 
     if len(adding) > 0:
-        entries = common.text.indent(adding.format_compact())
+        entries = common.text.indent(adding.format_compact(mode))
         text = format_will_be_added(len(adding))
         text += "\n"
         text += entries
@@ -563,7 +588,7 @@ def format_zoom_mass_adding_overview(
         sections.append(text)
 
     if len(overwriting) > 0:
-        entries = common.text.indent(overwriting.format_compact())
+        entries = common.text.indent(overwriting.format_compact(mode))
         text = format_will_be_overwritten(len(overwriting))
         text += "\n"
         text += entries

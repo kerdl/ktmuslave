@@ -3,6 +3,7 @@ from loguru import logger
 
 from src import defs, text
 from src.parse import pattern
+from src.data.settings import Mode
 from src.svc.common import CommonEverything, messages, pagination, Ctx, bps
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import ZOOM, Space
@@ -276,7 +277,7 @@ async def mass_check(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-            .add(messages.format_zoom_mass_adding_overview(adding, overwriting))
+            .add(messages.format_zoom_mass_adding_overview(adding, overwriting, ctx.settings.mode))
     )
     answer_keyboard = kb.Keyboard([
         [kb.CONFIRM_BUTTON]
@@ -294,14 +295,19 @@ async def to_mass_check(everything: CommonEverything):
 
 @r.on_everything(StateFilter(ZOOM.IIII_NOTES))
 async def notes(everything: CommonEverything):
+    if everything.ctx.settings.mode == Mode.GROUP:
+        storage = everything.ctx.settings.zoom
+    elif everything.ctx.settings.mode == Mode.TEACHER:
+        storage = everything.ctx.settings.tchr_zoom
+
     def getter():
-        return everything.ctx.settings.zoom.focused.selected.notes.value
+        return storage.focused.selected.notes.value
 
     def setter(value: Any):
-        everything.ctx.settings.zoom.focused.selected.notes = Field(value=value)
+        storage.focused.selected.notes = Field(value=value)
 
     def nuller():
-        everything.ctx.settings.zoom.focused.selected.notes = Field(value=None)
+        storage.focused.selected.notes = Field(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -315,18 +321,51 @@ async def notes(everything: CommonEverything):
 async def to_notes(everything: CommonEverything):
     everything.navigator.append(ZOOM.IIII_NOTES)
     return await notes(everything)
-    
-@r.on_everything(StateFilter(ZOOM.IIII_PWD))
-async def pwd(everything: CommonEverything):
 
+@r.on_everything(StateFilter(ZOOM.IIII_PWD))
+async def host_key(everything: CommonEverything):
+    if everything.ctx.settings.mode == Mode.GROUP:
+        storage = everything.ctx.settings.zoom
+    elif everything.ctx.settings.mode == Mode.TEACHER:
+        storage = everything.ctx.settings.tchr_zoom
+    
     def getter():
-        return everything.ctx.settings.zoom.focused.selected.pwd.value
+        return storage.focused.selected.pwd.value
 
     def setter(value: Any):
-        everything.ctx.settings.zoom.focused.selected.pwd = Field(value=value)
+        storage.focused.selected.pwd = Field(value=value)
 
     def nuller():
-        everything.ctx.settings.zoom.focused.selected.pwd = Field(value=None)
+        storage.focused.selected.pwd = Field(value=None)
+
+    return await set_attribute(
+        everything   = everything,
+        main_message = messages.format_enter_pwd(),
+        getter       = getter,
+        setter       = setter,
+        nuller       = nuller,
+    )
+
+@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.PWD))
+async def to_host_key(everything: CommonEverything):
+    everything.navigator.append(ZOOM.IIII_PWD)
+    return await pwd(everything)
+
+@r.on_everything(StateFilter(ZOOM.IIII_PWD))
+async def pwd(everything: CommonEverything):
+    if everything.ctx.settings.mode == Mode.GROUP:
+        storage = everything.ctx.settings.zoom
+    elif everything.ctx.settings.mode == Mode.TEACHER:
+        storage = everything.ctx.settings.tchr_zoom
+    
+    def getter():
+        return storage.focused.selected.pwd.value
+
+    def setter(value: Any):
+        storage.focused.selected.pwd = Field(value=value)
+
+    def nuller():
+        storage.focused.selected.pwd = Field(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -344,15 +383,19 @@ async def to_pwd(everything: CommonEverything):
 
 @r.on_everything(StateFilter(ZOOM.IIII_ID))
 async def id_(everything: CommonEverything):
-
+    if everything.ctx.settings.mode == Mode.GROUP:
+        storage = everything.ctx.settings.zoom
+    elif everything.ctx.settings.mode == Mode.TEACHER:
+        storage = everything.ctx.settings.tchr_zoom
+    
     def getter():
-        return everything.ctx.settings.zoom.focused.selected.id.value
+        return storage.focused.selected.id.value
 
     def setter(value: Any):
-        everything.ctx.settings.zoom.focused.selected.id = Field(value=value)
+        storage.focused.selected.id = Field(value=value)
 
     def nuller():
-        everything.ctx.settings.zoom.focused.selected.id = Field(value=None)
+        storage.focused.selected.id = Field(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -370,15 +413,19 @@ async def to_id(everything: CommonEverything):
 
 @r.on_everything(StateFilter(ZOOM.IIII_URL))
 async def url(everything: CommonEverything):
-
+    if everything.ctx.settings.mode == Mode.GROUP:
+        storage = everything.ctx.settings.zoom
+    elif everything.ctx.settings.mode == Mode.TEACHER:
+        storage = everything.ctx.settings.tchr_zoom
+    
     def getter():
-        return everything.ctx.settings.zoom.focused.selected.url.value
+        return storage.focused.selected.url.value
 
     def setter(value: Any):
-        everything.ctx.settings.zoom.focused.selected.url = Field(value=value)
+        storage.focused.selected.url = Field(value=value)
 
     def nuller():
-        everything.ctx.settings.zoom.focused.selected.url = Field(value=None)
+        storage.focused.selected.url = Field(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -396,25 +443,28 @@ async def to_url(everything: CommonEverything):
 
 @r.on_message(StateFilter(ZOOM.IIII_NAME))
 async def name(everything: CommonEverything):
-    ctx = everything.ctx
+    if everything.ctx.settings.mode == Mode.GROUP:
+        storage = everything.ctx.settings.zoom
+    elif everything.ctx.settings.mode == Mode.TEACHER:
+        storage = everything.ctx.settings.tchr_zoom
 
     def getter():
-        focused = ctx.settings.zoom.focused
+        focused = storage.focused
 
         if focused.selected is None:
             return None
 
-        return ctx.settings.zoom.focused.selected.name.value
+        return storage.focused.selected.name.value
 
     def setter(value: Any):
-        focused = ctx.settings.zoom.focused
+        focused = storage.focused
 
         if focused.selected is None:
             # user tries to add a new entry
             focused.add_from_name(value)
             focused.select(value)
 
-            ctx.settings.zoom.finish()
+            storage.finish()
 
             return None
 
@@ -440,17 +490,16 @@ async def to_name(everything: CommonEverything):
 
 @r.on_everything(StateFilter(ZOOM.III_ENTRY))
 async def entry(everything: CommonEverything):
-    ctx = everything.ctx
-    
-    #if ctx.settings.zoom.focused is None or ctx.settings.zoom.focused.selected is None:
-    #    ctx.navigator.jump_back_to_or_append(ZOOM.II_BROWSE)
-    #    return await to_browse(everything)
+    if everything.ctx.settings.mode == Mode.GROUP:
+        storage = everything.ctx.settings.zoom
+    elif everything.ctx.settings.mode == Mode.TEACHER:
+        storage = everything.ctx.settings.tchr_zoom
 
-    selected = ctx.settings.zoom.focused.selected
+    selected = storage.focused.selected
 
     answer_text = (
         messages.Builder()
-            .add(selected.format())
+            .add(selected.format(everything.ctx.settings.mode))
             .add(messages.format_press_buttons_to_change())
     )
     answer_keyboard = kb.Keyboard.from_dataclass(
@@ -484,8 +533,13 @@ async def browse(
     is_jump_call: bool = False,
 ):
     ctx = everything.ctx
-    has_entries = ctx.settings.zoom.entries.has_something
-    has_new_entries = ctx.settings.zoom.new_entries.has_something
+    if ctx.settings.mode == Mode.GROUP:
+        storage = ctx.settings.zoom
+    elif ctx.settings.mode == Mode.TEACHER:
+        storage = ctx.settings.tchr_zoom
+
+    has_entries = storage.entries.has_something
+    has_new_entries = storage.new_entries.has_something
 
     is_init_space = Space.INIT in ctx.navigator.spaces
     is_hub_space = Space.HUB in ctx.navigator.spaces
@@ -495,11 +549,11 @@ async def browse(
         event = everything.event
         payload = event.payload
 
-        related_to_entry = ctx.settings.zoom.has(payload)
+        related_to_entry = storage.has(payload)
 
         if related_to_entry:
             # user really selected someone
-            ctx.settings.zoom.focused.select(payload)
+            storage.focused.select(payload)
 
             return await to_entry(everything)
 
@@ -512,7 +566,7 @@ async def browse(
         
         requested_entry = None
         if number is None:
-            requested_entry = ctx.settings.zoom.focused.get(everything.message.text)
+            requested_entry = storage.focused.get(everything.message.text)
         
         if number is not None:
             if number > 0:
@@ -521,7 +575,7 @@ async def browse(
                 everything.ctx.pages.current_num = number
             return await browse(everything, is_jump_call=True)
         if requested_entry:
-            everything.ctx.settings.zoom.focused.selected_name = requested_entry.name.value
+            storage.focused.selected_name = requested_entry.name.value
 
             # jump to the page where the entry is located
             for page in everything.ctx.pages.list:
@@ -541,24 +595,26 @@ async def browse(
 
             return await to_entry(everything)
 
-    if ctx.settings.zoom.is_focused_on_new_entries:
+    if storage.is_focused_on_new_entries:
         # user came here from adding mass zoom data
 
         if everything.is_from_message and is_first_call:
             return await mass(everything)
         
         ctx.pages.list = pagination.from_zoom(
-            data = ctx.settings.zoom.new_entries.list,
+            data = storage.new_entries.list,
+            mode = ctx.settings.mode,
             text_footer = text_footer,
             keyboard_footer = [
                 [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
                 [kb.BACK_BUTTON],
             ],
         )
-    elif ctx.settings.zoom.is_focused_on_entries:
+    elif storage.is_focused_on_entries:
         # user came here to view current active entries
         ctx.pages.list = pagination.from_zoom(
-            data = ctx.settings.zoom.entries.list,
+            data = storage.entries.list,
+            mode = ctx.settings.mode,
             text_footer = text_footer,
             keyboard_footer = [
                 [
@@ -584,9 +640,6 @@ async def to_browse(
     if everything.navigator.current != ZOOM.II_BROWSE:
         everything.navigator.append(ZOOM.II_BROWSE)
 
-    #if everything.navigator.current != Zoom.II_BROWSE:
-    #    everything.navigator.append(Zoom.II_BROWSE)
-
     return await browse(everything, text_footer, first_call)
 
 @r.on_everything(
@@ -599,6 +652,10 @@ async def to_browse(
 )
 async def mass(everything: CommonEverything):
     ctx = everything.ctx
+    if ctx.settings.mode == Mode.GROUP:
+        storage = ctx.settings.zoom
+    elif ctx.settings.mode == Mode.TEACHER:
+        storage = ctx.settings.tchr_zoom
 
     if ZOOM.I_MASS not in ctx.navigator.trace:
         return None
@@ -608,16 +665,27 @@ async def mass(everything: CommonEverything):
         event = everything.event
 
         footer_addition = messages.default_footer_addition(everything)
-        has_new_entries = ctx.settings.zoom.new_entries.has_something
+        has_new_entries = storage.new_entries.has_something
 
-        answer_text = (
-            messages.Builder()
+        if ctx.settings.mode == Mode.GROUP:
+            answer_text = (
+                messages.Builder()
                     .add(messages.format_send_zoom_data())
                     .add(messages.format_zoom_data_format())
                     .add(messages.format_zoom_example())
                     .add(messages.format_mass_zoom_data_explain())
                     .add(footer_addition)
-        )
+            )
+        elif ctx.settings.mode == Mode.TEACHER:
+            answer_text = (
+                messages.Builder()
+                    .add(messages.format_send_zoom_data())
+                    .add(messages.format_tchr_zoom_data_format())
+                    .add(messages.format_tchr_zoom_example())
+                    .add(messages.format_mass_zoom_data_explain())
+                    .add(footer_addition)
+            )
+        
         answer_keyboard = kb.Keyboard().assign_next(
             kb.CONTINUE_BUTTON.only_if(has_new_entries)
         )
@@ -655,18 +723,18 @@ async def mass(everything: CommonEverything):
         )
 
         # parse from text
-        parsed = zoom.Data.parse(text)
+        if ctx.settings.mode == Mode.GROUP:
+            parsed = zoom.Data.parse(text)
+        elif ctx.settings.mode == Mode.TEACHER:
+            parsed = zoom.Data.tchr_parse(text)
 
         # if no data found in text
         # and user didn't added anything yet
         if len(parsed) < 1 and ctx.navigator.current != ZOOM.II_BROWSE:
             answer_text = (
                 messages.Builder()
-                        .add(messages.format_zoom_data_format())
-                        .add(messages.format_zoom_example())
-                        .add(messages.format_mass_zoom_data_explain())
-                        .add(messages.format_doesnt_contain_zoom())
-                        .add(footer_addition)
+                    .add(messages.format_doesnt_contain_zoom())
+                    .add(footer_addition)
             )
             answer_keyboard = kb.Keyboard()
 
@@ -679,13 +747,13 @@ async def mass(everything: CommonEverything):
         elif len(parsed) < 1 and ctx.navigator.current == ZOOM.II_BROWSE:
             text_footer = (
                 messages.Builder()
-                        .add(messages.format_doesnt_contain_zoom())
-                        .add(footer_addition)
+                    .add(messages.format_doesnt_contain_zoom())
+                    .add(footer_addition)
             )
 
         if len(parsed) > 0:
             # add everything parsed
-            ctx.settings.zoom.new_entries.add(parsed, overwrite=True)
+            storage.new_entries.add(parsed, overwrite=True)
 
         return await to_browse(everything, text_footer.make(), first_call=False)
 

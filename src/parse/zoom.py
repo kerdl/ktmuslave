@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 KEY_LITERAL = Literal["имя", "ссылка", "ид", "код", "пароль", "ключ", "заметки"]
 GROUP_KEY_LITERAL = Literal["имя", "ссылка", "ид", "код", "пароль", "заметки"]
-TCHR_KEY_LITERAL = Literal["ссылка", "ид", "код", "пароль", "ключ", "заметки"]
+TCHR_KEY_LITERAL = Literal["имя", "ссылка", "ид", "код", "пароль", "ключ", "заметки"]
 
 
 class Key:
@@ -44,13 +44,13 @@ class Key:
         if isinstance(key, list):
             return any([line.lower().startswith(key_var) for key_var in key])
 
+    @classmethod
     def group_is_relevant(cls, key: Union[GROUP_KEY_LITERAL, list[GROUP_KEY_LITERAL]], line: str) -> bool:
         if cls.HOST_KEY in key: return False
         return cls._is_relevant(key, line)
 
     @classmethod
     def tchr_is_relevant(cls, key: Union[TCHR_KEY_LITERAL, list[TCHR_KEY_LITERAL]], line: str) -> bool:
-        if cls.NAME in key: return False
         return cls._is_relevant(key, line)
     
     @classmethod
@@ -73,12 +73,13 @@ class Key:
         
         return None
     
+    @classmethod
     def group_find(cls, line: str) -> Optional[GROUP_KEY_LITERAL]:
         return cls._find(line, cls.group_is_relevant, ignored=[cls.HOST_KEY])
 
     @classmethod
     def tchr_find(cls, line: str) -> Optional[TCHR_KEY_LITERAL]:
-        return cls._find(line, cls.tchr_is_relevant, ignored=[cls.NAME])
+        return cls._find(line, cls.tchr_is_relevant, ignored=[])
 
     @staticmethod
     def _remove(
@@ -112,7 +113,7 @@ class Parser:
     def remove_newline_spaces(self, text: str) -> str:
         return SPACE_NEWLINE.sub("\n\n", text)
 
-    def group_split_sections(self, text: str) -> list[str]:
+    def split_sections(self, text: str) -> list[str]:
         newline_split = text.split("\n")
         sections: list[str] = []
         
@@ -142,9 +143,6 @@ class Parser:
                 prev_key = this_line_key
 
         return sections
-    
-    def teacher_split_sections(self, text: str) -> list[str]:
-        return text.split("\n\n")
     
     def parse_name(self, line: str) -> Optional[str]:
         def search_full_name(line: str) -> list[str]:
@@ -237,7 +235,7 @@ class Parser:
             
             # if that is a host key key
             elif relevance_fn(Key.HOST_KEY, line):
-                host_key.value = remove_fn(Key.HOST_KEY, line)
+                host_key.value = remove_fn(Key, Key.HOST_KEY, line)
 
             # if that is a notes key
             elif relevance_fn(Key.NOTES, line):
@@ -296,7 +294,7 @@ class Parser:
         from src.data.settings import Mode
 
         self.no_newline_spaces = self.remove_newline_spaces(self.text)
-        self.sections = self.group_split_sections(self.no_newline_spaces)
+        self.sections = self.split_sections(self.no_newline_spaces)
         self.models: list[zoom.Data] = []
 
         for section in self.sections:
@@ -316,7 +314,7 @@ class Parser:
     def teacher_parse(self) -> list[zoom.Data]:
         from src.data.settings import Mode
         
-        self.sections = self.teacher_split_sections(self.text)
+        self.sections = self.split_sections(self.text)
         self.models: list[zoom.Data] = []
 
         for section in self.sections:
