@@ -71,10 +71,9 @@ class OldMessagesBlock(EventMiddleware):
             if user_ctx.last_bot_message is not None:
                 # send last bot message again
                 msg = await user_ctx.last_bot_message.send()
+                await user_ctx.set_last_bot_message(msg)
             else:
-                msg = await init.main(everything)
-            
-            await user_ctx.set_last_bot_message(msg)
+                await init.main(everything, force_send=True)
         
         common_event = everything.event
         user_ctx = common_event.ctx
