@@ -1,6 +1,6 @@
 from __future__ import annotations
 from copy import deepcopy
-from typing import Any, Optional, Union, List
+from typing import Any, Optional, Union, List, TYPE_CHECKING
 from typing import Literal
 from vkbottle import (
     Keyboard as VkKeyboard, 
@@ -19,6 +19,10 @@ from pydantic import BaseModel, Field as PydField, parse_obj_as
 from src.svc import common
 from src.data import Emojized, Repred, Translated, Field, Emoji, format as fmt, schedule
 from src.svc.vk.keyboard import CMD
+
+
+if TYPE_CHECKING:
+    from src.data.settings import MODE_LITERAL
 
 
 class Payload:
@@ -249,11 +253,18 @@ class Keyboard(BaseModel):
         return parsed_schematic
 
     @classmethod
-    def hub_default(cls: Keyboard, sc_type: schedule.TYPE_LITERAL) -> Keyboard:
+    def hub_default(
+        cls: Keyboard,
+        sc_type: schedule.TYPE_LITERAL,
+        mode: "MODE_LITERAL"
+    ) -> Keyboard:
         from src.api.schedule import SCHEDULE_API
+        from src.data.settings import Mode
 
         is_daily = sc_type == schedule.Type.DAILY
         is_weekly = sc_type == schedule.Type.WEEKLY
+        is_group_mode = mode == Mode.GROUP
+        is_teacher_mode = mode == Mode.TEACHER
 
         return cls([
             [
@@ -263,19 +274,31 @@ class Keyboard(BaseModel):
             [RESEND_BUTTON],
             [SETTINGS_BUTTON],
             [
-                SCHEDULE_API.ft_daily_url_button(),
-                SCHEDULE_API.ft_weekly_url_button()
+                SCHEDULE_API.ft_daily_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_daily_url_button().only_if(is_teacher_mode),
+                SCHEDULE_API.ft_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_weekly_url_button().only_if(is_teacher_mode),
             ],
-            [SCHEDULE_API.r_weekly_url_button()],
+            [
+                SCHEDULE_API.r_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_r_weekly_url_button().only_if(is_teacher_mode),
+            ],
             [MATERIALS_BUTTON, JOURNALS_BUTTON],
         ], add_back=False)
 
     @classmethod
-    def temp_group_hub(cls: Keyboard, sc_type: schedule.TYPE_LITERAL) -> Keyboard:
+    def temp_identifier_hub(
+        cls: Keyboard,
+        sc_type: schedule.TYPE_LITERAL,
+        mode: "MODE_LITERAL"
+    ) -> Keyboard:
         from src.api.schedule import SCHEDULE_API
+        from src.data.settings import Mode
 
         is_daily = sc_type == schedule.Type.DAILY
         is_weekly = sc_type == schedule.Type.WEEKLY
+        is_group_mode = mode == Mode.GROUP
+        is_teacher_mode = mode == Mode.TEACHER
 
         return cls([
             [
@@ -284,25 +307,39 @@ class Keyboard(BaseModel):
             ],
             [GO_HOME_BUTTON],
             [
-                SCHEDULE_API.ft_daily_url_button(),
-                SCHEDULE_API.ft_weekly_url_button()
+                SCHEDULE_API.ft_daily_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_daily_url_button().only_if(is_teacher_mode),
+                SCHEDULE_API.ft_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_weekly_url_button().only_if(is_teacher_mode),
             ],
-            [SCHEDULE_API.r_weekly_url_button()],
+            [
+                SCHEDULE_API.r_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_r_weekly_url_button().only_if(is_teacher_mode),
+            ],
             [MATERIALS_BUTTON, JOURNALS_BUTTON],
         ], add_back=False)
 
     @classmethod
-    async def hub_broadcast_default(cls: Keyboard) -> Keyboard:
+    async def hub_broadcast_default(cls: Keyboard, mode: "MODE_LITERAL") -> Keyboard:
         from src.api.schedule import SCHEDULE_API
+        from src.data.settings import Mode
+
+        is_group_mode = mode == Mode.GROUP
+        is_teacher_mode = mode == Mode.TEACHER
 
         return cls([
             [RESEND_BUTTON],
             [SETTINGS_BUTTON],
             [
-                SCHEDULE_API.ft_daily_url_button(),
-                SCHEDULE_API.ft_weekly_url_button()
+                SCHEDULE_API.ft_daily_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_daily_url_button().only_if(is_teacher_mode),
+                SCHEDULE_API.ft_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_weekly_url_button().only_if(is_teacher_mode),
             ],
-            [SCHEDULE_API.r_weekly_url_button()],
+            [
+                SCHEDULE_API.r_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_r_weekly_url_button().only_if(is_teacher_mode),
+            ],
             [MATERIALS_BUTTON, JOURNALS_BUTTON],
         ], add_back=False)
 

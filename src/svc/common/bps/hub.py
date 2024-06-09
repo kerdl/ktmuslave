@@ -178,12 +178,14 @@ async def hub(
             .add(schedule_text)
     )
     if temp_identifier:
-        answer_keyboard = kb.Keyboard.temp_group_hub(
-            ctx.schedule.message.type
+        answer_keyboard = kb.Keyboard.temp_identifier_hub(
+            ctx.schedule.message.type,
+            temp_mode
         )
     else:
         answer_keyboard = kb.Keyboard.hub_default(
-            ctx.schedule.message.type
+            ctx.schedule.message.type,
+            ctx.settings.mode
         )
 
     if (
