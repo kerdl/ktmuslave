@@ -258,7 +258,7 @@ async def should_pin(everything: CommonEverything):
         # make a keyboard where we ask if
         # we should pin (TRUE) or not (FALSE)
         answer_keyboard = Keyboard([
-            [kb.TRUE_BUTTON, kb.FALSE_BUTTON],
+            [kb.FALSE_BUTTON, kb.TRUE_BUTTON],
         ])
 
         if not is_from_hub:
@@ -355,7 +355,7 @@ async def broadcast(everything: CommonEverything):
             .add_if(messages.format_tchr_broadcast(), ctx.settings.mode == Mode.TEACHER)
     )
     answer_keyboard = Keyboard([
-        [kb.TRUE_BUTTON, kb.FALSE_BUTTON],
+        [kb.FALSE_BUTTON, kb.TRUE_BUTTON],
     ]).assign_next(kb.NEXT_BUTTON.only_if(
         is_broadcast_set and not is_from_hub
     ))
@@ -391,6 +391,10 @@ async def confirm_unknown_teacher(everything: CommonEverything):
     everything.ctx.settings.teacher.confirmed = valid_teacher
 
     everything.navigator.jump_back_to_or_append(SETTINGS.II_TEACHER)
+
+    if everything.ctx.is_switching_modes:
+        everything.ctx.settings.mode = Mode.TEACHER
+        everything.ctx.is_switching_modes = False
 
     return await auto_route(everything)
 
@@ -429,6 +433,21 @@ async def to_unknown_teacher(everything: CommonEverything):
 
 """ TEACHER STATE """
 
+@r.on_callback(StateFilter(SETTINGS.II_TEACHER), PayloadFilter(Payload.GROUP_MODE))
+async def switch_to_group_mode(everything: CommonEverything):
+    ctx = everything.ctx
+
+    if ctx.navigator.current.anchor == SETTINGS.II_TEACHER.anchor:
+        ctx.navigator.back(trace_it=False, execute_actions=False)
+    
+    if ctx.settings.group.confirmed is None:
+        ctx.is_switching_modes = True
+        return await to_group(everything)
+
+    ctx.settings.mode = Mode.GROUP
+
+    return await main(everything)
+
 @r.on_everything(UnionFilter([
     StateFilter(SETTINGS.II_TEACHER),
     StateFilter(SETTINGS.III_UNKNOWN_TEACHER),
@@ -449,6 +468,7 @@ async def teacher(everything: CommonEverything):
 
     answer_keyboard = Keyboard([
         [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload)],
+        [kb.GROUP_MODE_BUTTON.only_if(is_from_hub and not ctx.is_switching_modes)],
     ]).assign_next(
         kb.NEXT_BUTTON.only_if(is_teacher_set and not is_from_hub)
     )
@@ -488,9 +508,9 @@ async def teacher(everything: CommonEverything):
             # send a message saying "your input is invalid"
             answer_text = (
                 messages.Builder()
-                        .add(teachers_fmt)
-                        .add(messages.format_invalid_teacher())
-                        .add(footer_addition)
+                    .add(teachers_fmt)
+                    .add(messages.format_invalid_teacher())
+                    .add(footer_addition)
             )
             return await message.answer(
                 text        = answer_text.make(),
@@ -511,9 +531,9 @@ async def teacher(everything: CommonEverything):
         if ctx.settings.teacher.valid == original_valid and matched_regex == "teacher_last_name_case_ignored":
             answer_text = (
                 messages.Builder()
-                        .add(teachers_fmt)
-                        .add(messages.format_forbidden_format_teacher())
-                        .add(footer_addition)
+                    .add(teachers_fmt)
+                    .add(messages.format_forbidden_format_teacher())
+                    .add(footer_addition)
             )
             return await message.answer(
                 text        = answer_text.make(),
@@ -543,6 +563,10 @@ async def teacher(everything: CommonEverything):
         # everything is ok, set this teacher as confirmed
         everything.ctx.settings.teacher.set_valid_as_confirmed()
 
+        if ctx.is_switching_modes:
+            ctx.settings.mode = Mode.TEACHER
+            ctx.is_switching_modes = False
+
         return await auto_route(everything)
 
     elif everything.is_from_event:
@@ -551,9 +575,9 @@ async def teacher(everything: CommonEverything):
 
         answer_text = (
             messages.Builder()
-                    .add(teachers_fmt)
-                    .add(messages.format_teacher_input())
-                    .add(footer_addition)
+                .add(teachers_fmt)
+                .add(messages.format_teacher_input())
+                .add(footer_addition)
         )
         await event.edit_message(
             text        = answer_text.make(),
@@ -589,6 +613,10 @@ async def confirm_unknown_group(everything: CommonEverything):
 
     everything.navigator.jump_back_to_or_append(SETTINGS.II_GROUP)
 
+    if everything.ctx.is_switching_modes:
+        everything.ctx.settings.mode = Mode.GROUP
+        everything.ctx.is_switching_modes = False
+
     return await auto_route(everything)
 
 
@@ -605,7 +633,7 @@ async def unknown_group(everything: CommonEverything):
 
         answer_text = (
             messages.Builder()
-                    .add(messages.format_unknown_identifier(group))
+                .add(messages.format_unknown_identifier(group))
         )
         answer_keyboard = Keyboard([
             [kb.TRUE_BUTTON],
@@ -626,6 +654,21 @@ async def to_unknown_group(everything: CommonEverything):
 
 """ GROUP STATE """
 
+@r.on_callback(StateFilter(SETTINGS.II_GROUP), PayloadFilter(Payload.TEACHER_MODE))
+async def switch_to_teacher_mode(everything: CommonEverything):
+    ctx = everything.ctx
+
+    if ctx.navigator.current.anchor == SETTINGS.II_GROUP.anchor:
+        ctx.navigator.back(trace_it=False, execute_actions=False)
+    
+    if ctx.settings.teacher.confirmed is None:
+        ctx.is_switching_modes = True
+        return await to_teacher(everything)
+
+    ctx.settings.mode = Mode.TEACHER
+
+    return await main(everything)
+
 @r.on_everything(UnionFilter([
     StateFilter(SETTINGS.II_GROUP),
     StateFilter(SETTINGS.III_UNKNOWN_GROUP)
@@ -645,10 +688,10 @@ async def group(everything: CommonEverything):
 
     answer_keyboard = Keyboard([
         [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload)],
+        [kb.TEACHER_MODE_BUTTON.only_if(is_from_hub and not ctx.is_switching_modes)],
     ]).assign_next(
         kb.NEXT_BUTTON.only_if(is_group_set and not is_from_hub)
     )
-
 
     if everything.is_from_message:
         # most likely user sent a group in his message
@@ -699,6 +742,10 @@ async def group(everything: CommonEverything):
         # everything is ok, set this group as confirmed
         everything.ctx.settings.group.set_valid_as_confirmed()
 
+        if ctx.is_switching_modes:
+            ctx.settings.mode = Mode.GROUP
+            ctx.is_switching_modes = False
+
         return await auto_route(everything)
 
     elif everything.is_from_event:
@@ -713,9 +760,9 @@ async def group(everything: CommonEverything):
 
         answer_text = (
             messages.Builder()
-                    .add(groups_fmt)
-                    .add(messages.format_group_input())
-                    .add(footer_addition)
+                .add(groups_fmt)
+                .add(messages.format_group_input())
+                .add(footer_addition)
         )
         await event.edit_message(
             text        = answer_text.make(),
@@ -818,18 +865,26 @@ async def main(everything: CommonEverything):
         ctx.navigator.auto_ignored()
         ctx.navigator.append(HUB.I_MAIN)
         ctx.navigator.append(SETTINGS.I_MAIN)
+    
+    entries_len = 0
+    if ctx.settings.mode == Mode.GROUP:
+        entries_len = len(ctx.settings.zoom.entries)
+    elif ctx.settings.mode == Mode.TEACHER:
+        entries_len = len(ctx.settings.tchr_zoom.entries)
 
     answer_text = (
         messages.Builder()
-            .add(messages.format_settings_main(is_group_chat=everything.is_group_chat))
+            .add_if(messages.format_settings_main(everything.is_group_chat), ctx.settings.mode == Mode.GROUP)
+            .add_if(messages.format_tchr_settings_main(everything.is_group_chat), ctx.settings.mode == Mode.TEACHER)
     )
     answer_keyboard = Keyboard([
-        [kb.GROUP_BUTTON.with_value(ctx.settings.group.confirmed)],
+        [kb.GROUP_BUTTON.with_value(ctx.settings.group.confirmed).only_if(ctx.settings.mode == Mode.GROUP)],
+        [kb.TEACHER_BUTTON.with_value(ctx.settings.teacher.confirmed).only_if(ctx.settings.mode == Mode.TEACHER)],
         [kb.BROADCAST_BUTTON.with_value(ctx.settings.broadcast)],
         [kb.PIN_BUTTON.with_value(ctx.settings.should_pin).only_if(
             SETTINGS.III_SHOULD_PIN not in ctx.navigator.ignored
         )],
-        [kb.ZOOM_BUTTON.with_value(len(ctx.settings.zoom.entries))],
+        [kb.ZOOM_BUTTON.with_value(entries_len)],
         [kb.EXECUTE_CODE_BUTTON.only_if(everything.ctx.is_admin)],
         [kb.RESET_BUTTON]
     ])

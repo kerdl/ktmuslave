@@ -44,6 +44,8 @@ class Payload:
     GROUP         = "group"
     TEACHER       = "teacher"
     SHOW_NAMES    = "show_names"
+    GROUP_MODE    = "group_mode"
+    TEACHER_MODE  = "teacher_mode"
     BROADCAST     = "broadcast"
     PIN           = "pin"
     ZOOM          = "zoom"
@@ -104,6 +106,8 @@ class Text:
     ME_TEACHER   = "🧑‍🏫 Препод"
     GROUP        = "👥 Группа"
     SHOW_NAMES   = "👀 Показать имена"
+    GROUP_MODE   = "🔁 Режим группы"
+    TEACHER_MODE = "🔁 Режим препода"
     TEACHER      = "👤 Препод"
     BROADCAST    = "✉️ Рассылка"
     PIN          = "📌 Закрепление"
@@ -514,6 +518,8 @@ ME_TEACHER_BUTTON = Button(text = Text.ME_TEACHER, callback = Payload.ME_TEACHER
 GROUP_BUTTON = Button(text = Text.GROUP, callback = Payload.GROUP, color = Color.BLUE)
 TEACHER_BUTTON = Button(text = Text.TEACHER, callback = Payload.TEACHER, color = Color.BLUE)
 SHOW_NAMES_BUTTON = Button(text = Text.SHOW_NAMES, callback = Payload.SHOW_NAMES, color = Color.BLUE)
+GROUP_MODE_BUTTON = Button(text = Text.GROUP_MODE, callback = Payload.GROUP_MODE, color = Color.BLUE)
+TEACHER_MODE_BUTTON = Button(text = Text.TEACHER_MODE, callback = Payload.TEACHER_MODE, color = Color.BLUE)
 BROADCAST_BUTTON = Button(text = Text.BROADCAST, callback = Payload.BROADCAST, color = Color.BLUE)
 PIN_BUTTON = Button(text = Text.PIN, callback = Payload.PIN, color = Color.BLUE)
 ZOOM_BUTTON = Button(text = Text.ZOOM, callback = Payload.ZOOM, color = Color.BLUE)

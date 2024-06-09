@@ -268,25 +268,28 @@ INIT_MAIN = {
 HUB_MAIN = {
     "name": "Главная",
 }
+def _ctx_stop_switching_modes(everything: common.CommonEverything):
+    everything.ctx.is_switching_modes = False
 SETTINGS_MAIN = {
     "name": "Настройки",
     "back_trace": False,
+    "on_enter": _ctx_stop_switching_modes
 }
 MODE = {
     "name": "Режим",
 }
-def should_show_identification_state(everything: common.CommonEverything) -> bool:
+def _ctx_should_show_identification_state(everything: common.CommonEverything) -> bool:
     return everything.ctx.settings.mode is None
 IDENTIFICATION = {
     "name": "Идентификация",
-    "should_display_in_tree": should_show_identification_state
+    "should_display_in_tree": _ctx_should_show_identification_state
 }
-def should_show_group_state(everything: common.CommonEverything) -> bool:
+def _ctx_should_show_group_state(everything: common.CommonEverything) -> bool:
     from src.data.settings import Mode
     return everything.ctx.settings.mode == Mode.GROUP
 GROUP = {
     "name": "Группа",
-    "should_display_in_tree": should_show_group_state,
+    "should_display_in_tree": _ctx_should_show_group_state,
     "tags": ["group"]
 }
 UNKNOWN_GROUP = {
@@ -294,12 +297,12 @@ UNKNOWN_GROUP = {
     "back_trace": False,
     "tags": ["group"]
 }
-def should_show_teacher_state(everything: common.CommonEverything) -> bool:
+def _ctx_should_show_teacher_state(everything: common.CommonEverything) -> bool:
     from src.data.settings import Mode
     return everything.ctx.settings.mode == Mode.TEACHER
 TEACHER = {
     "name": "Препод",
-    "should_display_in_tree": should_show_teacher_state,
+    "should_display_in_tree": _ctx_should_show_teacher_state,
     "tags": ["teacher"]
 }
 UNKNOWN_TEACHER = {

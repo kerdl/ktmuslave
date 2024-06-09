@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from src.data.settings import MODE_LITERAL
 
 
-DEBUGGING = True
+DEBUGGING = False
 
 
 class Builder:
@@ -104,6 +104,7 @@ SENT_AS_NEW_MESSAGE = (
 )
 def format_sent_as_new_message():
     return SENT_AS_NEW_MESSAGE
+    
 
 EMPTY_PAGE = (
     "🤔 | Пусто. Можешь добавить записи с помощью кнопки ниже."
@@ -669,6 +670,22 @@ def format_settings_main(is_group_chat: bool) -> str:
 
     return text
 
+def format_tchr_settings_main(is_group_chat: bool) -> str:
+    text = ""
+
+    text += f"{TEACHER_SETTING_EXPLAIN}\n"
+    text += "\n"
+    text += f"{TCHR_BROADCAST_SETTING_EXPLAIN}\n"
+    text += "\n"
+    if is_group_chat:
+        text += f"{PIN_SETTING_EXPLAIN}\n"
+        text += "\n"
+    text += f"{TCHR_ZOOM_SETTING_EXPLAIN}\n"
+    text += "\n"
+    text += f"{RESET_SETTING_EXPLAIN}\n"
+
+    return text
+
 
 RESET_EXPLAIN = (
     f"🗑️ | Это сбросит все настройки + Zoom данные и потребует пройти начальную настройку\n\n"
@@ -765,7 +782,7 @@ def format_too_fast_retry_after(secs: int):
         secs = fmt_secs
     )
 MANUAL_UPDATES_ARE_DISABLED = (
-    "Ручные обновления теперь недоступны"
+    "❌ Ручные обновления теперь недоступны"
 )
 def format_manual_updates_are_disabled():
     return MANUAL_UPDATES_ARE_DISABLED
@@ -776,6 +793,13 @@ NOT_IMPLEMENTED_ERROR = (
 )
 def format_not_implemented_error() -> str:
     return NOT_IMPLEMENTED_ERROR
+
+
+MODE_CHANGED = (
+    "✅ Режим изменён"
+)
+def format_mode_changed() -> str:
+    return MODE_CHANGED
 
 
 GROUP_CHANGED_IN_SC_TYPE = (

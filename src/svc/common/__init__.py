@@ -120,6 +120,7 @@ class DbBaseCtx(BaseModel):
     chat_id: int
     is_registered: bool
     is_admin: Optional[bool]
+    is_switching_modes: Optional[bool]
 
     navigator: DbNavigator
     settings: Settings
@@ -149,6 +150,7 @@ class DbBaseCtx(BaseModel):
             chat_id=ctx.chat_id,
             is_registered=ctx.is_registered,
             is_admin=ctx.is_admin,
+            is_switching_modes=ctx.is_switching_modes,
             navigator=ctx.navigator.to_db(),
             settings=ctx.settings,
             schedule=ctx.schedule,
@@ -169,6 +171,7 @@ class BaseCtx:
     chat_id: int
     is_registered: bool = field(default_factory=lambda: False)
     is_admin: bool = field(default_factory=lambda: False)
+    is_switching_modes: bool = field(default_factory=lambda: False)
 
     navigator: Navigator = field(default_factory=Navigator)
     """ # `Back`, `next` buttons tracer """
@@ -224,6 +227,7 @@ class BaseCtx:
             chat_id=db.chat_id,
             is_admin=db.is_admin if db.is_admin is not None else False,
             is_registered=db.is_registered,
+            is_switching_modes=db.is_switching_modes,
             navigator=db.navigator.to_runtime(db.last_everything),
             settings=db.settings,
             schedule=db.schedule,
@@ -1386,11 +1390,12 @@ class CommonEvent(BaseCommonEvent):
         return self
 
     @classmethod
-    def from_tg_my_chat_member(cls, upd: ChatMemberUpdated):
+    def from_tg_my_chat_member(cls, upd: ChatMemberUpdated, dt: datetime.datetime):
         self = cls(
             src=Source.TG_MY_CHAT_MEMBER,
             chat_id=upd.chat.id,
             tg_my_chat_member=upd,
+            dt=dt
         )
 
         return self

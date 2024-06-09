@@ -40,7 +40,11 @@ class Teacher(BaseModel):
     def generate_valid(self, reference: list[str]) -> bool:
         teacher = pattern.TEACHER.search(self.typed)
         if teacher is not None:
-            self.valid = teacher.group()
+            teacher: str = teacher.group()
+            if not teacher.endswith("."):
+                teacher += "."
+            
+            self.valid = teacher
             return True
         
         teacher_case_ignored = pattern.TEACHER_CASE_IGNORED.search(self.typed)
