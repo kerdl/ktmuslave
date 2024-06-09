@@ -743,6 +743,13 @@ def format_no_schedule() -> str:
     return NO_SCHEDULE
 
 
+TCHR_NO_SCHEDULE = (
+    f"🤔 Препода нет в этом расписании"
+)
+def format_tchr_no_schedule() -> str:
+    return TCHR_NO_SCHEDULE
+
+
 SCHEDULE_FOOTER = (
     "⏱ Последнее обновление: {last_update}\n"
     "✉ Период автообновления: {update_period} мин"

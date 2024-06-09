@@ -1,14 +1,18 @@
 import datetime
 import difflib
-from typing import Optional, Union, Literal
+from typing import Optional, Union, Literal, TYPE_CHECKING
 from dataclasses import dataclass
 
 from src.svc.common import messages
 from src.data.schedule.compare import Changes, DetailedChanges, PrimitiveChange
-from src.data.schedule import Group, Day, Subject, Format, FORMAT_LITERAL, compare
+from src.data.schedule import Group, Day, Subject, CommonIdentifier, CommonDay, CommonSubject, Format, FORMAT_LITERAL, compare
 from src.data.range import Range
 from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt
 from src import text
+
+
+if TYPE_CHECKING:
+    from src.data.settings import MODE_LITERAL
 
 
 KEYCAPS = {
@@ -107,7 +111,7 @@ def date(dt: datetime.date) -> str:
 
     return f"{str_day}.{str_month}.{str_year}"
 
-def teachers(
+def guests(
     tchrs: list[str],
     format: FORMAT_LITERAL,
     entries: set[zoom.Data]
@@ -156,7 +160,7 @@ def teachers(
     return fmt_teachers
 
 def subject(
-    subj: Subject,
+    subj: CommonSubject,
     entries: set[zoom.Data],
     rng: Optional[Range[Subject]] = None
 ) -> str:
@@ -177,7 +181,7 @@ def subject(
     num     = keycap_num(subj.num)
     time    = str(subj.time)
     name    = subj.name
-    tchrs   = teachers(subj.teachers, subj.format, entries)
+    tchrs   = guests(subj.guests(), subj.format, entries)
     cabinet = subj.cabinet
 
     joined_tchrs = ", ".join(tchrs)
@@ -195,7 +199,7 @@ def subject(
     return base
 
 def days(
-    days: list[Day],
+    days: list[CommonDay],
     entries: set[zoom.Data]
 ) -> list[str]:
     fmt_days: list[str] = []
@@ -325,11 +329,13 @@ def days(
     
     return fmt_days
 
-async def group(
-    group: Optional[Group],
-    entries: list[zoom.Data]
+async def identifier(
+    identifier: Optional[CommonIdentifier],
+    entries: list[zoom.Data],
+    mode: "MODE_LITERAL"
 ) -> str:
     from src.api.schedule import SCHEDULE_API
+    from src.data.settings import Mode
 
     last_update          = await SCHEDULE_API.last_update()
     utc3_last_update     = last_update + datetime.timedelta(hours=3)
@@ -342,14 +348,20 @@ async def group(
         update_period=update_period
     )
 
-    if group is None or not group.days:
-        return (
-            f"{messages.format_no_schedule()}\n\n"
-            f"{update_params}"
-        )
+    if identifier is None or not identifier.days:
+        if mode == Mode.GROUP:
+            return (
+                f"{messages.format_no_schedule()}\n\n"
+                f"{update_params}"
+            )
+        elif mode == Mode.TEACHER:
+            return (
+                f"{messages.format_tchr_no_schedule()}\n\n"
+                f"{update_params}"
+            )
 
-    label = group.raw
-    days_str = "\n\n".join(days(group.days, entries))
+    label = identifier.raw
+    days_str = "\n\n".join(days(identifier.days, entries))
 
     return (
         f"📜 {label}\n\n"

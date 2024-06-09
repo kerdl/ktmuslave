@@ -318,7 +318,7 @@ class BaseCtx:
         try: group = page.groups[0]
         except IndexError: group = None
 
-        return await sc_format.group(
+        return await sc_format.identifier(
             group,
             self.settings.zoom.entries.list
         )

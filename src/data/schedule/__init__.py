@@ -62,6 +62,7 @@ class Schedule(BaseModel):
     message: Message = PydField(default_factory=Message)
     last_update: Optional[float] = 0.0
     temp_group: Optional[str] = None
+    temp_teacher: Optional[str] = None
 
     
     @property
@@ -95,6 +96,9 @@ class Subject(RepredBaseModel):
     format: FORMAT_LITERAL
     teachers: list[str]
     cabinet: Optional[str]
+
+    def guests(self) -> list[str]:
+        return self.teachers
 
     def is_unknown_window(self) -> bool:
         return self.raw != "" and len(self.teachers) < 1
@@ -132,6 +136,9 @@ class Page(BaseModel):
     date: Range[datetime.date]
     groups: list[Group]
 
+    def identifiers(self) -> list[Group]:
+        return self.groups
+
     def get_group(self, name: str) -> Optional[Group]:
         for group in self.groups:
             if group.name == name:
@@ -148,7 +155,7 @@ class Subgroup(RepredBaseModel):
     @property
     def repr_name(self) -> str:
         if self.subgroup:
-            return self.group + self.subgroup
+            return self.group + " " + self.subgroup
         else:
             return self.group
 
@@ -160,6 +167,12 @@ class TchrSubject(RepredBaseModel):
     format: FORMAT_LITERAL
     groups: list[Subgroup]
     cabinet: Optional[str]
+
+    def guests(self) -> list[str]:
+        groups = []
+        for group in self.groups:
+            groups.append(group.repr_name)
+        return groups
 
     def is_unknown_window(self) -> bool:
         return self.raw != "" and len(self.groups) < 1
@@ -197,9 +210,52 @@ class TchrPage(BaseModel):
     date: Range[datetime.date]
     teachers: list[TchrTeacher]
 
+    def identifiers(self) -> list[TchrTeacher]:
+        return self.teachers
+
     def get_teacher(self, name: str) -> Optional[TchrTeacher]:
         for teacher in self.teachers:
             if teacher.name == name:
                 return teacher
         
         return None
+
+class CommonSubject(RepredBaseModel):
+    raw: str
+    num: int
+    time: Range[datetime.time]
+    name: str
+    format: FORMAT_LITERAL
+    cabinet: Optional[str]
+
+    def guests(self) -> list[str]: ...
+
+    def is_unknown_window(self) -> bool:
+        return self.raw != "" and len(self.guests()) < 1
+
+    @property
+    def repr_name(self) -> str:
+        return self.name
+
+class CommonDay(RepredBaseModel):
+    raw: str
+    weekday: WEEKDAY_LITERAL
+    date: datetime.date
+    subjects: list[CommonSubject]
+
+    @property
+    def repr_name(self) -> str:
+        return self.weekday
+
+class CommonIdentifier(BaseModel):
+    raw: str
+    name: str
+    days: list[CommonDay]
+
+class CommonPage(BaseModel):
+    raw: str
+    raw_types: list[raw.TYPE_LITERAL]
+    sc_type: TYPE_LITERAL
+    date: Range[datetime.date]
+    
+    def identifiers(self) -> CommonIdentifier: ...
