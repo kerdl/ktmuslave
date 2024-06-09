@@ -60,16 +60,20 @@ class ManualUpdateBlock(EventMiddleware):
 @r.middleware()
 class OldMessagesBlock(EventMiddleware):
     async def pre(self, everything: CommonEverything):
-        from src.svc.common.bps import hub
-        from src.svc.common.states.tree import HUB
+        from src.svc.common.bps import hub, init
+        from src.svc.common.states.tree import HUB, INIT
 
         async def resend_last_bot_message():
             await common_event.show_notification(
                 messages.format_cant_press_old_buttons()
             )
 
-            # send last bot message again
-            msg = await user_ctx.last_bot_message.send()
+            if user_ctx.last_bot_message is not None:
+                # send last bot message again
+                msg = await user_ctx.last_bot_message.send()
+            else:
+                msg = await init.main(everything)
+            
             await user_ctx.set_last_bot_message(msg)
         
         common_event = everything.event

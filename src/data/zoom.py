@@ -182,6 +182,8 @@ class Data(BaseModel, Translated, Emojized):
     def all_fields_are_set(self, mode: "MODE_LITERAL") -> bool:
         from src.data.settings import Mode
 
+        ignored = []
+
         if mode == Mode.GROUP:
             ignored = ["notes"]
         elif mode == Mode.TEACHER:
