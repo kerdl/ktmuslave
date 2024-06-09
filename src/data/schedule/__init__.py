@@ -63,6 +63,7 @@ class Schedule(BaseModel):
     last_update: Optional[float] = 0.0
     temp_group: Optional[str] = None
     temp_teacher: Optional[str] = None
+    temp_mode: Optional[str] = None
 
     
     @property

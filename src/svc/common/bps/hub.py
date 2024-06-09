@@ -82,6 +82,8 @@ async def switch_to_daily(everything: CommonEverything):
 async def resend(everything: CommonEverything):
     everything.ctx.schedule.temp_group = None
     everything.ctx.schedule.temp_teacher = None
+    everything.ctx.schedule.temp_mode = None
+
     return await to_hub(everything, allow_edit=False)
 
 @r.on_everything(StateFilter(HUB.I_MAIN))
@@ -91,43 +93,50 @@ async def hub(
     allow_send: bool = True
 ):
     ctx = everything.ctx
+    temp_mode = ctx.schedule.temp_mode if ctx.schedule.temp_mode else ctx.settings.mode
 
     identifier = None
-    if ctx.settings.mode == Mode.GROUP:
+    if temp_mode == Mode.GROUP:
         identifier = ctx.settings.group.valid
-    elif ctx.settings.mode == Mode.TEACHER:
+    elif temp_mode == Mode.TEACHER:
         identifier = ctx.settings.teacher.valid
     
     temp_identifier = None
-    if ctx.settings.mode == Mode.GROUP:
+    if temp_mode == Mode.GROUP:
         temp_identifier = ctx.schedule.temp_group
-    elif ctx.settings.mode == Mode.TEACHER:
+    elif temp_mode == Mode.TEACHER:
         temp_identifier = ctx.schedule.temp_teacher
 
     if everything.is_from_message:
-        if ctx.settings.mode == Mode.GROUP:
-            identifier_match = pattern.GROUP.match(everything.message.text)
-        elif ctx.settings.mode == Mode.TEACHER:
+        group_match = pattern.GROUP.match(everything.message.text)
+        if group_match is None:
             teacher = Teacher(typed=everything.message.text)
             teacher.generate_valid(await SCHEDULE_API.teachers())
             identifier_match = pattern.TEACHER.match(teacher.valid) if teacher.valid else None
+            if identifier_match is not None:
+                temp_mode = Mode.TEACHER
+                ctx.schedule.temp_mode = temp_mode
+        else:
+            identifier_match = group_match
+            temp_mode = Mode.GROUP
+            ctx.schedule.temp_mode = temp_mode
 
         if identifier_match is None:
             return
        
         identifier_match = identifier_match.group()
 
-        if ctx.settings.mode == Mode.GROUP:
+        if temp_mode == Mode.GROUP:
             identifier_object = Group(typed=identifier_match)
             identifier_object.generate_valid()
-        elif ctx.settings.mode == Mode.TEACHER:
+        elif temp_mode == Mode.TEACHER:
             identifier_object = teacher
         
         if identifier_object.valid != identifier:
-            if ctx.settings.mode == Mode.GROUP:
+            if temp_mode == Mode.GROUP:
                 ctx.schedule.temp_group = identifier_object.valid
                 temp_identifier = ctx.schedule.temp_group
-            elif ctx.settings.mode == Mode.TEACHER:
+            elif temp_mode == Mode.TEACHER:
                 ctx.schedule.temp_teacher = identifier_object.valid
                 temp_identifier = ctx.schedule.temp_teacher
 
@@ -135,31 +144,31 @@ async def hub(
 
     if SCHEDULE_API.is_online:
         if ctx.schedule.message.is_weekly:
-            if ctx.settings.mode == Mode.GROUP:
+            if temp_mode == Mode.GROUP:
                 weekly_page = await SCHEDULE_API.weekly(temp_identifier if temp_identifier else identifier)
                 users_identifier_data = weekly_page.get_group(temp_identifier if temp_identifier else identifier) if weekly_page is not None else None
-            elif ctx.settings.mode == Mode.TEACHER:
+            elif temp_mode == Mode.TEACHER:
                 weekly_page = await SCHEDULE_API.tchr_weekly(temp_identifier if temp_identifier else identifier)
                 users_identifier_data = weekly_page.get_teacher(temp_identifier if temp_identifier else identifier) if weekly_page is not None else None
         
         elif ctx.schedule.message.is_daily:
-            if ctx.settings.mode == Mode.GROUP:
+            if temp_mode == Mode.GROUP:
                 daily_page = await SCHEDULE_API.daily(temp_identifier if temp_identifier else identifier)
                 users_identifier_data = daily_page.get_group(temp_identifier if temp_identifier else identifier) if daily_page is not None else None
-            elif ctx.settings.mode == Mode.TEACHER:
+            elif temp_mode == Mode.TEACHER:
                 daily_page = await SCHEDULE_API.tchr_daily(temp_identifier if temp_identifier else identifier)
                 users_identifier_data = daily_page.get_teacher(temp_identifier if temp_identifier else identifier) if daily_page is not None else None
 
         zoom_entries = None
-        if ctx.settings.mode == Mode.GROUP:
+        if temp_mode == Mode.GROUP:
             zoom_entries = ctx.settings.zoom.entries.list
-        elif ctx.settings.mode == Mode.TEACHER:
+        elif temp_mode == Mode.TEACHER:
             zoom_entries = ctx.settings.tchr_zoom.entries.list
         
         schedule_text = await sc_format.identifier(
             users_identifier_data,
             zoom_entries,
-            ctx.settings.mode
+            temp_mode
         )
     else:
         schedule_text = messages.format_cant_connect_to_schedule_server()
