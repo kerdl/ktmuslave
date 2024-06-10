@@ -48,7 +48,8 @@ async def chunked_send(
             text                     = chunk,
             disable_web_page_preview = disable_web_page_preview,
             reply_markup             = reply_markup if is_last else None,
-            reply_to_message_id      = reply_to_message_id if is_first else None
+            reply_to_message_id      = reply_to_message_id if is_first else None,
+            parse_mode               = "MarkDown"
         )
 
         responses.append(result)
@@ -79,7 +80,8 @@ async def chunked_edit(
                 message_id               = message_id,
                 text                     = chunk,
                 disable_web_page_preview = disable_web_page_preview,
-                reply_markup             = reply_markup if is_last else None
+                reply_markup             = reply_markup if is_last else None,
+                parse_mode               = "MarkDown"
             )
 
             edit_result = result
@@ -90,7 +92,8 @@ async def chunked_edit(
                 chat_id                  = chat_id,
                 text                     = chunk,
                 disable_web_page_preview = disable_web_page_preview,
-                reply_markup             = reply_markup if is_last else None
+                reply_markup             = reply_markup if is_last else None,
+                parse_mode               = "MarkDown"
             )
 
             sending_results.append(result)

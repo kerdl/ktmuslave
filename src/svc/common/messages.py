@@ -849,7 +849,7 @@ def format_teacher_changed_in_sc_type(
     elif sc_type == schedule.Type.WEEKLY:
         repr_sc_type = "недельном"
 
-    return GROUP_CHANGED_IN_SC_TYPE.format(
+    return TEACHER_CHANGED_IN_SC_TYPE.format(
         change  = repr_change,
         sc_type = repr_sc_type
     )
@@ -870,7 +870,7 @@ def format_replied_to_schedule_message(sc_type: schedule.TYPE_LITERAL):
 
 
 FAILED_REPLY_TO_SCHEDULE_MESSAGE = (
-    "🥺 Не удалось ответить на последнее {sc_type} расписание, "
+    "👎 Не удалось ответить на последнее {sc_type} расписание, "
     f"находи его через поиск или запроси через кнопку {Text.RESEND}"
 )
 def format_failed_reply_to_schedule_message(sc_type: schedule.TYPE_LITERAL):

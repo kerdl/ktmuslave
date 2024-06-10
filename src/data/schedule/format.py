@@ -114,7 +114,8 @@ def date(dt: datetime.date) -> str:
 def guests(
     tchrs: list[str],
     format: FORMAT_LITERAL,
-    entries: set[zoom.Data]
+    entries: set[zoom.Data],
+    do_tg_markup: bool = False
 ) -> list[str]:
     str_entries = [entry.name.value for entry in entries]
 
@@ -142,15 +143,24 @@ def guests(
 
             if found_entry.id.value is not None:
                 translation = found_entry.__translation__.get("id")
-                data.append(f"{translation}: {found_entry.id.value}")
+                if do_tg_markup:
+                    data.append(f"{translation}: `{found_entry.id.value}`")
+                else:
+                    data.append(f"{translation}: {found_entry.id.value}")
 
             if found_entry.pwd.value is not None:
                 translation = found_entry.__translation__.get("pwd").lower()
-                data.append(f"{translation}: {found_entry.pwd.value}")
+                if do_tg_markup:
+                    data.append(f"{translation}: `{found_entry.pwd.value}`")
+                else:
+                    data.append(f"{translation}: {found_entry.pwd.value}")
 
         if found_entry.notes.value is not None:
-            data.append(found_entry.notes.value)
-
+            if do_tg_markup:
+                data.append(f"`{found_entry.notes.value}`")
+            else:
+                data.append(found_entry.notes.value)
+        
         if len(data) > 0:
             fmt_data = ", ".join(data)
             fmt_teachers.append(f"{teacher} ({fmt_data})")
@@ -162,7 +172,8 @@ def guests(
 def subject(
     subj: CommonSubject,
     entries: set[zoom.Data],
-    rng: Optional[Range[Subject]] = None
+    rng: Optional[Range[Subject]] = None,
+    do_tg_markup: bool = False
 ) -> str:
     if subj.is_unknown_window():
         if rng is not None:
@@ -181,7 +192,7 @@ def subject(
     num     = keycap_num(subj.num)
     time    = str(subj.time)
     name    = subj.name
-    tchrs   = guests(subj.guests(), subj.format, entries)
+    tchrs   = guests(subj.guests(), subj.format, entries, do_tg_markup)
     cabinet = subj.cabinet
 
     joined_tchrs = ", ".join(tchrs)
@@ -200,7 +211,8 @@ def subject(
 
 def days(
     days: list[CommonDay],
-    entries: set[zoom.Data]
+    entries: set[zoom.Data],
+    do_tg_markup: bool = False
 ) -> list[str]:
     fmt_days: list[str] = []
 
@@ -251,7 +263,8 @@ def days(
                 subj_fmt = subject(
                     rng.start,
                     entries,
-                    rng
+                    rng,
+                    do_tg_markup
                 )
                 fmt_subjs.append((rng, subj_fmt))
 
@@ -269,7 +282,7 @@ def days(
                 format_holden_ranges()
                 hold = []
 
-            fmt_subj = subject(subj, entries)
+            fmt_subj = subject(subj, entries, do_tg_markup=do_tg_markup)
             fmt_subjs.append((
                 subj,
                 fmt_subj
@@ -332,7 +345,8 @@ def days(
 async def identifier(
     identifier: Optional[CommonIdentifier],
     entries: list[zoom.Data],
-    mode: "MODE_LITERAL"
+    mode: "MODE_LITERAL",
+    do_tg_markup: bool = False
 ) -> str:
     from src.api.schedule import SCHEDULE_API
     from src.data.settings import Mode
@@ -361,7 +375,7 @@ async def identifier(
             )
 
     label = identifier.raw
-    days_str = "\n\n".join(days(identifier.days, entries))
+    days_str = "\n\n".join(days(identifier.days, entries, do_tg_markup))
 
     return (
         f"📜 {label}\n\n"

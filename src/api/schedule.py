@@ -35,9 +35,8 @@ class Notify(BaseModel):
     invoker: Union[AUTO_LITERAL, Invoker]
     daily: Optional[compare.PageCompare]
     weekly: Optional[compare.PageCompare]
-
-    def has_any_updates(self):
-        return self.daily is not None and self.weekly is not None
+    tchr_daily: Optional[compare.TchrPageCompare]
+    tchr_weekly: Optional[compare.TchrPageCompare]
     
     def has_updates_for_group(self, name: str):
         for page_compare in [self.daily, self.weekly]:
@@ -56,6 +55,23 @@ class Notify(BaseModel):
         
         return False
     
+    def has_updates_for_teacher(self, name: str):
+        for page_compare in [self.tchr_daily, self.tchr_weekly]:
+            if page_compare is None:
+                continue
+
+            for change in [
+                page_compare.teachers.appeared,
+                page_compare.teachers.changed
+            ]:
+                for teacher in change:
+                    teacher: RepredBaseModel
+
+                    if teacher.repr_name == name:
+                        return True
+        
+        return False
+
     @property
     def is_auto_invoked(self) -> bool:
         return self.invoker == "auto"

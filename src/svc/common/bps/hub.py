@@ -80,10 +80,7 @@ async def switch_to_daily(everything: CommonEverything):
 
 @r.on_callback(PayloadFilter(kb.Payload.RESEND))
 async def resend(everything: CommonEverything):
-    everything.ctx.schedule.temp_group = None
-    everything.ctx.schedule.temp_teacher = None
-    everything.ctx.schedule.temp_mode = None
-
+    everything.ctx.schedule.reset_temps()
     return await to_hub(everything, allow_edit=False)
 
 @r.on_everything(StateFilter(HUB.I_MAIN))
@@ -168,7 +165,8 @@ async def hub(
         schedule_text = await sc_format.identifier(
             users_identifier_data,
             zoom_entries,
-            temp_mode
+            temp_mode,
+            everything.is_from_tg_generally
         )
     else:
         schedule_text = messages.format_cant_connect_to_schedule_server()

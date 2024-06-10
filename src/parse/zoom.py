@@ -46,7 +46,7 @@ class Key:
 
     @classmethod
     def group_is_relevant(cls, key: Union[GROUP_KEY_LITERAL, list[GROUP_KEY_LITERAL]], line: str) -> bool:
-        if not isinstance(key, str): return False
+        if not isinstance(key, (str, list)): return False
         if cls.HOST_KEY in key: return False
         return cls._is_relevant(key, line)
 

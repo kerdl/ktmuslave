@@ -87,6 +87,11 @@ class Schedule(BaseModel):
 
         return response.data.notify
 
+    def reset_temps(self):
+        self.temp_group = None
+        self.temp_teacher = None
+        self.temp_mode = None
+
 # groups
 
 class Subject(RepredBaseModel):
