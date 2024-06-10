@@ -175,16 +175,19 @@ def subject(
     num     = keycap_num(subj.num)
     time    = str(subj.time)
     name    = subj.name
-    tchrs   = guests(subj.guests(), subj.format, entries, do_tg_markup)
+    guests_ = guests(subj.guests(), subj.format, entries, do_tg_markup)
     cabinet = subj.cabinet
 
-    joined_tchrs = ", ".join(tchrs)
+    joined_guests = ", ".join(guests_)
 
-    base = f"{num} {time}: {name}"
+    if name:
+        base = f"{num} {time}: {name}"
+    else:
+        base = f"{num} {time}:"
 
-    if len(tchrs) > 0:
+    if len(guests_) > 0:
         base += " "
-        base += joined_tchrs
+        base += joined_guests
     
     if cabinet is not None:
         base += " "
