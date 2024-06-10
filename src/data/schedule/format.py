@@ -173,17 +173,22 @@ def subject(
         return f"{circle_keycap_num(subj.num)} {subj.name}"
     
     num     = keycap_num(subj.num)
-    time    = str(subj.time)
+    time    = str(subj.time) if subj.time else ""
     name    = subj.name
     guests_ = guests(subj.guests(), subj.format, entries, do_tg_markup)
     cabinet = subj.cabinet
 
     joined_guests = ", ".join(guests_)
 
+    left_base_parts = []
+    left_base_parts.append(num)
+    if time: left_base_parts.append(time)
+    left_base = " ".join(left_base_parts)
+
     if name:
-        base = f"{num} {time}: {name}"
+        base = f"{left_base}: {name}"
     else:
-        base = f"{num} {time}:"
+        base = f"{left_base}:"
 
     if len(guests_) > 0:
         base += " "

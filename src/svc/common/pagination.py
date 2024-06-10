@@ -59,7 +59,8 @@ def from_zoom(
     text_footer: Optional[str] = None,
     keyboard_width: int = 2,
     keyboard_header: list[list[Button]] = [[]],
-    keyboard_footer: list[list[Button]] = [[BACK_BUTTON]]
+    keyboard_footer: list[list[Button]] = [[BACK_BUTTON]],
+    do_tg_markup: bool = False
 ) -> list[CommonBotTemplate]:
     from src.data.settings import Mode
 
@@ -93,7 +94,7 @@ def from_zoom(
 
         if len(page) > 0:
             # call `format()` on each zoom data and separate them with "\n\n"
-            text = "\n\n".join([section.format(mode, field_filter) for section in page])
+            text = "\n\n".join([section.format(mode, field_filter, do_tg_markup) for section in page])
         else:
             text = messages.format_empty_page()
 

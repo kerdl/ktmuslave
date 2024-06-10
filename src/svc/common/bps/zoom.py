@@ -546,7 +546,7 @@ async def entry(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-            .add(selected.format(everything.ctx.settings.mode, field_filter))
+            .add(selected.format(everything.ctx.settings.mode, field_filter, do_tg_markup=everything.is_from_tg_generally))
             .add(messages.format_press_buttons_to_change())
     )
     answer_keyboard = kb.Keyboard.from_dataclass(
@@ -614,13 +614,13 @@ async def browse(
         requested_entry = None
         if number is None:
             requested_entry = storage.focused.get(everything.message.text)
-        
-        if number is not None:
+        else:
             if number > 0:
                 everything.ctx.pages.current_num = number - 1
             else:
                 everything.ctx.pages.current_num = number
             return await browse(everything, is_jump_call=True)
+        
         if requested_entry:
             storage.focused.selected_name = requested_entry.name.value
 
@@ -642,7 +642,7 @@ async def browse(
 
             return await to_entry(everything)
 
-    if storage.is_focused_on_new_entries:
+    if storage.is_focused_on_new_entries and not is_jump_call:
         # user came here from adding mass zoom data
 
         if everything.is_from_message and is_first_call:
@@ -656,8 +656,9 @@ async def browse(
                 [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
                 [kb.BACK_BUTTON],
             ],
+            do_tg_markup=everything.is_from_tg_generally
         )
-    elif storage.is_focused_on_entries:
+    elif storage.is_focused_on_entries and not is_jump_call:
         # user came here to view current active entries
         ctx.pages.list = pagination.from_zoom(
             data = storage.entries.list,
@@ -672,6 +673,7 @@ async def browse(
                 [kb.DUMP_BUTTON.only_if(has_entries)],
                 [kb.BACK_BUTTON],
             ],
+            do_tg_markup=everything.is_from_tg_generally
         )
 
     return await everything.edit_or_answer(
@@ -718,7 +720,7 @@ async def mass(everything: CommonEverything):
             answer_text = (
                 messages.Builder()
                     .add(messages.format_send_zoom_data())
-                    .add(messages.format_zoom_data_format())
+                    .add(messages.format_zoom_data_format(do_escape=everything.is_from_tg_generally))
                     .add(messages.format_zoom_example())
                     .add(messages.format_mass_zoom_data_explain())
                     .add(footer_addition)
@@ -727,7 +729,7 @@ async def mass(everything: CommonEverything):
             answer_text = (
                 messages.Builder()
                     .add(messages.format_send_zoom_data())
-                    .add(messages.format_tchr_zoom_data_format())
+                    .add(messages.format_tchr_zoom_data_format(do_escape=everything.is_from_tg_generally))
                     .add(messages.format_tchr_zoom_example())
                     .add(messages.format_mass_zoom_data_explain())
                     .add(footer_addition)

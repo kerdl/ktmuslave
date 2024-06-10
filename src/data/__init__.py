@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field as PydField
 from pydantic.generics import GenericModel
 
 from . import format as fmt
+from src.svc import telegram as tg
 
 
 T = TypeVar("T")
@@ -105,14 +106,26 @@ class Field(GenericModel, Generic[T], Repred):
     def has_warnings(self) -> bool:
         return len(self.warnings) > 0
 
-    def format(self, emoji: str, name: str, display_value: bool = True) -> str:
+    def format(
+        self,
+        emoji: str,
+        name: str,
+        display_value: bool = True,
+        do_tg_markup: bool = False,
+        escape_tg_markdown: bool = False
+    ) -> str:
         from src.svc import common
 
         if display_value:
+            value = fmt.value_repr(self.value)
+            if escape_tg_markdown:
+                value = tg.escape_html(value)
+            if do_tg_markup:
+                value = f"<code>{value}</code>"
             base_formatted = VALUE_FIELD_FMT.format(
                 emoji = emoji, 
                 name  = name, 
-                value = fmt.value_repr(self.value),
+                value = value,
             )
         else:
             base_formatted = FIELD_FMT.format(

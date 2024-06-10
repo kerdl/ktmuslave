@@ -47,7 +47,7 @@ async def execute_code(everything: CommonEverything):
         )
 
         if not logs or len(logs.replace("\n", "")) < 1:
-            logs = messages.format_logs_empty()
+            logs = messages.format_logs_empty(do_escape=everything.is_from_tg_generally)
 
         answer_text = (
             messages.Builder()

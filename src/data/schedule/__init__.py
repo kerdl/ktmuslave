@@ -97,7 +97,7 @@ class Schedule(BaseModel):
 class Subject(RepredBaseModel):
     raw: str
     num: int
-    time: Range[datetime.time]
+    time: Optional[Range[datetime.time]]
     name: str
     format: FORMAT_LITERAL
     teachers: list[str]
@@ -168,7 +168,7 @@ class Subgroup(RepredBaseModel):
 class TchrSubject(RepredBaseModel):
     raw: str
     num: int
-    time: Range[datetime.time]
+    time: Optional[Range[datetime.time]]
     name: str
     format: FORMAT_LITERAL
     groups: list[Subgroup]
@@ -229,7 +229,7 @@ class TchrPage(BaseModel):
 class CommonSubject(RepredBaseModel):
     raw: str
     num: int
-    time: Range[datetime.time]
+    time: Optional[Range[datetime.time]]
     name: str
     format: FORMAT_LITERAL
     cabinet: Optional[str]

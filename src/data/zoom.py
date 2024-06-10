@@ -16,6 +16,7 @@ from src.svc import common
 from src.data import error
 from src.data import Emojized, Translated, Warning, Field
 from src.parse import pattern, zoom
+from src.svc import telegram as tg
 
 
 T = TypeVar("T")
@@ -218,13 +219,15 @@ class Data(BaseModel, Translated, Emojized):
         else:
             return data.Emoji.NONE
 
-    def format_name(self, mode: "MODE_LITERAL") -> str:
+    def format_name(self, mode: "MODE_LITERAL", do_tg_markup: bool = False) -> str:
         emoji = self.name_emoji(mode)
 
         fmt_name = self.name.format(
             emoji         = emoji, 
             name          = self.name.value, 
-            display_value = False
+            display_value = False,
+            do_tg_markup  = do_tg_markup,
+            escape_tg_markdown=do_tg_markup
         )
 
         return fmt_name
@@ -233,7 +236,8 @@ class Data(BaseModel, Translated, Emojized):
         self,
         filter_: Callable[[tuple[str, Any]], bool] = (
             lambda field: field[0] != "name"
-        )
+        ),
+        do_tg_markup: bool = False
     ) -> str:
         fmt_fields = []
 
@@ -241,12 +245,15 @@ class Data(BaseModel, Translated, Emojized):
             emoji = self.choose_emoji(key, field)
             name = self.__translation__.get(key)
 
-            fmt = field.format(emoji, name)
+            if key == "url":
+                fmt = field.format(emoji, name, do_tg_markup=False, escape_tg_markdown=True)
+            else:
+                fmt = field.format(emoji, name, do_tg_markup=do_tg_markup, escape_tg_markdown=do_tg_markup)
             fmt_fields.append(fmt)
         
         return "\n".join(fmt_fields)
 
-    def format_fields_with_warns(self) -> Optional[str]:
+    def format_fields_with_warns(self, do_tg_markup: bool = False) -> Optional[str]:
         if self.all_fields_without_warns():
             return None
         
@@ -256,18 +263,19 @@ class Data(BaseModel, Translated, Emojized):
 
             return key != "name" and value.has_warnings
         
-        return self.format_fields(field_filter)
+        return self.format_fields(field_filter, do_tg_markup)
 
     def format(
         self,
         mode: "MODE_LITERAL",
         field_filter: Callable[[tuple[str, Any]], bool] = (
             lambda field: field[0] != "name"
-        )
+        ),
+        do_tg_markup: bool = False,
     ) -> str:
         fmt_name = self.format_name(mode)
 
-        fmt_fields = self.format_fields(field_filter)
+        fmt_fields = self.format_fields(field_filter, do_tg_markup)
         fmt_fields = common.text.indent(fmt_fields, add_dropdown = True)
         
         return fmt_name + "\n" + fmt_fields
@@ -283,32 +291,35 @@ class Data(BaseModel, Translated, Emojized):
         data = []
         if not only_notes:
             if self.url.value is not None:
-                data.append(self.url.value)
+                if do_tg_markup:
+                    data.append(tg.escape_html(self.url.value))
+                else:
+                    data.append(self.url.value)
 
             if self.id.value is not None:
                 translation = self.__translation__.get("id")
                 if do_tg_markup:
-                    data.append(f"{translation}: `{self.id.value}`")
+                    data.append(f"{translation}: <code>{tg.escape_html(self.id.value)}</code>")
                 else:
                     data.append(f"{translation}: {self.id.value}")
 
             if self.pwd.value is not None:
                 translation = self.__translation__.get("pwd").lower()
                 if do_tg_markup:
-                    data.append(f"{translation}: `{self.pwd.value}`")
+                    data.append(f"{translation}: <code>{tg.escape_html(self.pwd.value)}</code>")
                 else:
                     data.append(f"{translation}: {self.pwd.value}")
             
             if self.host_key.value is not None:
                 translation = self.__translation__.get("host_key").lower()
                 if do_tg_markup:
-                    data.append(f"{translation}: `{self.host_key.value}`")
+                    data.append(f"{translation}: <code>{tg.escape_html(self.host_key.value)}</code>")
                 else:
                     data.append(f"{translation}: {self.host_key.value}")
 
         if self.notes.value is not None:
             if do_tg_markup:
-                data.append(f"`{self.notes.value}`")
+                data.append(f"<code>{tg.escape_html(self.notes.value)}</code>")
             else:
                 data.append(self.notes.value)
 
