@@ -7,7 +7,7 @@ from src.svc.common import messages
 from src.data.schedule.compare import Changes, DetailedChanges, PrimitiveChange
 from src.data.schedule import Group, Day, Subject, CommonIdentifier, CommonDay, CommonSubject, Format, FORMAT_LITERAL, compare
 from src.data.range import Range
-from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt
+from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt, Emoji
 from src import text
 
 
@@ -71,6 +71,8 @@ PRIMITIVE = "{} → {}"
 # ⠀⠻⣷⣶⣿⣇⠀⠀⠀⢠⣼⣿⣿⣿⣿⣿⣿⣿⣛⣛⣻⠉⠁⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⢸⣿⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⢸⣿⣀⣀⣀⣼⡿⢿⣿⣿⣿⣿⣿⡿⣿⣿⡿
+
+ZOOM_NAME_PREFIX = Emoji.COMPLETE
 
 
 def keycap_num(num: int) -> str:
@@ -137,32 +139,13 @@ def guests(
             if entry.name.value == first_match:
                 found_entry = entry
         
-        if format == Format.REMOTE:
-            if found_entry.url.value is not None:
-                data.append(found_entry.url.value)
-
-            if found_entry.id.value is not None:
-                translation = found_entry.__translation__.get("id")
-                if do_tg_markup:
-                    data.append(f"{translation}: `{found_entry.id.value}`")
-                else:
-                    data.append(f"{translation}: {found_entry.id.value}")
-
-            if found_entry.pwd.value is not None:
-                translation = found_entry.__translation__.get("pwd").lower()
-                if do_tg_markup:
-                    data.append(f"{translation}: `{found_entry.pwd.value}`")
-                else:
-                    data.append(f"{translation}: {found_entry.pwd.value}")
-
-        if found_entry.notes.value is not None:
-            if do_tg_markup:
-                data.append(f"`{found_entry.notes.value}`")
-            else:
-                data.append(found_entry.notes.value)
+        fmt_data = found_entry.format_inline(
+            include_name=False,
+            only_notes=format == Format.FULLTIME,
+            do_tg_markup=do_tg_markup
+        )
         
-        if len(data) > 0:
-            fmt_data = ", ".join(data)
+        if fmt_data:
             fmt_teachers.append(f"{teacher} ({fmt_data})")
         else:
             fmt_teachers.append(teacher)
@@ -377,11 +360,30 @@ async def identifier(
     label = identifier.raw
     days_str = "\n\n".join(days(identifier.days, entries, do_tg_markup))
 
-    return (
-        f"📜 {label}\n\n"
-        f"{days_str}\n\n"
-        f"{update_params}"
-    )
+    if mode == Mode.GROUP:
+        return (
+            f"📜 {label}\n\n"
+            f"{days_str}\n\n"
+            f"{update_params}"
+        )
+    elif mode == Mode.TEACHER:
+        fmt_entries = "\n".join([
+            entry.format_inline(
+                include_name=True,
+                name_prefix=ZOOM_NAME_PREFIX,
+                only_notes=False,
+                do_tg_markup=do_tg_markup
+            ) for entry in entries
+        ])
+
+        msg = ""
+        msg += f"📜 {label}\n\n"
+        msg += f"{days_str}\n\n"
+        if fmt_entries:
+            msg += f"{fmt_entries}\n\n"
+        msg += f"{update_params}"
+
+        return msg
 
 @dataclass
 class CompareFormatted:

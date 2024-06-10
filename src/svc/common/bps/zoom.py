@@ -340,9 +340,15 @@ async def notes(everything: CommonEverything):
     def nuller():
         storage.focused.selected.notes = Field(value=None)
 
+    main_message = None
+    if everything.ctx.settings.mode == Mode.GROUP:
+        main_message = messages.format_enter_notes()
+    elif everything.ctx.settings.mode == Mode.TEACHER:
+        main_message = messages.format_thcr_enter_notes()
+
     return await set_attribute(
         everything   = everything,
-        main_message = messages.format_enter_notes(),
+        main_message = main_message,
         getter       = getter,
         setter       = setter,
         nuller       = nuller,

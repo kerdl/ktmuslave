@@ -272,6 +272,59 @@ class Data(BaseModel, Translated, Emojized):
         
         return fmt_name + "\n" + fmt_fields
 
+    def format_inline(
+        self,
+        include_name: bool = False,
+        name_prefix: Optional[str] = None,
+        only_notes: bool = False,
+        do_tg_markup: bool = False,
+        return_empty_if_no_data: bool = True
+    ) -> str:
+        data = []
+        if not only_notes:
+            if self.url.value is not None:
+                data.append(self.url.value)
+
+            if self.id.value is not None:
+                translation = self.__translation__.get("id")
+                if do_tg_markup:
+                    data.append(f"{translation}: `{self.id.value}`")
+                else:
+                    data.append(f"{translation}: {self.id.value}")
+
+            if self.pwd.value is not None:
+                translation = self.__translation__.get("pwd").lower()
+                if do_tg_markup:
+                    data.append(f"{translation}: `{self.pwd.value}`")
+                else:
+                    data.append(f"{translation}: {self.pwd.value}")
+            
+            if self.host_key.value is not None:
+                translation = self.__translation__.get("host_key").lower()
+                if do_tg_markup:
+                    data.append(f"{translation}: `{self.host_key.value}`")
+                else:
+                    data.append(f"{translation}: {self.host_key.value}")
+
+        if self.notes.value is not None:
+            if do_tg_markup:
+                data.append(f"`{self.notes.value}`")
+            else:
+                data.append(self.notes.value)
+
+        if not data and return_empty_if_no_data:
+            return ""
+        
+        fmt = ", ".join(data)
+
+        if include_name:
+            if name_prefix:
+                fmt = f"{name_prefix} {self.name.value} | {fmt}"
+            else:
+                fmt = f"{self.name.value} | {fmt}"
+        
+        return fmt
+
     def dump_list(self) -> list[str]:
         fields: list[str] = []
 
