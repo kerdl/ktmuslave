@@ -181,14 +181,7 @@ class Data(BaseModel, Translated, Emojized):
 
     def all_fields_are_set(self, mode: "MODE_LITERAL") -> bool:
         from src.data.settings import Mode
-
-        ignored = []
-
-        if mode == Mode.GROUP:
-            ignored = ["notes"]
-        elif mode == Mode.TEACHER:
-            ignored = ["host_key", "notes"]
-
+        ignored = ["host_key", "notes"]
         return all([field[1].value for field in self.fields() if field[0] not in ignored])
 
     def all_fields_without_warns(
