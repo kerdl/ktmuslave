@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 from websockets import client, exceptions
 from websockets.legacy import client
-from aiohttp.client_exceptions import ClientConnectorError
+from aiohttp.client_exceptions import ClientConnectorError, ServerDisconnectedError
 from aiohttp import ClientResponse
 from pathlib import Path
 from dotenv import get_key
@@ -326,64 +326,64 @@ class ScheduleApi(Api):
 
         return (await self._get(url)).data.last_update
 
-    async def update_period(self) -> Duration:
+    async def update_period(self, force: bool = True) -> Duration:
         url = "http://" + self.url + "/update/period"
 
-        if self._update_period is None:
+        if self._update_period is None or force:
             self._update_period = (await self._get(url)).data.period
         
         return self._update_period
 
-    async def ft_daily_friendly_url(self) -> str:
+    async def ft_daily_friendly_url(self, force: bool = False) -> str:
         url = "http://" + self.url + "/raw/ft_daily/friendly_url"
 
-        if self._ft_daily_friendly_url is None:
+        if self._ft_daily_friendly_url is None or force:
             self._ft_daily_friendly_url = await self.get_url(url)
 
         return self._ft_daily_friendly_url
 
-    async def ft_weekly_friendly_url(self) -> str:
+    async def ft_weekly_friendly_url(self, force: bool = False) -> str:
         url = "http://" + self.url + "/raw/ft_weekly/friendly_url"
 
-        if self._ft_weekly_friendly_url is None:
+        if self._ft_weekly_friendly_url is None or force:
             self._ft_weekly_friendly_url = await self.get_url(url)
 
         return self._ft_weekly_friendly_url
 
-    async def r_weekly_friendly_url(self) -> str:
+    async def r_weekly_friendly_url(self, force: bool = False) -> str:
         url = "http://" + self.url + "/raw/r_weekly/friendly_url"
 
-        if self._r_weekly_friendly_url is None:
+        if self._r_weekly_friendly_url is None or force:
             self._r_weekly_friendly_url = await self.get_url(url)
 
         return self._r_weekly_friendly_url
 
-    async def tchr_ft_daily_friendly_url(self) -> str:
+    async def tchr_ft_daily_friendly_url(self, force: bool = False) -> str:
         url = "http://" + self.url + "/raw/tchr_ft_daily/friendly_url"
 
-        if self._tchr_ft_daily_friendly_url is None:
+        if self._tchr_ft_daily_friendly_url is None or force:
             self._tchr_ft_daily_friendly_url = await self.get_url(url)
 
         return self._tchr_ft_daily_friendly_url
 
-    async def tchr_ft_weekly_friendly_url(self) -> str:
+    async def tchr_ft_weekly_friendly_url(self, force: bool = False) -> str:
         url = "http://" + self.url + "/raw/tchr_ft_weekly/friendly_url"
 
-        if self._tchr_ft_weekly_friendly_url is None:
+        if self._tchr_ft_weekly_friendly_url is None or force:
             self._tchr_ft_weekly_friendly_url = await self.get_url(url)
 
         return self._tchr_ft_weekly_friendly_url
 
-    async def tchr_r_weekly_friendly_url(self) -> str:
+    async def tchr_r_weekly_friendly_url(self, force: bool = False) -> str:
         url = "http://" + self.url + "/raw/tchr_r_weekly/friendly_url"
 
-        if self._tchr_r_weekly_friendly_url is None:
+        if self._tchr_r_weekly_friendly_url is None or force:
             self._tchr_r_weekly_friendly_url = await self.get_url(url)
 
         return self._tchr_r_weekly_friendly_url
 
-    def ft_daily_url_button(self) -> kb.Button:
-        if self._ft_daily_url_button is None:
+    def ft_daily_url_button(self, force: bool = True) -> kb.Button:
+        if self._ft_daily_url_button is None or force:
             self._ft_daily_url_button = kb.Button(
                 text = kb.Text.FT_DAILY,
                 url  = self._ft_daily_friendly_url
@@ -391,8 +391,8 @@ class ScheduleApi(Api):
         
         return self._ft_daily_url_button
 
-    def ft_weekly_url_button(self) -> kb.Button:
-        if self._ft_weekly_url_button is None:
+    def ft_weekly_url_button(self, force: bool = True) -> kb.Button:
+        if self._ft_weekly_url_button is None or force:
             self._ft_weekly_url_button = kb.Button(
                 text = kb.Text.FT_WEEKLY,
                 url  = self._ft_weekly_friendly_url
@@ -400,8 +400,8 @@ class ScheduleApi(Api):
         
         return self._ft_weekly_url_button
 
-    def r_weekly_url_button(self) -> kb.Button:
-        if self._r_weekly_url_button is None:
+    def r_weekly_url_button(self, force: bool = True) -> kb.Button:
+        if self._r_weekly_url_button is None or force:
             self._r_weekly_url_button = kb.Button(
                 text = kb.Text.R_WEEKLY,
                 url  = self._r_weekly_friendly_url
@@ -409,8 +409,8 @@ class ScheduleApi(Api):
         
         return self._r_weekly_url_button
 
-    def tchr_ft_daily_url_button(self) -> kb.Button:
-        if self._tchr_ft_daily_url_button is None:
+    def tchr_ft_daily_url_button(self, force: bool = True) -> kb.Button:
+        if self._tchr_ft_daily_url_button is None or force:
             self._tchr_ft_daily_url_button = kb.Button(
                 text = kb.Text.FT_DAILY,
                 url  = self._tchr_ft_daily_friendly_url
@@ -418,8 +418,8 @@ class ScheduleApi(Api):
         
         return self._tchr_ft_daily_url_button
 
-    def tchr_ft_weekly_url_button(self) -> kb.Button:
-        if self._tchr_ft_weekly_url_button is None:
+    def tchr_ft_weekly_url_button(self, force: bool = True) -> kb.Button:
+        if self._tchr_ft_weekly_url_button is None or force:
             self._tchr_ft_weekly_url_button = kb.Button(
                 text = kb.Text.FT_WEEKLY,
                 url  = self._tchr_ft_weekly_friendly_url
@@ -427,8 +427,8 @@ class ScheduleApi(Api):
         
         return self._tchr_ft_weekly_url_button
 
-    def tchr_r_weekly_url_button(self) -> kb.Button:
-        if self._tchr_r_weekly_url_button is None:
+    def tchr_r_weekly_url_button(self, force: bool = True) -> kb.Button:
+        if self._tchr_r_weekly_url_button is None or force:
             self._tchr_r_weekly_url_button = kb.Button(
                 text = kb.Text.R_WEEKLY,
                 url  = self._tchr_r_weekly_friendly_url
@@ -476,6 +476,21 @@ class ScheduleApi(Api):
 
                 async with client.connect(url, create_protocol=protocol_factory) as socket:
                     try:
+                        await SCHEDULE_API.update_period(force=True)
+                        await SCHEDULE_API.ft_daily_friendly_url(force=True)
+                        await SCHEDULE_API.ft_weekly_friendly_url(force=True)
+                        await SCHEDULE_API.r_weekly_friendly_url(force=True)
+                        await SCHEDULE_API.tchr_ft_daily_friendly_url(force=True)
+                        await SCHEDULE_API.tchr_ft_weekly_friendly_url(force=True)
+                        await SCHEDULE_API.tchr_r_weekly_friendly_url(force=True)
+
+                        SCHEDULE_API.ft_daily_url_button(force=True)
+                        SCHEDULE_API.ft_weekly_url_button(force=True)
+                        SCHEDULE_API.r_weekly_url_button(force=True)
+                        SCHEDULE_API.tchr_ft_daily_url_button(force=True)
+                        SCHEDULE_API.tchr_ft_weekly_url_button(force=True)
+                        SCHEDULE_API.tchr_r_weekly_url_button(force=True)
+
                         self.is_online = True
                         is_connect_error_logged = False
 
@@ -499,9 +514,9 @@ class ScheduleApi(Api):
                     except exceptions.ConnectionClosedError as e:
                         logger.info(e)
                         logger.info("reconnecting...")
-                        return await self.updates()
+                        continue
 
-            except ClientConnectorError:
+            except (ClientConnectorError, ServerDisconnectedError):
                 if not is_connect_error_logged:
                     self.is_online = False
 

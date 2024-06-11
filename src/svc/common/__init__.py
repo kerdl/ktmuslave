@@ -169,7 +169,7 @@ class DbBaseCtx(BaseModel):
             last_daily_message=ctx.last_daily_message,
             last_weekly_message=ctx.last_weekly_message,
             last_tchr_daily_message=ctx.last_tchr_daily_message,
-            last_rchr_weekly_message=ctx.last_tchr_weekly_message
+            last_tchr_weekly_message=ctx.last_tchr_weekly_message
         )
 
     def to_runtime(self) -> BaseCtx:
@@ -542,7 +542,7 @@ class BaseCtx:
                 if "chat not found" in e.message:
                     ...
                 
-                if "reply" in e.message:
+                if "repl" in e.message:
                     await try_without_reply(e, bcast_message, mapping)
 
             except TelegramForbiddenError:

@@ -134,7 +134,7 @@ MSG_GROUPS = (
     "  └ {groups}"
 )
 def format_groups(groups: list[str]):
-    groups_str = ", ".join(groups)
+    groups_str = ", ".join(groups) or "пусто"
     return MSG_GROUPS.format(groups=groups_str)
 
 MSG_TEACHERS = (
@@ -142,7 +142,7 @@ MSG_TEACHERS = (
     "  └ {teachers}"
 )
 def format_teachers(teachers: list[str]):
-    teachers_str = ", ".join(teachers)
+    teachers_str = ", ".join(teachers) or "пусто"
     return MSG_TEACHERS.format(teachers=teachers_str)
 
 

@@ -6,7 +6,7 @@ import datetime
 from src.data import TranslatedBaseModel, RepredBaseModel
 from src.data.weekday import WEEKDAY_LITERAL
 from src.data.range import Range
-from src.data.schedule import Page, Group, Day, Subject, TchrPage, TchrTeacher, TchrDay, TchrSubject
+from src.data.schedule import Page, Group, Day, Subject, TchrPage, TchrTeacher, TchrDay, TchrSubject, Subgroup
 
 
 T = TypeVar("T")
@@ -84,7 +84,7 @@ class PageCompare(BaseModel):
 class TchrSubjectCompare(TranslatedBaseModel, RepredBaseModel):
     name: Optional[str]
     num: Optional[PrimitiveChange[int]]
-    groups: Optional[Changes[str]]
+    groups: Optional[Changes[Subgroup]]
     cabinet: Optional[PrimitiveChange[Optional[str]]]
     time: Optional[PrimitiveChange[Range[datetime.time]]]
 

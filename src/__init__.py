@@ -147,21 +147,6 @@ class Defs:
         from src.api.schedule import SCHEDULE_API
 
         await SCHEDULE_API.wait_for_schedule_server()
-        await SCHEDULE_API.update_period()
-        await SCHEDULE_API.ft_daily_friendly_url()
-        await SCHEDULE_API.ft_weekly_friendly_url()
-        await SCHEDULE_API.r_weekly_friendly_url()
-        await SCHEDULE_API.tchr_ft_daily_friendly_url()
-        await SCHEDULE_API.tchr_ft_weekly_friendly_url()
-        await SCHEDULE_API.tchr_r_weekly_friendly_url()
-
-        SCHEDULE_API.ft_daily_url_button()
-        SCHEDULE_API.ft_weekly_url_button()
-        SCHEDULE_API.r_weekly_url_button()
-        SCHEDULE_API.tchr_ft_daily_url_button()
-        SCHEDULE_API.tchr_ft_weekly_url_button()
-        SCHEDULE_API.tchr_r_weekly_url_button()
-
         self.create_task(SCHEDULE_API.updates())
 
     async def get_vk_bot_info(self):
