@@ -959,8 +959,7 @@ async def main(everything: CommonEverything):
         ],
         [kb.ZOOM_BUTTON.with_value(entries_len)],
         [kb.TIME_BUTTON.with_value(ctx.settings.time_mode)],
-        [kb.EXECUTE_CODE_BUTTON.only_if(everything.ctx.is_admin)],
-        [kb.RESET_BUTTON]
+        [kb.RESET_BUTTON, kb.EXECUTE_CODE_BUTTON.only_if(everything.ctx.is_admin)],
     ])
 
     return await everything.edit_or_answer(

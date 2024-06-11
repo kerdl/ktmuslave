@@ -118,7 +118,7 @@ class Text:
     PIN          = "📌 Закреп"
     ZOOM         = "🖥️ Zoom"
     TIME         = "🕒 Время"
-    EXECUTE_CODE = "🛠️ Выполнить код"
+    EXECUTE_CODE = "🛠️"
     RESET        = "🗑️ Сбросить всё"
 
     # Zoom buttons
