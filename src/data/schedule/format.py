@@ -181,30 +181,43 @@ def time_overrides_table(ignored: list[WEEKDAY_LITERAL] = []) -> str:
     holden_weekdays = []
 
     for i, weekday in enumerate(WEEKDAYS):
-        if weekday in ignored:
-            continue
-        
+        is_last = i == len(WEEKDAYS) - 1
+        if is_last and weekday in ignored:
+            break
         try: maps = TIME_OVERRIDES[weekday]
         except KeyError: continue
 
+        try:
+            if i > 0: prev_wkd = WEEKDAYS[i-1]
+            else: prev_wkd = None
+        except IndexError: prev_wkd = None
+        try: prev_wkd_maps = TIME_OVERRIDES[prev_wkd]
+        except KeyError: prev_wkd_maps = None
         try: next_wkd = WEEKDAYS[i+1]
         except IndexError: next_wkd = None
         try: next_wkd_maps = TIME_OVERRIDES[next_wkd]
         except KeyError: next_wkd_maps = None
 
-        if maps == next_wkd_maps:
+        if maps == next_wkd_maps and weekday not in ignored:
             holden_weekdays.append(weekday)
             continue
         else:
             try: first_wkd = holden_weekdays[0]
             except IndexError: first_wkd = weekday
 
-            if first_wkd == weekday:
-                header = weekday
+            if weekday in ignored:
+                if first_wkd == prev_wkd:
+                    header = first_wkd
+                else:
+                    header = f"{first_wkd} - {prev_wkd}"
+                fmt_timetable = format_map(prev_wkd_maps)
             else:
-                header = f"{first_wkd} - {weekday}"
-
-            fmt_timetable = format_map(maps)
+                if first_wkd == weekday and weekday not in ignored:
+                    header = weekday
+                else:
+                    header = f"{first_wkd} - {weekday}"
+                fmt_timetable = format_map(maps)
+            
             parts.append(f"{header}\n{fmt_timetable}")
             holden_weekdays = []
     
