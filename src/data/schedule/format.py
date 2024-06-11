@@ -7,6 +7,8 @@ from src.svc.common import messages
 from src.data.schedule.compare import Changes, DetailedChanges, PrimitiveChange
 from src.data.schedule import Group, Day, Subject, CommonIdentifier, CommonDay, CommonSubject, Format, FORMAT_LITERAL, compare
 from src.data.range import Range
+from src.data.weekday import Weekday, WEEKDAY_LITERAL, WEEKDAYS
+from src.data.range import Range
 from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt, Emoji
 from src import text
 
@@ -74,6 +76,51 @@ PRIMITIVE = "{} → {}"
 
 ZOOM_NAME_PREFIX = Emoji.COMPLETE
 
+TIME_OVERRIDES = {}
+TIME_OVERRIDES[Weekday.MONDAY] = {
+    1: Range(start=datetime.time.fromisoformat("08:30:00"),
+            end=datetime.time.fromisoformat("09:55:00")),
+
+    2: Range(start=datetime.time.fromisoformat("10:20:00"),
+            end=datetime.time.fromisoformat("11:45:00")),
+
+    3: Range(start=datetime.time.fromisoformat("12:00:00"),
+            end=datetime.time.fromisoformat("13:25:00")),
+
+    4: Range(start=datetime.time.fromisoformat("13:55:00"),
+            end=datetime.time.fromisoformat("15:20:00")),
+
+    5: Range(start=datetime.time.fromisoformat("15:40:00"),
+            end=datetime.time.fromisoformat("17:05:00")),
+
+    6: Range(start=datetime.time.fromisoformat("17:15:00"),
+            end=datetime.time.fromisoformat("18:40:00")),
+}
+TIME_OVERRIDES[Weekday.TUESDAY] = TIME_OVERRIDES[Weekday.MONDAY]
+TIME_OVERRIDES[Weekday.WEDNESDAY] = TIME_OVERRIDES[Weekday.MONDAY]
+TIME_OVERRIDES[Weekday.THURSDAY] = TIME_OVERRIDES[Weekday.MONDAY]
+TIME_OVERRIDES[Weekday.FRIDAY] = TIME_OVERRIDES[Weekday.MONDAY]
+TIME_OVERRIDES[Weekday.SATURDAY] = {
+    1: Range(start=datetime.time.fromisoformat("09:00:00"),
+            end=datetime.time.fromisoformat("10:00:00")),
+
+    2: Range(start=datetime.time.fromisoformat("10:10:00"),
+            end=datetime.time.fromisoformat("11:10:00")),
+
+    3: Range(start=datetime.time.fromisoformat("11:30:00"),
+            end=datetime.time.fromisoformat("12:30:00")),
+            
+    4: Range(start=datetime.time.fromisoformat("12:50:00"),
+            end=datetime.time.fromisoformat("13:50:00")),
+
+    5: Range(start=datetime.time.fromisoformat("14:05:00"),
+            end=datetime.time.fromisoformat("15:05:00")),
+
+    6: Range(start=datetime.time.fromisoformat("15:15:00"),
+            end=datetime.time.fromisoformat("16:15:00")),
+}
+TIME_OVERRIDES[Weekday.SUNDAY] = TIME_OVERRIDES[Weekday.MONDAY]
+
 
 def keycap_num(num: int) -> str:
     num_str = str(num)
@@ -112,6 +159,56 @@ def date(dt: datetime.date) -> str:
     str_year = str(dt.year)
 
     return f"{str_day}.{str_month}.{str_year}"
+
+def time_overrides_table(ignored: list[WEEKDAY_LITERAL] = []) -> str:
+    def format_map(num_map: dict[int, Range[datetime.time]]) -> str:
+        parts = []
+        i = 1
+        while True:
+            try: rng = num_map[i]
+            except KeyError: break
+
+            fmt_num = keycap_num(i)
+            fmt_rng = str(rng)
+
+            parts.append(f"{fmt_num}: {fmt_rng}")
+
+            i += 1
+        
+        return "\n".join(parts)
+
+    parts = []
+    holden_weekdays = []
+
+    for i, weekday in enumerate(WEEKDAYS):
+        if weekday in ignored:
+            continue
+        
+        try: maps = TIME_OVERRIDES[weekday]
+        except KeyError: continue
+
+        try: next_wkd = WEEKDAYS[i+1]
+        except IndexError: next_wkd = None
+        try: next_wkd_maps = TIME_OVERRIDES[next_wkd]
+        except KeyError: next_wkd_maps = None
+
+        if maps == next_wkd_maps:
+            holden_weekdays.append(weekday)
+            continue
+        else:
+            try: first_wkd = holden_weekdays[0]
+            except IndexError: first_wkd = weekday
+
+            if first_wkd == weekday:
+                header = weekday
+            else:
+                header = f"{first_wkd} - {weekday}"
+
+            fmt_timetable = format_map(maps)
+            parts.append(f"{header}\n{fmt_timetable}")
+            holden_weekdays = []
+    
+    return "\n\n".join(parts)
 
 def guests(
     tchrs: list[str],
@@ -156,7 +253,9 @@ def subject(
     subj: CommonSubject,
     entries: set[zoom.Data],
     rng: Optional[Range[Subject]] = None,
-    do_tg_markup: bool = False
+    do_tg_markup: bool = False,
+    override_time: bool = True,
+    weekday: Optional[WEEKDAY_LITERAL] = None
 ) -> str:
     if subj.is_unknown_window():
         if rng is not None:
@@ -168,12 +267,19 @@ def subject(
                 start=rng.start.time.start,
                 end=rng.end.time.end
             )
+            if override_time and weekday:
+                try: time_range = TIME_OVERRIDES[weekday][subj.num]
+                except KeyError: ...
+            
             return f"{circle_keycap_num_range(num_range)} {time_range}: {subj.name}"
         
         return f"{circle_keycap_num(subj.num)} {subj.name}"
     
     num     = keycap_num(subj.num)
     time    = str(subj.time) if subj.time else ""
+    if override_time and weekday:
+        try: time = str(TIME_OVERRIDES[weekday][subj.num])
+        except KeyError: ...
     name    = subj.name
     guests_ = guests(subj.guests(), subj.format, entries, do_tg_markup)
     cabinet = subj.cabinet
@@ -203,7 +309,8 @@ def subject(
 def days(
     days: list[CommonDay],
     entries: set[zoom.Data],
-    do_tg_markup: bool = False
+    do_tg_markup: bool = False,
+    override_time: bool = True,
 ) -> list[str]:
     fmt_days: list[str] = []
 
@@ -273,7 +380,13 @@ def days(
                 format_holden_ranges()
                 hold = []
 
-            fmt_subj = subject(subj, entries, do_tg_markup=do_tg_markup)
+            fmt_subj = subject(
+                subj,
+                entries,
+                do_tg_markup=do_tg_markup,
+                override_time=override_time,
+                weekday=weekday
+            )
             fmt_subjs.append((
                 subj,
                 fmt_subj
@@ -337,7 +450,8 @@ async def identifier(
     identifier: Optional[CommonIdentifier],
     entries: list[zoom.Data],
     mode: "MODE_LITERAL",
-    do_tg_markup: bool = False
+    do_tg_markup: bool = False,
+    override_time: bool = False,
 ) -> str:
     from src.api.schedule import SCHEDULE_API
     from src.data.settings import Mode
@@ -366,7 +480,7 @@ async def identifier(
             )
 
     label = identifier.raw
-    days_str = "\n\n".join(days(identifier.days, entries, do_tg_markup))
+    days_str = "\n\n".join(days(identifier.days, entries, do_tg_markup, override_time))
 
     if mode == Mode.GROUP:
         return (

@@ -32,7 +32,7 @@ from src.svc.common import keyboard as kb, error
 from src.data import RepredBaseModel, HiddenVars
 from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL, Page, TchrPage
 from src.data.schedule.compare import PageCompare, TchrPageCompare
-from src.data.settings import Settings
+from src.data.settings import Settings, TimeMode
 from src.api.schedule import Notify
 from .states.tree import Space
 
@@ -139,6 +139,8 @@ class DbBaseCtx(BaseModel):
     last_bot_message: Optional[CommonBotMessage]
     last_daily_message: Optional[CommonBotMessage]
     last_weekly_message: Optional[CommonBotMessage]
+    last_tchr_daily_message: Optional[CommonBotMessage]
+    last_tchr_weekly_message: Optional[CommonBotMessage]
 
     @classmethod
     def ensure_update_forward_refs(cls):
@@ -165,7 +167,9 @@ class DbBaseCtx(BaseModel):
             last_everything=ctx.last_everything,
             last_bot_message=ctx.last_bot_message,
             last_daily_message=ctx.last_daily_message,
-            last_weekly_message=ctx.last_weekly_message
+            last_weekly_message=ctx.last_weekly_message,
+            last_tchr_daily_message=ctx.last_tchr_daily_message,
+            last_rchr_weekly_message=ctx.last_tchr_weekly_message
         )
 
     def to_runtime(self) -> BaseCtx:
@@ -244,7 +248,9 @@ class BaseCtx:
             last_everything=db.last_everything,
             last_bot_message=db.last_bot_message,
             last_daily_message=db.last_daily_message,
-            last_weekly_message=db.last_weekly_message
+            last_weekly_message=db.last_weekly_message,
+            last_tchr_daily_message=db.last_tchr_daily_message,
+            last_tchr_weekly_message=db.last_tchr_weekly_message,
         )
 
         self.settings.zoom.check_all()
@@ -341,7 +347,8 @@ class BaseCtx:
             group,
             self.settings.zoom.entries.list,
             self.settings.mode,
-            self.last_everything.is_from_tg_generally
+            self.last_everything.is_from_tg_generally,
+            override_time=self.settings.time_mode == TimeMode.OVERRIDE
         )
 
     async def fmt_schedule_for_confirmed_teacher(
@@ -355,9 +362,10 @@ class BaseCtx:
 
         return await sc_format.identifier(
             teacher,
-            self.settings.zoom.entries.list,
+            self.settings.tchr_zoom.entries.list,
             self.settings.mode,
-            self.last_everything.is_from_tg_generally
+            self.last_everything.is_from_tg_generally,
+            override_time=self.settings.time_mode == TimeMode.OVERRIDE
         )
 
     async def send_custom_broadcast(

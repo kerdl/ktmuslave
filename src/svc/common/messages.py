@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Any, Optional, TYPE_CHECKING
 from dotenv import get_key
 import html
+import datetime
 
 from src import defs, ENV_PATH
 from src.data.settings import Settings
@@ -77,7 +78,7 @@ MSG_DEBUG = (
     "8==o🤮 trace:\n"
     "{trace}\n"
     "8==o🤮 back_trace:\n"
-    "{back_trace}\n"
+    "{back_trace}"
 )
 def format_debug(trace: list[State], back_trace: list[State], last_bot_message: common.CommonBotMessage, settings: Settings):
 
@@ -95,7 +96,7 @@ def format_debug(trace: list[State], back_trace: list[State], last_bot_message: 
 
 MSG_CANT_PRESS_OLD_BUTTONS = (
     "Вот тебе новое сообщение, "
-    "на нём и тыкай куда тебе надо"
+    "тыкай на нём"
 )
 def format_cant_press_old_buttons():
     return MSG_CANT_PRESS_OLD_BUTTONS
@@ -146,21 +147,21 @@ def format_teachers(teachers: list[str]):
 
 
 MSG_MENTION_ME = (
-    "😮 Ещё упомяни меня: {mention}, иначе не увижу 😮"
+    "Ещё упомяни меня: {mention}, иначе не увижу"
 )
 def format_mention_me(mention: str):
     return MSG_MENTION_ME.format(mention=mention)
 
 
 MSG_REPLY_TO_ME = (
-    "😮 Ещё ↩️ ответь ↩️ на это сообщение, иначе не увижу 😮"
+    "Ещё ↩️ ответь ↩️ на это сообщение, иначе не увижу"
 )
 def format_reply_to_me():
     return MSG_REPLY_TO_ME
 
 
 MSG_CHAT_WILL_MIGRATE = (
-    "🤔 Из-за этого, эта группа станет супергруппой 🤔\n"
+    "🤔 Из-за этого, эта группа станет супергруппой\n"
     "Читай подробнее здесь: https://teleme.io/articles/turn_a_telegram_group_into_a_supergroup?hl=ru"
 )
 def format_chat_will_migrate():
@@ -229,7 +230,7 @@ MSG_GROUP_INPUT = (
     "  └ 1кдд69\n"
     "  └ 1-кдд-69\n"
     "  └ 1КДД69\n"
-    "  └ 1-КДД-69\n"
+    "  └ 1-КДД-69"
 )
 def format_group_input():
     return MSG_GROUP_INPUT
@@ -239,7 +240,7 @@ MSG_TEACHER_INPUT = (
     "📌 | Формат:\n"
     "  └ Говновоз Ж.Д.\n"
     "  └ Говновоз жд\n"
-    "  └ Говновоз\n"
+    "  └ Говновоз"
 )
 def format_teacher_input():
     return MSG_TEACHER_INPUT
@@ -279,7 +280,7 @@ MSG_FORBIDDEN_FORMAT_TEACHER = (
     "❌ | Препода нет в расписании, такой формат использовать нельзя"
     "💡 | Используй:\n"
     "  └ Говновоз Ж.Д.\n"
-    "  └ Говновоз жд\n"
+    "  └ Говновоз жд"
 )
 def format_forbidden_format_teacher():
     return MSG_FORBIDDEN_FORMAT_TEACHER
@@ -340,6 +341,17 @@ def format_cant_pin(src: common.MESSENGER_OR_EVT_SOURCE):
         return MSG_CANT_PIN_VK
     if src == common.Source.TG:
         return MSG_CANT_PIN_TG
+
+
+MSG_TIME_OVERRIDE = (
+    "{timetable}\n\n"
+    "🕒 | Я могу ставить такой график звонков вместо "
+    "того, что указано в обычном распиcании\n"
+    "💡 | Используй это, если тебя тоже заебал неправильно указанный "
+    "график в субботу"
+)
+def format_time_override(timetable: str):
+    return MSG_TIME_OVERRIDE.format(timetable=timetable)
 
 
 MSG_RECOMMEND_ADDING_ZOOM = (
@@ -640,56 +652,84 @@ def format_finish():
 
 
 MSG_GROUP_SETTING_EXPLAIN = (
-    f"{Text.GROUP} - настройки группы, с которой работает негр"
+    f"{Text.GROUP}: ""{group}\n"
+    "└ Настройки группы, с которой работает негр"
 )
 MSG_TEACHER_SETTING_EXPLAIN = (
-    f"{Text.TEACHER} - настройки препода, с которым работает негр"
+    f"{Text.TEACHER}: ""{teacher}\n"
+    "└ Настройки препода, с которым работает негр"
 )
 MSG_BROADCAST_SETTING_EXPLAIN = (
-    f"{Text.BROADCAST} - получишь ли ты новое сообщение при обновлении расписания для установленной группы"
+    f"{Text.BROADCAST}: ""{broadcast}\n"
+    "└ Получишь ли ты новое сообщение при обновлении расписания для установленной группы"
 )
 MSG_TCHR_BROADCAST_SETTING_EXPLAIN = (
-    f"{Text.BROADCAST} - получишь ли ты новое сообщение при обновлении расписания для установленного препода"
+    f"{Text.BROADCAST}: ""{broadcast}\n"
+    "└ Получишь ли ты новое сообщение при обновлении расписания для установленного препода"
 )
 MSG_PIN_SETTING_EXPLAIN = (
-    f"{Text.PIN} - закрепит ли негр рассылку расписания"
+    f"{Text.PIN}: ""{do_pin}\n"
+    "└ Закрепит ли негр рассылку расписания"
 )
 MSG_ZOOM_SETTING_EXPLAIN = (
-    f"{Text.ZOOM} - настройки данных преподов: их имена, ссылки, ID, пароли и заметки, которые показываются в расписании"
+    f"{Text.ZOOM}: ""{zoom}\n"
+    "└ Настройки данных преподов: их имена, ссылки, ID, пароли и заметки, которые показываются в расписании"
 )
 MSG_TCHR_ZOOM_SETTING_EXPLAIN = (
-    f"{Text.ZOOM} - настройки данных Zoom: ссылки, ID, пароли и заметки, которые показываются в расписании"
+    f"{Text.ZOOM}: ""{zoom}\n"
+    "└ Настройки данных Zoom: ссылки, ID, пароли и заметки, которые показываются в расписании"
+)
+MSG_TIME_OVERRIDE_EXPLAIN = (
+    f"{Text.TIME} ""{time}\n"
+    "└ Перезапись времени из расписания на статичный график"
 )
 MSG_RESET_SETTING_EXPLAIN = (
-    f"{Text.RESET} - сбросить все данные и начать первоначальную настройку"
+    f"{Text.RESET}\n"
+    "└ Сбросить все данные и начать первоначальную настройку"
 )
-def format_settings_main(is_group_chat: bool) -> str:
+def format_settings_main(
+    is_group_chat: bool,
+    group: str,
+    broadcast: bool,
+    do_pin: bool,
+    zoom: int,
+    time: str
+) -> str:
     text = ""
 
-    text += f"{MSG_GROUP_SETTING_EXPLAIN}\n"
+    text += f"{MSG_GROUP_SETTING_EXPLAIN.format(group=fmt.value_repr(group))}\n"
     text += "\n"
-    text += f"{MSG_BROADCAST_SETTING_EXPLAIN}\n"
+    text += f"{MSG_BROADCAST_SETTING_EXPLAIN.format(broadcast=fmt.value_repr(broadcast))}\n"
     text += "\n"
     if is_group_chat:
-        text += f"{MSG_PIN_SETTING_EXPLAIN}\n"
+        text += f"{MSG_PIN_SETTING_EXPLAIN.format(do_pin=fmt.value_repr(do_pin))}\n"
         text += "\n"
-    text += f"{MSG_ZOOM_SETTING_EXPLAIN}\n"
+    text += f"{MSG_ZOOM_SETTING_EXPLAIN.format(zoom=fmt.value_repr(zoom))}\n"
+    text += "\n"
+    text += f"{MSG_TIME_OVERRIDE_EXPLAIN.format(time=fmt.value_repr(time))}\n"
     text += "\n"
     text += f"{MSG_RESET_SETTING_EXPLAIN}\n"
 
     return text
 
-def format_tchr_settings_main(is_group_chat: bool) -> str:
+def format_tchr_settings_main(
+    is_group_chat: bool,
+    teacher: str,
+    broadcast: bool,
+    do_pin: bool,
+    zoom: int,
+    time: str
+) -> str:
     text = ""
 
-    text += f"{MSG_TEACHER_SETTING_EXPLAIN}\n"
+    text += f"{MSG_TEACHER_SETTING_EXPLAIN.format(teacher=fmt.value_repr(teacher))}\n"
     text += "\n"
-    text += f"{MSG_TCHR_BROADCAST_SETTING_EXPLAIN}\n"
+    text += f"{MSG_TCHR_BROADCAST_SETTING_EXPLAIN.format(broadcast=fmt.value_repr(broadcast))}\n"
     text += "\n"
     if is_group_chat:
-        text += f"{MSG_PIN_SETTING_EXPLAIN}\n"
+        text += f"{MSG_PIN_SETTING_EXPLAIN.format(do_pin=fmt.value_repr(do_pin))}\n"
         text += "\n"
-    text += f"{MSG_TCHR_ZOOM_SETTING_EXPLAIN}\n"
+    text += f"{MSG_TCHR_ZOOM_SETTING_EXPLAIN.format(zoom=fmt.value_repr(zoom))}\n"
     text += "\n"
     text += f"{MSG_RESET_SETTING_EXPLAIN}\n"
 
@@ -733,7 +773,7 @@ MSG_EXECUTE_CODE_EXPLAIN = (
     "Полезные пути:\n"
     "src.defs (defs -> (redis, ctx -> get_everyone))\n"
     "src.svc.common.keyboard (Keyboard, *_BUTTON)\n"
-    "src.svc.common.states.tree (HUB, SETTINGS, ...)\n"
+    "src.svc.common.states.tree (HUB, SETTINGS, ...)"
 )
 def format_execute_code_explain(exposed_vars: list[str], print_example: str) -> str:
     return MSG_EXECUTE_CODE_EXPLAIN.format(

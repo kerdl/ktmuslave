@@ -39,6 +39,13 @@ class Format:
 FORMAT_LITERAL = Literal["fulltime", "remote"]
 
 
+class TimeMode:
+    ORIGINAL = "original"
+    OVERRIDE = "override"
+
+TIME_MODE_LITERAL = Literal["original", "override"]
+
+
 class Message(BaseModel):
     type: TYPE_LITERAL = Type.WEEKLY
     is_folded: bool = False

@@ -41,6 +41,7 @@ class Settings(Tree):
     II_BROADCAST        = State(**BROADCAST)
     III_SHOULD_PIN      = State(**SHOULD_PIN)
     II_ZOOM             = State(**INIT_ZOOM)
+    II_TIME_OVERRIDE    = State(**TIME_OVERRIDE)
 
 
 class Hub(Tree):

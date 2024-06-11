@@ -10,7 +10,7 @@ from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
-from src.data.settings import Group, Mode, Teacher
+from src.data.settings import Group, Mode, Teacher, TimeMode
 from src.data.schedule import format as sc_format
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import INIT, ZOOM, HUB
@@ -166,7 +166,8 @@ async def hub(
             users_identifier_data,
             zoom_entries,
             temp_mode,
-            everything.is_from_tg_generally
+            everything.is_from_tg_generally,
+            override_time=ctx.settings.time_mode == TimeMode.OVERRIDE
         )
     else:
         schedule_text = messages.format_cant_connect_to_schedule_server()

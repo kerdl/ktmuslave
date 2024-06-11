@@ -319,6 +319,11 @@ SHOULD_PIN = {
 INIT_ZOOM = {
     "name": "Zoom данные",
 }
+def _ctx_false(everything: common.CommonEverything) -> False: return False
+TIME_OVERRIDE = {
+    "name": "Замена времени",
+    "should_display_in_tree": _ctx_false
+}
 INIT_FINISH = {
     "name": "ФИНААААЛ СУЧКИ",
 }
@@ -387,6 +392,7 @@ __all__ = (
     "BROADCAST",
     "SHOULD_PIN",
     "INIT_ZOOM",
+    "TIME_OVERRIDE",
     "INIT_FINISH",
     "ZOOM_MASS",
     "ZOOM_MASS_CHECK",

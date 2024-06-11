@@ -53,6 +53,7 @@ class Payload:
     BROADCAST     = "broadcast"
     PIN           = "pin"
     ZOOM          = "zoom"
+    TIME          = "time"
     EXECUTE_CODE  = "execute_code"
     RESET         = "reset"
 
@@ -114,8 +115,9 @@ class Text:
     TEACHER_MODE = "🔁 Режим препода"
     TEACHER      = "👤 Препод"
     BROADCAST    = "✉️ Рассылка"
-    PIN          = "📌 Закрепление"
+    PIN          = "📌 Закреп"
     ZOOM         = "🖥️ Zoom"
+    TIME         = "🕒 Время"
     EXECUTE_CODE = "🛠️ Выполнить код"
     RESET        = "🗑️ Сбросить всё"
 
@@ -560,6 +562,7 @@ TEACHER_MODE_BUTTON = Button(text = Text.TEACHER_MODE, callback = Payload.TEACHE
 BROADCAST_BUTTON = Button(text = Text.BROADCAST, callback = Payload.BROADCAST, color = Color.BLUE)
 PIN_BUTTON = Button(text = Text.PIN, callback = Payload.PIN, color = Color.BLUE)
 ZOOM_BUTTON = Button(text = Text.ZOOM, callback = Payload.ZOOM, color = Color.BLUE)
+TIME_BUTTON = Button(text = Text.TIME, callback = Payload.TIME, color = Color.BLUE)
 EXECUTE_CODE_BUTTON = Button(text = Text.EXECUTE_CODE, callback = Payload.EXECUTE_CODE, color = Color.BLUE)
 RESET_BUTTON = Button(text = Text.RESET, callback = Payload.RESET, color = Color.RED)
 

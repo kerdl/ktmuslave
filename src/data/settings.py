@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field as PydField
 import difflib
 
 from src.data import zoom as zoom_mod
+from src.data.schedule import TIME_MODE_LITERAL, TimeMode
 from src.svc import common
 from src.parse import pattern
 from src.svc.common.states import State, Values
@@ -109,6 +110,7 @@ class Settings(Values):
     tchr_zoom: zoom_mod.Container = PydField(default_factory=zoom_mod.Container.as_tchr)
     broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None
+    time_mode: Optional[TIME_MODE_LITERAL] = TimeMode.OVERRIDE
 
     def get_from_state(self, state: State) -> Any:
         storage = None

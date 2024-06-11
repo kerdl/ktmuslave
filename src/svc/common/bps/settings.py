@@ -7,6 +7,8 @@ from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
+from src.data.schedule import TimeMode, format as sc_format
+from src.data.weekday import Weekday
 from src.data.settings import Mode
 from src.svc.common.states import formatter as states_fmt, Space
 from src.svc.common.states.tree import INIT, ZOOM, SETTINGS, RESET, HUB
@@ -58,6 +60,55 @@ async def auto_route(everything: CommonEverything):
     if current_state in [SETTINGS.II_ZOOM]:
         from src.svc.common.bps import init
         return await init.to_finish(everything)
+
+
+""" TIME OVERRIDE ACTIONS """
+
+@r.on_callback(
+    StateFilter(SETTINGS.II_TIME_OVERRIDE),
+    PayloadFilter(Payload.FALSE)
+)
+async def deny_time_override(everything: CommonEverything):
+    ctx = everything.ctx
+    ctx.settings.time_mode = TimeMode.ORIGINAL
+    return await auto_route(everything)
+
+@r.on_callback(
+    StateFilter(SETTINGS.II_TIME_OVERRIDE),
+    PayloadFilter(Payload.TRUE)
+)
+async def approve_time_override(everything: CommonEverything):
+    ctx = everything.ctx
+    ctx.settings.time_mode = TimeMode.OVERRIDE
+    return await auto_route(everything)
+
+
+""" TIME OVERRIDE STATE """
+
+@r.on_everything(StateFilter(SETTINGS.II_TIME_OVERRIDE))
+async def time_override(everything: CommonEverything):
+    ctx = everything.ctx
+
+    answer_text = (
+        messages.Builder()
+            .add(messages.format_time_override(sc_format.time_overrides_table(ignored=Weekday.SUNDAY)))
+    )
+    answer_keyboard = Keyboard([
+        [kb.FALSE_BUTTON, kb.TRUE_BUTTON],
+    ])
+
+    await everything.edit_or_answer(
+        text     = answer_text.make(),
+        keyboard = answer_keyboard,
+    )
+
+@r.on_callback(
+    PayloadFilter(Payload.TIME),
+    StateFilter(SETTINGS.I_MAIN)
+)
+async def to_time_override(everything: CommonEverything):
+    everything.navigator.append(SETTINGS.II_TIME_OVERRIDE)
+    return await time_override(everything)
 
 
 """ ZOOM ACTIONS """
@@ -159,9 +210,15 @@ async def add_zoom(everything: CommonEverything):
     ])
 
     if not is_from_hub:
+        is_finished = None
+        if ctx.settings.mode == Mode.GROUP:
+            is_finished = ctx.settings.zoom.is_finished
+        elif ctx.settings.mode == Mode.TEACHER:
+            is_finished = ctx.settings.tchr_zoom.is_finished
+
         answer_keyboard.assign_next(
             kb.NEXT_ZOOM_BUTTON.only_if(
-                ctx.settings.zoom.is_finished
+                is_finished
             ) or kb.SKIP_BUTTON
         )
 
@@ -874,17 +931,34 @@ async def main(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-            .add_if(messages.format_settings_main(everything.is_group_chat), ctx.settings.mode == Mode.GROUP)
-            .add_if(messages.format_tchr_settings_main(everything.is_group_chat), ctx.settings.mode == Mode.TEACHER)
+            .add_if(messages.format_settings_main(
+                everything.is_group_chat,
+                ctx.settings.group.confirmed,
+                ctx.settings.broadcast,
+                ctx.settings.should_pin,
+                len(ctx.settings.zoom.entries),
+                ctx.settings.time_mode
+            ), ctx.settings.mode == Mode.GROUP)
+            .add_if(messages.format_tchr_settings_main(
+                everything.is_group_chat,
+                ctx.settings.teacher.confirmed,
+                ctx.settings.broadcast,
+                ctx.settings.should_pin,
+                len(ctx.settings.tchr_zoom.entries),
+                ctx.settings.time_mode
+            ), ctx.settings.mode == Mode.TEACHER)
     )
     answer_keyboard = Keyboard([
         [kb.GROUP_BUTTON.with_value(ctx.settings.group.confirmed).only_if(ctx.settings.mode == Mode.GROUP)],
         [kb.TEACHER_BUTTON.with_value(ctx.settings.teacher.confirmed).only_if(ctx.settings.mode == Mode.TEACHER)],
-        [kb.BROADCAST_BUTTON.with_value(ctx.settings.broadcast)],
-        [kb.PIN_BUTTON.with_value(ctx.settings.should_pin).only_if(
-            SETTINGS.III_SHOULD_PIN not in ctx.navigator.ignored
-        )],
+        [
+            kb.BROADCAST_BUTTON.with_value(ctx.settings.broadcast),
+            kb.PIN_BUTTON.with_value(ctx.settings.should_pin).only_if(
+                SETTINGS.III_SHOULD_PIN not in ctx.navigator.ignored
+            )
+        ],
         [kb.ZOOM_BUTTON.with_value(entries_len)],
+        [kb.TIME_BUTTON.with_value(ctx.settings.time_mode)],
         [kb.EXECUTE_CODE_BUTTON.only_if(everything.ctx.is_admin)],
         [kb.RESET_BUTTON]
     ])
@@ -914,4 +988,5 @@ STATE_MAP = {
     SETTINGS.II_BROADCAST: broadcast,
     SETTINGS.III_SHOULD_PIN: should_pin,
     SETTINGS.II_ZOOM: add_zoom,
+    SETTINGS.II_TIME_OVERRIDE: time_override,
 }
