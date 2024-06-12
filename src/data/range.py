@@ -19,7 +19,10 @@ class Range(GenericModel, Generic[T]):
         ):
             start = f"{self.start.hour}:{fmt.zero_at_start(self.start.minute)}"
             end   = f"{self.end.hour}:{fmt.zero_at_start(self.end.minute)}"
-
+            
+            if start == end:
+                return start
+            
             return f"{start} - {end}"
 
         return f"{self.start} - {self.end}"

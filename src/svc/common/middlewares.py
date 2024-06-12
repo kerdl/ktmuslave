@@ -1,7 +1,7 @@
 from loguru import logger
 
 from src import defs
-from src.svc.common import CommonEverything, messages
+from src.svc.common import CommonEverything, messages, keyboard as kb
 from src.svc.common.router import r, Middleware, MessageMiddleware, EventMiddleware
 
 
@@ -47,20 +47,33 @@ class Throttling(Middleware):
         await everything.ctx.throttle()
 
 @r.middleware()
+class ManualUpdateBlock(EventMiddleware):
+    async def pre(self, everything: CommonEverything):
+        if everything.event.payload != kb.Payload.UPDATE:
+            return
+        
+        await everything.event.show_notification(
+            messages.format_manual_updates_are_disabled()
+        )
+        await self.stop_pre()
+
+@r.middleware()
 class OldMessagesBlock(EventMiddleware):
     async def pre(self, everything: CommonEverything):
-        from src.svc.common.bps import hub
-        from src.svc.common import messages, keyboard as kb
-        from src.svc.common.states.tree import HUB
+        from src.svc.common.bps import hub, init
+        from src.svc.common.states.tree import HUB, INIT
 
         async def resend_last_bot_message():
             await common_event.show_notification(
                 messages.format_cant_press_old_buttons()
             )
 
-            # send last bot message again
-            msg = await user_ctx.last_bot_message.send()
-            await user_ctx.set_last_bot_message(msg)
+            if user_ctx.last_bot_message is not None:
+                # send last bot message again
+                msg = await user_ctx.last_bot_message.send()
+                await user_ctx.set_last_bot_message(msg)
+            else:
+                await init.main(everything, force_send=True)
         
         common_event = everything.event
         user_ctx = common_event.ctx

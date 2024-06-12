@@ -31,12 +31,17 @@ class Settings(Tree):
 
     __space__ = Space.SETTINGS
 
-    I_MAIN            = State(**SETTINGS_MAIN)
-    II_GROUP          = State(**GROUP)
-    III_UNKNOWN_GROUP = State(**UNKNOWN_GROUP)
-    II_BROADCAST      = State(**BROADCAST)
-    III_SHOULD_PIN    = State(**SHOULD_PIN)
-    II_ZOOM           = State(**INIT_ZOOM)
+    I_MAIN              = State(**SETTINGS_MAIN)
+    II_MODE             = State(**MODE)
+    II_IDENTIFICATION   = State(**IDENTIFICATION)
+    II_GROUP            = State(**GROUP)
+    III_UNKNOWN_GROUP   = State(**UNKNOWN_GROUP)
+    II_TEACHER          = State(**TEACHER)
+    III_UNKNOWN_TEACHER = State(**UNKNOWN_TEACHER)
+    II_BROADCAST        = State(**BROADCAST)
+    III_SHOULD_PIN      = State(**SHOULD_PIN)
+    II_ZOOM             = State(**INIT_ZOOM)
+    II_TIME_OVERRIDE    = State(**TIME_OVERRIDE)
 
 
 class Hub(Tree):
@@ -67,6 +72,7 @@ class Zoom(Tree):
     IIII_URL                = State(**ZOOM_EDIT_URL)
     IIII_ID                 = State(**ZOOM_EDIT_ID)
     IIII_PWD                = State(**ZOOM_EDIT_PWD)
+    IIII_HOST_KEY           = State(**ZOOM_EDIT_HOST_KEY)
     IIII_NOTES              = State(**ZOOM_EDIT_NOTES)
     III_DUMP                = State(**ZOOM_DUMP)
     IIII_CONFIRM_REMOVE_ALL = State(**ZOOM_CONFIRM_REMOVE_ALL)

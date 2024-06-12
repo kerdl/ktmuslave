@@ -1,8 +1,11 @@
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from src.data import format as fmt
 from src.svc.common.navigator import Navigator
 from src.svc.common.states import State, Values
+
+if TYPE_CHECKING:
+    from src.svc.common import CommonEverything
 
 
 def tabs(level: int) -> str:
@@ -35,7 +38,12 @@ def upcoming(state: State, value: Optional[Any] = None) -> str:
 
     return add_value(text, value)
 
-def tree(navigator: Navigator, values: Optional[Values] = None, base_lvl: int = 1):
+def tree(
+    navigator: Navigator,
+    everything: "CommonEverything",
+    values: Optional[Values] = None,
+    base_lvl: int = 1
+):
     """
     ## Convert tree to a nice readable text
     """
@@ -54,6 +62,9 @@ def tree(navigator: Navigator, values: Optional[Values] = None, base_lvl: int = 
 
     for i, tree_state in enumerate(tree.__states__):
         if tree_state in ignored:
+            continue
+
+        if not tree_state.should_display_in_tree(everything):
             continue
 
         tree_state: State

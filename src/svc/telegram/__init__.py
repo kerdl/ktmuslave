@@ -3,6 +3,8 @@ from typing import Literal, Optional, Callable, Union
 from dotenv import get_key
 from aiogram import Bot, Router, Dispatcher
 from aiogram.types import MessageEntity, ForceReply, InlineKeyboardMarkup, Message, CallbackQuery, ChatMemberUpdated
+import re
+import html
 
 from src import defs, text as text_utils, ENV_PATH
 
@@ -48,7 +50,8 @@ async def chunked_send(
             text                     = chunk,
             disable_web_page_preview = disable_web_page_preview,
             reply_markup             = reply_markup if is_last else None,
-            reply_to_message_id      = reply_to_message_id if is_first else None
+            reply_to_message_id      = reply_to_message_id if is_first else None,
+            parse_mode               = "HTML"
         )
 
         responses.append(result)
@@ -79,7 +82,8 @@ async def chunked_edit(
                 message_id               = message_id,
                 text                     = chunk,
                 disable_web_page_preview = disable_web_page_preview,
-                reply_markup             = reply_markup if is_last else None
+                reply_markup             = reply_markup if is_last else None,
+                parse_mode               = "HTML"
             )
 
             edit_result = result
@@ -90,7 +94,8 @@ async def chunked_edit(
                 chat_id                  = chat_id,
                 text                     = chunk,
                 disable_web_page_preview = disable_web_page_preview,
-                reply_markup             = reply_markup if is_last else None
+                reply_markup             = reply_markup if is_last else None,
+                parse_mode               = "HTML"
             )
 
             sending_results.append(result)
@@ -126,6 +131,9 @@ def extract_commands(entities: list[MessageEntity], text: str) -> list[str]:
             commands.append(command)
     
     return commands
+
+def escape_html(text: str) -> str:
+    return html.escape(text)
 
 def force_reply() -> ForceReply:
     return ForceReply(force_reply=True)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from copy import deepcopy
-from typing import Any, Optional, Union, List
+from typing import Any, Optional, Union, List, TYPE_CHECKING
 from typing import Literal
 from vkbottle import (
     Keyboard as VkKeyboard, 
@@ -21,6 +21,10 @@ from src.data import Emojized, Repred, Translated, Field, Emoji, format as fmt, 
 from src.svc.vk.keyboard import CMD
 
 
+if TYPE_CHECKING:
+    from src.data.settings import MODE_LITERAL
+
+
 class Payload:
     # common buttons
     TRUE          = "true"
@@ -38,10 +42,18 @@ class Payload:
     FINISH        = "finish"
 
     # Settings buttons
+    MODE          = "mode"
+    ME_STUDENT    = "me_student"
+    ME_TEACHER    = "me_teacher"
     GROUP         = "group"
+    TEACHER       = "teacher"
+    SHOW_NAMES    = "show_names"
+    GROUP_MODE    = "group_mode"
+    TEACHER_MODE  = "teacher_mode"
     BROADCAST     = "broadcast"
     PIN           = "pin"
     ZOOM          = "zoom"
+    TIME          = "time"
     EXECUTE_CODE  = "execute_code"
     RESET         = "reset"
 
@@ -66,6 +78,7 @@ class Payload:
     URL           = "url"
     ID            = "id"
     PWD           = "pwd"
+    HOST_KEY      = "host_key"
     NOTES         = "notes"
 
     # Hub buttons
@@ -93,11 +106,19 @@ class Text:
     FINISH     = "→ Закончить"
 
     # Settings buttons
+    MODE         = "⛓️ Режим"
+    ME_STUDENT   = "🧑‍🎓 Группа"
+    ME_TEACHER   = "🧑‍🏫 Препод"
     GROUP        = "👥 Группа"
+    SHOW_NAMES   = "👀 Показать имена"
+    GROUP_MODE   = "🔁 Режим группы"
+    TEACHER_MODE = "🔁 Режим препода"
+    TEACHER      = "👤 Препод"
     BROADCAST    = "✉️ Рассылка"
-    PIN          = "📌 Закрепление"
+    PIN          = "📌 Закреп"
     ZOOM         = "🖥️ Zoom"
-    EXECUTE_CODE = "🛠️ Выполнить код"
+    TIME         = "🕒 Время"
+    EXECUTE_CODE = "🛠️"
     RESET        = "🗑️ Сбросить всё"
 
     # Zoom buttons
@@ -234,34 +255,52 @@ class Keyboard(BaseModel):
         return parsed_schematic
 
     @classmethod
-    def hub_default(cls: Keyboard, sc_type: schedule.TYPE_LITERAL) -> Keyboard:
+    def hub_default(
+        cls: Keyboard,
+        sc_type: schedule.TYPE_LITERAL,
+        mode: "MODE_LITERAL"
+    ) -> Keyboard:
         from src.api.schedule import SCHEDULE_API
+        from src.data.settings import Mode
 
         is_daily = sc_type == schedule.Type.DAILY
         is_weekly = sc_type == schedule.Type.WEEKLY
+        is_group_mode = mode == Mode.GROUP
+        is_teacher_mode = mode == Mode.TEACHER
 
         return cls([
             [
                 WEEKLY_BUTTON.only_if(is_daily),
-                DAILY_BUTTON.only_if(is_weekly),
-                UPDATE_BUTTON
+                DAILY_BUTTON.only_if(is_weekly)
             ],
             [RESEND_BUTTON],
             [SETTINGS_BUTTON],
             [
-                SCHEDULE_API.ft_daily_url_button(),
-                SCHEDULE_API.ft_weekly_url_button()
+                SCHEDULE_API.ft_daily_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_daily_url_button().only_if(is_teacher_mode),
+                SCHEDULE_API.ft_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_weekly_url_button().only_if(is_teacher_mode),
             ],
-            [SCHEDULE_API.r_weekly_url_button()],
+            [
+                SCHEDULE_API.r_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_r_weekly_url_button().only_if(is_teacher_mode),
+            ],
             [MATERIALS_BUTTON, JOURNALS_BUTTON],
         ], add_back=False)
 
     @classmethod
-    def temp_group_hub(cls: Keyboard, sc_type: schedule.TYPE_LITERAL) -> Keyboard:
+    def temp_identifier_hub(
+        cls: Keyboard,
+        sc_type: schedule.TYPE_LITERAL,
+        mode: "MODE_LITERAL"
+    ) -> Keyboard:
         from src.api.schedule import SCHEDULE_API
+        from src.data.settings import Mode
 
         is_daily = sc_type == schedule.Type.DAILY
         is_weekly = sc_type == schedule.Type.WEEKLY
+        is_group_mode = mode == Mode.GROUP
+        is_teacher_mode = mode == Mode.TEACHER
 
         return cls([
             [
@@ -270,26 +309,39 @@ class Keyboard(BaseModel):
             ],
             [GO_HOME_BUTTON],
             [
-                SCHEDULE_API.ft_daily_url_button(),
-                SCHEDULE_API.ft_weekly_url_button()
+                SCHEDULE_API.ft_daily_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_daily_url_button().only_if(is_teacher_mode),
+                SCHEDULE_API.ft_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_weekly_url_button().only_if(is_teacher_mode),
             ],
-            [SCHEDULE_API.r_weekly_url_button()],
+            [
+                SCHEDULE_API.r_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_r_weekly_url_button().only_if(is_teacher_mode),
+            ],
             [MATERIALS_BUTTON, JOURNALS_BUTTON],
         ], add_back=False)
 
     @classmethod
-    async def hub_broadcast_default(cls: Keyboard) -> Keyboard:
+    async def hub_broadcast_default(cls: Keyboard, mode: "MODE_LITERAL") -> Keyboard:
         from src.api.schedule import SCHEDULE_API
+        from src.data.settings import Mode
+
+        is_group_mode = mode == Mode.GROUP
+        is_teacher_mode = mode == Mode.TEACHER
 
         return cls([
-            [UPDATE_BUTTON],
             [RESEND_BUTTON],
             [SETTINGS_BUTTON],
             [
-                SCHEDULE_API.ft_daily_url_button(),
-                SCHEDULE_API.ft_weekly_url_button()
+                SCHEDULE_API.ft_daily_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_daily_url_button().only_if(is_teacher_mode),
+                SCHEDULE_API.ft_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_ft_weekly_url_button().only_if(is_teacher_mode),
             ],
-            [SCHEDULE_API.r_weekly_url_button()],
+            [
+                SCHEDULE_API.r_weekly_url_button().only_if(is_group_mode),
+                SCHEDULE_API.tchr_r_weekly_url_button().only_if(is_teacher_mode),
+            ],
             [MATERIALS_BUTTON, JOURNALS_BUTTON],
         ], add_back=False)
 
@@ -297,6 +349,7 @@ class Keyboard(BaseModel):
     def from_dataclass(
         cls: type[Keyboard],
         dataclass: Union[Translated, Emojized, Repred], 
+        ignored_keys: list[str] = [],
         footer: list[list[Button]] = [[]],
         add_back: bool = True, 
         next_button: Optional[Button] = None,
@@ -306,6 +359,9 @@ class Keyboard(BaseModel):
         schema: list[Button] = []
 
         for index, (key, value) in enumerate(dataclass.__dict__.items()):
+            if key in ignored_keys:
+                continue
+            
             is_last = index + 1 == len(dataclass.__dict__)
             emoji = None
 
@@ -441,7 +497,6 @@ class Keyboard(BaseModel):
             current_row: list[TgInlineButton] = []
 
             for button in row:
-
                 if button is None:
                     continue
 
@@ -496,10 +551,18 @@ UNFOLD_BUTTON = Button(text = Text.UNFOLD, callback = Payload.UNFOLD, color = Co
 UPDATE_BUTTON = Button(text = Text.UPDATE, callback = Payload.UPDATE, color = Color.BLUE)
 SETTINGS_BUTTON = Button(text = Text.SETTINGS, callback = Payload.SETTINGS)
 
+MODE_BUTTON = Button(text = Text.MODE, callback = Payload.MODE)
+ME_STUDENT_BUTTON = Button(text = Text.ME_STUDENT, callback = Payload.ME_STUDENT)
+ME_TEACHER_BUTTON = Button(text = Text.ME_TEACHER, callback = Payload.ME_TEACHER)
 GROUP_BUTTON = Button(text = Text.GROUP, callback = Payload.GROUP, color = Color.BLUE)
+TEACHER_BUTTON = Button(text = Text.TEACHER, callback = Payload.TEACHER, color = Color.BLUE)
+SHOW_NAMES_BUTTON = Button(text = Text.SHOW_NAMES, callback = Payload.SHOW_NAMES, color = Color.BLUE)
+GROUP_MODE_BUTTON = Button(text = Text.GROUP_MODE, callback = Payload.GROUP_MODE, color = Color.BLUE)
+TEACHER_MODE_BUTTON = Button(text = Text.TEACHER_MODE, callback = Payload.TEACHER_MODE, color = Color.BLUE)
 BROADCAST_BUTTON = Button(text = Text.BROADCAST, callback = Payload.BROADCAST, color = Color.BLUE)
 PIN_BUTTON = Button(text = Text.PIN, callback = Payload.PIN, color = Color.BLUE)
 ZOOM_BUTTON = Button(text = Text.ZOOM, callback = Payload.ZOOM, color = Color.BLUE)
+TIME_BUTTON = Button(text = Text.TIME, callback = Payload.TIME, color = Color.BLUE)
 EXECUTE_CODE_BUTTON = Button(text = Text.EXECUTE_CODE, callback = Payload.EXECUTE_CODE, color = Color.BLUE)
 RESET_BUTTON = Button(text = Text.RESET, callback = Payload.RESET, color = Color.RED)
 

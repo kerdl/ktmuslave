@@ -115,3 +115,4 @@ class UnionFilter(BaseFilter):
             filter_results.append(result)
         
         return any(filter_results)
+

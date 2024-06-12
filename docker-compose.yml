@@ -21,6 +21,7 @@ services:
         target: /ktmuslave/data
         bind:
           create_host_path: true
+    restart: always
   ktmuscrap:
     build: https://github.com/kerdl/ktmuscrap.git
     ports:
@@ -33,6 +34,7 @@ services:
         target: /ktmuscrap/data
         bind:
           create_host_path: true
+    restart: always
   redis:
     image: redis/redis-stack-server:latest
     environment:
@@ -47,6 +49,7 @@ services:
         target: /data
         bind:
           create_host_path: true
+    restart: always
 networks:
   local:
     driver: bridge

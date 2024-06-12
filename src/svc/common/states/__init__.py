@@ -48,6 +48,7 @@ class Values(BaseModel):
     def get_from_state(self, state: State): ...
 
 def default_action(everything: common.CommonEverything) -> None: ...
+def default_condition(everything: common.CommonEverything) -> bool: return True
 
 
 @dataclass
@@ -101,6 +102,14 @@ class State:
     - `III_FUCKME` -> no childs
     - `II_GARBAGE` -> no childs
     """
+    tags: Optional[list[str]] = None
+    """
+    # Identification tags
+
+    - `["teacher"]`: this state is teacher-specific
+    - `["group"]`: this state is group-specific
+    - `["common"]`: this state is common
+    """
 
     on_enter: Callable[[common.CommonEverything], None] = default_action
     """
@@ -132,6 +141,7 @@ class State:
     - when `navigator` deletes this state
     from trace, no matter where it was
     """
+    should_display_in_tree: Callable[[common.CommonEverything], bool] = default_condition
 
     def __str__(self) -> str:
         return f"{self.tree}:{self.anchor}"
@@ -258,16 +268,47 @@ INIT_MAIN = {
 HUB_MAIN = {
     "name": "Главная",
 }
+def _ctx_stop_switching_modes(everything: common.CommonEverything):
+    everything.ctx.is_switching_modes = False
 SETTINGS_MAIN = {
     "name": "Настройки",
     "back_trace": False,
+    "on_enter": _ctx_stop_switching_modes
 }
+MODE = {
+    "name": "Режим",
+}
+def _ctx_should_show_identification_state(everything: common.CommonEverything) -> bool:
+    return everything.ctx.settings.mode is None
+IDENTIFICATION = {
+    "name": "Идентификация",
+    "should_display_in_tree": _ctx_should_show_identification_state
+}
+def _ctx_should_show_group_state(everything: common.CommonEverything) -> bool:
+    from src.data.settings import Mode
+    return everything.ctx.settings.mode == Mode.GROUP
 GROUP = {
     "name": "Группа",
+    "should_display_in_tree": _ctx_should_show_group_state,
+    "tags": ["group"]
 }
 UNKNOWN_GROUP = {
     "name": "Неизвестная группа",
     "back_trace": False,
+    "tags": ["group"]
+}
+def _ctx_should_show_teacher_state(everything: common.CommonEverything) -> bool:
+    from src.data.settings import Mode
+    return everything.ctx.settings.mode == Mode.TEACHER
+TEACHER = {
+    "name": "Препод",
+    "should_display_in_tree": _ctx_should_show_teacher_state,
+    "tags": ["teacher"]
+}
+UNKNOWN_TEACHER = {
+    "name": "Неизвестный препод",
+    "back_trace": False,
+    "tags": ["teacher"]
 }
 BROADCAST = {
     "name": "Рассылка расписания",
@@ -277,6 +318,11 @@ SHOULD_PIN = {
 }
 INIT_ZOOM = {
     "name": "Zoom данные",
+}
+def _ctx_false(everything: common.CommonEverything) -> False: return False
+TIME_OVERRIDE = {
+    "name": "Замена времени",
+    "should_display_in_tree": _ctx_false
 }
 INIT_FINISH = {
     "name": "ФИНААААЛ СУЧКИ",
@@ -311,6 +357,9 @@ ZOOM_EDIT_ID = {
 ZOOM_EDIT_PWD = {
     "name": "Пароль",
 }
+ZOOM_EDIT_HOST_KEY = {
+    "name": "Ключ хоста",
+}
 ZOOM_EDIT_NOTES = {
     "name": "Заметки",
 }
@@ -334,11 +383,16 @@ __all__ = (
     "INIT_MAIN",
     "HUB_MAIN",
     "SETTINGS_MAIN",
+    "MODE",
+    "IDENTIFICATION",
     "GROUP",
+    "TEACHER",
     "UNKNOWN_GROUP",
+    "UNKNOWN_TEACHER",
     "BROADCAST",
     "SHOULD_PIN",
     "INIT_ZOOM",
+    "TIME_OVERRIDE",
     "INIT_FINISH",
     "ZOOM_MASS",
     "ZOOM_MASS_CHECK",
@@ -348,6 +402,7 @@ __all__ = (
     "ZOOM_EDIT_URL",
     "ZOOM_EDIT_ID",
     "ZOOM_EDIT_PWD",
+    "ZOOM_EDIT_HOST_KEY",
     "ZOOM_EDIT_NOTES",
     "ZOOM_DUMP",
     "ZOOM_CONFIRM_REMOVE_ALL",

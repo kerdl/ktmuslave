@@ -63,7 +63,7 @@ async def to_finish(everything: CommonEverything):
 
 
 @r.on_everything(StateFilter(INIT.I_MAIN))
-async def main(everything: CommonEverything):
+async def main(everything: CommonEverything, force_send: bool = False):
     answer_text = (
         messages.Builder()
             .add(messages.format_welcome(everything.is_group_chat))
@@ -74,10 +74,16 @@ async def main(everything: CommonEverything):
     ], add_back=False)
 
 
-    await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard
-    )
+    if force_send:
+        return await everything.answer(
+            text     = answer_text.make(),
+            keyboard = answer_keyboard
+        )
+    else:
+        return await everything.edit_or_answer(
+            text     = answer_text.make(),
+            keyboard = answer_keyboard
+        )
 
 
 STATE_MAP = {

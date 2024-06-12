@@ -7,7 +7,7 @@ if __name__ == "__main__":
     sys.path.append(".")
 
 from loguru import logger
-from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar
+from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar, TYPE_CHECKING
 from dataclasses import dataclass, field
 from pydantic import BaseModel, Field as PydField
 from urllib.parse import urlparse
@@ -16,9 +16,12 @@ from src.svc import common
 from src.data import error
 from src.data import Emojized, Translated, Warning, Field
 from src.parse import pattern, zoom
+from src.svc import telegram as tg
 
 
 T = TypeVar("T")
+if TYPE_CHECKING:
+    from src.data.settings import MODE_LITERAL
 
 NAME_LIMIT = 30
 VALUE_LIMIT = 500
@@ -58,9 +61,10 @@ def format_section(name: str, fields: list[str]):
 
 class Data(BaseModel, Translated, Emojized):
     name: Field[str]
-    url: Field[Optional[str]]   = PydField(default_factory = lambda: Field(value=None))
-    id: Field[Optional[str]]    = PydField(default_factory = lambda: Field(value=None))
-    pwd: Field[Optional[str]]   = PydField(default_factory = lambda: Field(value=None))
+    url: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
+    id: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
+    pwd: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
+    host_key: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
     notes: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
 
     __translation__: ClassVar[dict[str, str]] = {
@@ -68,6 +72,7 @@ class Data(BaseModel, Translated, Emojized):
         "url": "Ссылка",
         "id": "ID",
         "pwd": "Пароль",
+        "host_key": "Ключ хоста",
         "notes": "Заметки",
     }
     __emojis__: ClassVar[dict[str, str]] = {
@@ -75,6 +80,7 @@ class Data(BaseModel, Translated, Emojized):
         "url": "🌐",
         "id": "📍",
         "pwd": "🔑",
+        "host_key": "🔒",
         "notes": "📝"
     }
     __keys__: ClassVar[dict[str, str]] = {
@@ -82,6 +88,7 @@ class Data(BaseModel, Translated, Emojized):
         "url": zoom.Key.URL,
         "id": zoom.Key.ID,
         "pwd": zoom.Key.PWD,
+        "host_key": zoom.Key.HOST_KEY,
         "notes": zoom.Key.NOTES
     }
 
@@ -100,7 +107,12 @@ class Data(BaseModel, Translated, Emojized):
     @classmethod
     def parse(cls: type[Data], text: str) -> list[Data]:
         from src.parse import zoom
-        return zoom.Parser(text).parse()
+        return zoom.Parser(text).group_parse()
+
+    @classmethod
+    def tchr_parse(cls: type[Data], text: str) -> list[Data]:
+        from src.parse import zoom
+        return zoom.Parser(text).teacher_parse()
     
     @staticmethod
     def check_name(name: str) -> list[Warning]:
@@ -146,9 +158,12 @@ class Data(BaseModel, Translated, Emojized):
 
         return warns
     
-    def check(self):
-        for warn in self.check_name(self.name.value):
-            self.name.warnings.append(warn)
+    def check(self, mode: "MODE_LITERAL"):
+        from src.data.settings import Mode
+
+        if mode == Mode.GROUP:
+            for warn in self.check_name(self.name.value):
+                self.name.warnings.append(warn)
 
         if hasattr(self, "url") and self.url.value is not None:
             for warn in self.check_url(self.url.value):
@@ -165,9 +180,9 @@ class Data(BaseModel, Translated, Emojized):
         #        tuple    tuple     generator of tuples       condition
         return [field for field in self.__dict__.items() if filter_(field)]
 
-    def all_fields_are_set(self) -> bool:
-        ignored = ["notes"]
-
+    def all_fields_are_set(self, mode: "MODE_LITERAL") -> bool:
+        from src.data.settings import Mode
+        ignored = ["host_key", "notes"]
         return all([field[1].value for field in self.fields() if field[0] not in ignored])
 
     def all_fields_without_warns(
@@ -176,25 +191,25 @@ class Data(BaseModel, Translated, Emojized):
     ) -> bool:
         return all([not field[1].has_warnings for field in self.fields(filter_)])
 
-    def completeness_emoji(self) -> str:
+    def completeness_emoji(self, mode: "MODE_LITERAL") -> str:
         completeness = data.Emoji.COMPLETE
 
-        if not self.all_fields_are_set():
+        if not self.all_fields_are_set(mode):
             completeness = data.Emoji.INCOMPLETE
         
         return completeness
     
     def name_emoji(
         self,
+        mode: "MODE_LITERAL",
         warn_sources: Callable[[Data], list[Field]] = lambda self: [self.name]
     ) -> str:
-
         any_warns = any([field.has_warnings for field in warn_sources(self)])
 
         if any_warns:
             return data.Emoji.WARN
         
-        return self.completeness_emoji()
+        return self.completeness_emoji(mode)
 
     def choose_emoji(self, key: str, field: Field) -> str:
         if field.has_warnings:
@@ -204,13 +219,15 @@ class Data(BaseModel, Translated, Emojized):
         else:
             return data.Emoji.NONE
 
-    def format_name(self) -> str:
-        emoji = self.name_emoji()
+    def format_name(self, mode: "MODE_LITERAL", do_tg_markup: bool = False) -> str:
+        emoji = self.name_emoji(mode)
 
         fmt_name = self.name.format(
             emoji         = emoji, 
             name          = self.name.value, 
-            display_value = False
+            display_value = False,
+            do_tg_markup  = do_tg_markup,
+            escape_tg_markdown=do_tg_markup
         )
 
         return fmt_name
@@ -219,7 +236,8 @@ class Data(BaseModel, Translated, Emojized):
         self,
         filter_: Callable[[tuple[str, Any]], bool] = (
             lambda field: field[0] != "name"
-        )
+        ),
+        do_tg_markup: bool = False
     ) -> str:
         fmt_fields = []
 
@@ -227,12 +245,15 @@ class Data(BaseModel, Translated, Emojized):
             emoji = self.choose_emoji(key, field)
             name = self.__translation__.get(key)
 
-            fmt = field.format(emoji, name)
+            if key == "url":
+                fmt = field.format(emoji, name, do_tg_markup=False, escape_tg_markdown=True)
+            else:
+                fmt = field.format(emoji, name, do_tg_markup=do_tg_markup, escape_tg_markdown=do_tg_markup)
             fmt_fields.append(fmt)
         
         return "\n".join(fmt_fields)
 
-    def format_fields_with_warns(self) -> Optional[str]:
+    def format_fields_with_warns(self, do_tg_markup: bool = False) -> Optional[str]:
         if self.all_fields_without_warns():
             return None
         
@@ -242,20 +263,78 @@ class Data(BaseModel, Translated, Emojized):
 
             return key != "name" and value.has_warnings
         
-        return self.format_fields(field_filter)
+        return self.format_fields(field_filter, do_tg_markup)
 
     def format(
         self,
+        mode: "MODE_LITERAL",
         field_filter: Callable[[tuple[str, Any]], bool] = (
             lambda field: field[0] != "name"
-        )
+        ),
+        do_tg_markup: bool = False,
     ) -> str:
-        fmt_name = self.format_name()
+        fmt_name = self.format_name(mode)
 
-        fmt_fields = self.format_fields(field_filter)
+        fmt_fields = self.format_fields(field_filter, do_tg_markup)
         fmt_fields = common.text.indent(fmt_fields, add_dropdown = True)
         
         return fmt_name + "\n" + fmt_fields
+
+    def format_inline(
+        self,
+        include_name: bool = False,
+        name_prefix: Optional[str] = None,
+        only_notes: bool = False,
+        do_tg_markup: bool = False,
+        return_empty_if_no_data: bool = True
+    ) -> str:
+        data = []
+        if not only_notes:
+            if self.url.value is not None:
+                if do_tg_markup:
+                    data.append(tg.escape_html(self.url.value))
+                else:
+                    data.append(self.url.value)
+
+            if self.id.value is not None:
+                translation = self.__translation__.get("id")
+                if do_tg_markup:
+                    data.append(f"{translation}: <code>{tg.escape_html(self.id.value)}</code>")
+                else:
+                    data.append(f"{translation}: {self.id.value}")
+
+            if self.pwd.value is not None:
+                translation = self.__translation__.get("pwd").lower()
+                if do_tg_markup:
+                    data.append(f"{translation}: <code>{tg.escape_html(self.pwd.value)}</code>")
+                else:
+                    data.append(f"{translation}: {self.pwd.value}")
+            
+            if self.host_key.value is not None:
+                translation = self.__translation__.get("host_key").lower()
+                if do_tg_markup:
+                    data.append(f"{translation}: <code>{tg.escape_html(self.host_key.value)}</code>")
+                else:
+                    data.append(f"{translation}: {self.host_key.value}")
+
+        if self.notes.value is not None:
+            if do_tg_markup:
+                data.append(f"<code>{tg.escape_html(self.notes.value)}</code>")
+            else:
+                data.append(self.notes.value)
+
+        if not data and return_empty_if_no_data:
+            return ""
+        
+        fmt = ", ".join(data)
+
+        if include_name:
+            if name_prefix:
+                fmt = f"{name_prefix} {self.name.value} | {fmt}"
+            else:
+                fmt = f"{self.name.value} | {fmt}"
+        
+        return fmt
 
     def dump_list(self) -> list[str]:
         fields: list[str] = []
@@ -281,8 +360,6 @@ class Data(BaseModel, Translated, Emojized):
 
     def __setattr__(self, __name: str, __value: Any) -> None:
         super().__setattr__(__name, __value)
-
-        self.check()
 
     def __hash__(self):
         return hash(self.name.value)
@@ -403,7 +480,7 @@ class Entries(BaseModel):
 
             return None
     
-    def format_compact(self) -> str:
+    def format_compact(self, mode: "MODE_LITERAL") -> str:
         names: list[str] = []
 
         for entry in self.list:
@@ -413,7 +490,7 @@ class Entries(BaseModel):
                 warns_text = entry.format_fields_with_warns()
                 warns_text = common.text.indent(warns_text, add_dropdown = True)
             
-            name = entry.format_name()
+            name = entry.format_name(mode)
 
             if warns_text:
                 name = name + "\n" + warns_text
@@ -434,9 +511,9 @@ class Entries(BaseModel):
         
         return "\n\n".join(entries_dumps)
     
-    def check_all(self):
+    def check_all(self, mode: "MODE_LITERAL"):
         for entry in self.list:
-            entry.check()
+            entry.check(mode)
 
     def __len__(self):
         return len(self.list)
@@ -500,6 +577,8 @@ class Container(BaseModel):
     """
     focused_at: Optional[STORAGE] = None
     """ ## Tells which container to use """
+    mode: Optional["MODE_LITERAL"] = None
+    """ ## Container mode """
 
 
     @property
@@ -574,17 +653,38 @@ class Container(BaseModel):
         self.focused_at = None
 
     def check_all(self):
-        self.entries.check_all()
-        self.new_entries.check_all()
+        self.entries.check_all(self.mode)
+        self.new_entries.check_all(self.mode)
 
+    @classmethod
+    def as_group(cls) -> Container:
+        from src.data.settings import Mode
+        this = cls()
+        this.mode = Mode.GROUP
+        return this
+    
+    @classmethod
+    def as_tchr(cls) -> Container:
+        from src.data.settings import Mode
+        this = cls()
+        this.mode = Mode.TEACHER
+        return this
+    
 def focus_auto(everything: common.CommonEverything):
     from src.svc.common.states import tree
+    from src.data.settings import Mode
 
     # if "adding mass zoom" state in trace
     if tree.ZOOM.I_MASS in everything.ctx.navigator.trace:
-        return focus_to_new_entries(everything)
+        if everything.ctx.settings.mode == Mode.GROUP:
+            return focus_to_new_entries(everything)
+        elif everything.ctx.settings.mode == Mode.TEACHER:
+            return focus_to_tchr_new_entries(everything)
     
-    return focus_to_entries(everything)
+    if everything.ctx.settings.mode == Mode.GROUP:
+        return focus_to_entries(everything)
+    elif everything.ctx.settings.mode == Mode.TEACHER:
+        return focus_to_tchr_entries(everything)
 
 def focus_to_entries(everything: common.CommonEverything):
     everything.ctx.settings.zoom.focus(Storage.ENTRIES)
@@ -592,8 +692,19 @@ def focus_to_entries(everything: common.CommonEverything):
 def focus_to_new_entries(everything: common.CommonEverything):
     everything.ctx.settings.zoom.focus(Storage.NEW_ENTRIES)
 
+def focus_to_tchr_entries(everything: common.CommonEverything):
+    everything.ctx.settings.tchr_zoom.focus(Storage.ENTRIES)
+
+def focus_to_tchr_new_entries(everything: common.CommonEverything):
+    everything.ctx.settings.tchr_zoom.focus(Storage.NEW_ENTRIES)
+
 def unfocus(everything: common.CommonEverything):
-    everything.ctx.settings.zoom.unfocus()
+    from src.data.settings import Mode
+    if everything.ctx.settings.mode == Mode.GROUP:
+        everything.ctx.settings.zoom.unfocus()
+    if everything.ctx.settings.mode == Mode.TEACHER:
+        everything.ctx.settings.tchr_zoom.unfocus()
+    
 
 def unselect(everything: common.CommonEverything):
     if everything.ctx.settings.zoom.focused is None:

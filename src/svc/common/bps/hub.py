@@ -10,7 +10,7 @@ from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
-from src.data.settings import Group
+from src.data.settings import Group, Mode, Teacher, TimeMode
 from src.data.schedule import format as sc_format
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import INIT, ZOOM, HUB
@@ -80,7 +80,7 @@ async def switch_to_daily(everything: CommonEverything):
 
 @r.on_callback(PayloadFilter(kb.Payload.RESEND))
 async def resend(everything: CommonEverything):
-    everything.ctx.schedule.temp_group = None
+    everything.ctx.schedule.reset_temps()
     return await to_hub(everything, allow_edit=False)
 
 @r.on_everything(StateFilter(HUB.I_MAIN))
@@ -90,39 +90,84 @@ async def hub(
     allow_send: bool = True
 ):
     ctx = everything.ctx
+    temp_mode = ctx.schedule.temp_mode if ctx.schedule.temp_mode else ctx.settings.mode
 
-    group = everything.ctx.settings.group.valid
-    temp_group = everything.ctx.schedule.temp_group
+    identifier = None
+    if temp_mode == Mode.GROUP:
+        identifier = ctx.settings.group.valid
+    elif temp_mode == Mode.TEACHER:
+        identifier = ctx.settings.teacher.valid
+    
+    temp_identifier = None
+    if temp_mode == Mode.GROUP:
+        temp_identifier = ctx.schedule.temp_group
+    elif temp_mode == Mode.TEACHER:
+        temp_identifier = ctx.schedule.temp_teacher
 
     if everything.is_from_message:
         group_match = pattern.GROUP.match(everything.message.text)
-
         if group_match is None:
+            teacher = Teacher(typed=everything.message.text)
+            teacher.generate_valid(await SCHEDULE_API.teachers())
+            identifier_match = pattern.TEACHER.match(teacher.valid) if teacher.valid else None
+            if identifier_match is not None:
+                temp_mode = Mode.TEACHER
+                ctx.schedule.temp_mode = temp_mode
+        else:
+            identifier_match = group_match
+            temp_mode = Mode.GROUP
+            ctx.schedule.temp_mode = temp_mode
+
+        if identifier_match is None:
             return
        
-        group_match = group_match.group()
+        identifier_match = identifier_match.group()
 
-        group_object = Group(typed=group_match)
-        group_object.generate_valid()
-
-        if group_object.valid != group:
-            everything.ctx.schedule.temp_group = group_object.valid
-            temp_group = everything.ctx.schedule.temp_group
+        if temp_mode == Mode.GROUP:
+            identifier_object = Group(typed=identifier_match)
+            identifier_object.generate_valid()
+        elif temp_mode == Mode.TEACHER:
+            identifier_object = teacher
+        
+        if identifier_object.valid != identifier:
+            if temp_mode == Mode.GROUP:
+                ctx.schedule.temp_group = identifier_object.valid
+                temp_identifier = ctx.schedule.temp_group
+            elif temp_mode == Mode.TEACHER:
+                ctx.schedule.temp_teacher = identifier_object.valid
+                temp_identifier = ctx.schedule.temp_teacher
 
     schedule_text = "None"
 
     if SCHEDULE_API.is_online:
         if ctx.schedule.message.is_weekly:
-            weekly_page = await SCHEDULE_API.weekly(temp_group if temp_group else group)
-            users_group = weekly_page.get_group(temp_group if temp_group else group) if weekly_page is not None else None
-
+            if temp_mode == Mode.GROUP:
+                weekly_page = await SCHEDULE_API.weekly(temp_identifier if temp_identifier else identifier)
+                users_identifier_data = weekly_page.get_group(temp_identifier if temp_identifier else identifier) if weekly_page is not None else None
+            elif temp_mode == Mode.TEACHER:
+                weekly_page = await SCHEDULE_API.tchr_weekly(temp_identifier if temp_identifier else identifier)
+                users_identifier_data = weekly_page.get_teacher(temp_identifier if temp_identifier else identifier) if weekly_page is not None else None
+        
         elif ctx.schedule.message.is_daily:
-            daily_page = await SCHEDULE_API.daily(temp_group if temp_group else group)
-            users_group = daily_page.get_group(temp_group if temp_group else group) if daily_page is not None else None
+            if temp_mode == Mode.GROUP:
+                daily_page = await SCHEDULE_API.daily(temp_identifier if temp_identifier else identifier)
+                users_identifier_data = daily_page.get_group(temp_identifier if temp_identifier else identifier) if daily_page is not None else None
+            elif temp_mode == Mode.TEACHER:
+                daily_page = await SCHEDULE_API.tchr_daily(temp_identifier if temp_identifier else identifier)
+                users_identifier_data = daily_page.get_teacher(temp_identifier if temp_identifier else identifier) if daily_page is not None else None
 
-        schedule_text = await sc_format.group(
-            users_group,
-            ctx.settings.zoom.entries.list
+        zoom_entries = None
+        if temp_mode == Mode.GROUP:
+            zoom_entries = ctx.settings.zoom.entries.list
+        elif temp_mode == Mode.TEACHER:
+            zoom_entries = ctx.settings.tchr_zoom.entries.list
+        
+        schedule_text = await sc_format.identifier(
+            users_identifier_data,
+            zoom_entries,
+            temp_mode,
+            everything.is_from_tg_generally,
+            override_time=ctx.settings.time_mode == TimeMode.OVERRIDE
         )
     else:
         schedule_text = messages.format_cant_connect_to_schedule_server()
@@ -131,13 +176,15 @@ async def hub(
         messages.Builder()
             .add(schedule_text)
     )
-    if temp_group:
-        answer_keyboard = kb.Keyboard.temp_group_hub(
-            ctx.schedule.message.type
+    if temp_identifier:
+        answer_keyboard = kb.Keyboard.temp_identifier_hub(
+            ctx.schedule.message.type,
+            temp_mode
         )
     else:
         answer_keyboard = kb.Keyboard.hub_default(
-            ctx.schedule.message.type
+            ctx.schedule.message.type,
+            ctx.settings.mode
         )
 
     if (
@@ -173,7 +220,7 @@ async def to_hub(
     allow_edit: bool = True,
     allow_send: bool = True
 ):
-    everything.navigator.clear()
+    everything.navigator.clear_all()
     everything.navigator.append(HUB.I_MAIN)
 
     everything.navigator.auto_ignored()

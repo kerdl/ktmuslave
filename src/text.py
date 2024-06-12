@@ -1,6 +1,6 @@
 def indent(
     text: str, 
-    width: int = 3, 
+    width: int = 2, 
     times: int = 1, 
     add_dropdown: bool = False
 ):
@@ -15,14 +15,14 @@ def indent(
     for line in text.split("\n"):
         already_dropdowned = False
 
-        if line.startswith(" ") and "╰" in line:
+        if line.startswith(" ") and "└" in line:
             # this line is indented
             # and dropped down, 
             # avoid adding one more dropdown
             already_dropdowned = True
 
         if add_dropdown and not already_dropdowned:
-            dropdown_line = f"╰ {line}"
+            dropdown_line = f"└ {line}"
         elif already_dropdowned:
             dropdown_line = f" {line}"
         else:
