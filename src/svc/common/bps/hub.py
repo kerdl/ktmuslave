@@ -105,37 +105,40 @@ async def hub(
         temp_identifier = ctx.schedule.temp_teacher
 
     if everything.is_from_message:
-        group_match = pattern.GROUP.match(everything.message.text)
-        if group_match is None:
-            teacher = Teacher(typed=everything.message.text)
-            teacher.generate_valid(await SCHEDULE_API.teachers())
-            identifier_match = pattern.TEACHER.match(teacher.valid) if teacher.valid else None
-            if identifier_match is not None:
-                temp_mode = Mode.TEACHER
+        if everything.is_from_tg_generally and everything.message.tg_did_user_used_bot_command():
+            ...
+        elif everything.message.text:
+            group_match = pattern.GROUP.match(everything.message.text)
+            if group_match is None:
+                teacher = Teacher(typed=everything.message.text)
+                teacher.generate_valid(await SCHEDULE_API.teachers())
+                identifier_match = pattern.TEACHER.match(teacher.valid) if teacher.valid else None
+                if identifier_match is not None:
+                    temp_mode = Mode.TEACHER
+                    ctx.schedule.temp_mode = temp_mode
+            else:
+                identifier_match = group_match
+                temp_mode = Mode.GROUP
                 ctx.schedule.temp_mode = temp_mode
-        else:
-            identifier_match = group_match
-            temp_mode = Mode.GROUP
-            ctx.schedule.temp_mode = temp_mode
 
-        if identifier_match is None:
-            return
-       
-        identifier_match = identifier_match.group()
-
-        if temp_mode == Mode.GROUP:
-            identifier_object = Group(typed=identifier_match)
-            identifier_object.generate_valid()
-        elif temp_mode == Mode.TEACHER:
-            identifier_object = teacher
+            if identifier_match is None:
+                return
         
-        if identifier_object.valid != identifier:
+            identifier_match = identifier_match.group()
+
             if temp_mode == Mode.GROUP:
-                ctx.schedule.temp_group = identifier_object.valid
-                temp_identifier = ctx.schedule.temp_group
+                identifier_object = Group(typed=identifier_match)
+                identifier_object.generate_valid()
             elif temp_mode == Mode.TEACHER:
-                ctx.schedule.temp_teacher = identifier_object.valid
-                temp_identifier = ctx.schedule.temp_teacher
+                identifier_object = teacher
+            
+            if identifier_object.valid != identifier:
+                if temp_mode == Mode.GROUP:
+                    ctx.schedule.temp_group = identifier_object.valid
+                    temp_identifier = ctx.schedule.temp_group
+                elif temp_mode == Mode.TEACHER:
+                    ctx.schedule.temp_teacher = identifier_object.valid
+                    temp_identifier = ctx.schedule.temp_teacher
 
     schedule_text = "None"
 

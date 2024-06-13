@@ -564,7 +564,12 @@ class BaseCtx:
 @dataclass
 class Ctx:
     async def is_added(self, everything: CommonEverything) -> bool:
-        return bool(await defs.redis.exists(f"{everything.src.upper()}_{everything.chat_id}"))
+        src = None
+        if everything.src.startswith("tg"):
+            src = "tg"
+        elif everything.src.startswith("vk"):
+            src = "vk"
+        return bool(await defs.redis.exists(f"{src.upper()}_{everything.chat_id}"))
 
     async def add_from_everything(self, everything: CommonEverything) -> BaseCtx:
         if everything.is_from_vk:
@@ -943,7 +948,13 @@ class BaseCommonEvent(HiddenVars):
     async def load_ctx(self) -> BaseCtx:
         DbBaseCtx.ensure_update_forward_refs()
 
-        db_ctx = await defs.redis.json().get(f"{self.src.upper()}_{self.chat_id}")
+        src = None
+        if self.src.startswith("tg"):
+            src = "tg"
+        elif self.src.startswith("vk"):
+            src = "vk"
+        
+        db_ctx = await defs.redis.json().get(f"{src.upper()}_{self.chat_id}")
         db_ctx_parsed = DbBaseCtx.parse_obj(db_ctx)
 
         self.set_ctx(db_ctx_parsed.to_runtime())
