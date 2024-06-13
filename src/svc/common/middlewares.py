@@ -11,7 +11,11 @@ class Log(Middleware):
         async def log():
             src = everything.src.upper()
             event_src = everything.event_src.upper()
-            first_name, last_name, nickname = await everything.sender_name()
+            name = await everything.sender_name()
+            if name:
+                first_name, last_name, nickname = name
+            else:
+                first_name, last_name, nickname = (None, None, None)
             chat_id = everything.chat_id
 
             event_str = str(everything.corresponding).replace("<", "\<")
@@ -25,7 +29,7 @@ class Log(Middleware):
         defs.create_task(log())
 
 @r.middleware()
-class BotMentionFilter(MessageMiddleware):
+class BotMentionFilter(Middleware):
     async def pre(self, everything: CommonEverything):
         if not everything.is_for_bot():
             self.stop()
