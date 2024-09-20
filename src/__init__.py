@@ -3,7 +3,6 @@ import datetime
 import re
 import aiofiles
 from redis.asyncio import Redis
-from redis.commands.search.field import TextField, TagField
 from redis import exceptions as rexeptions
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from aiofiles import ospath
@@ -17,14 +16,16 @@ from loguru import logger
 from loguru._handler import Message
 from dataclasses import dataclass
 from pathlib import Path
-from dotenv import get_key
+from src.settings import Settings
+from src.data.range import Range
+from src.data.weekday import WEEKDAY_LITERAL
 
 
 if TYPE_CHECKING:
-    from src.svc.common import Ctx, BaseCtx
+    from src.svc.common import Ctx
     from src.svc.common.logsvc import Logger
 
-ENV_PATH = ".env"
+
 COLOR_ESCAPE_REGEX = re.compile(r"\x1b[[]\d{1,}m")
 
 
@@ -45,6 +46,9 @@ def sink(message: Message):
         is_error = True
 
     async def write_out():
+        if not defs.log_path:
+            return
+
         try:
             await defs.log_file.write(no_escapes)
             await defs.log_file.flush()
@@ -56,8 +60,9 @@ def sink(message: Message):
 
                 await defs.log_file.close()
 
-                defs.log_path.rename(defs.log_dir.joinpath(f"log_{now_str}.txt"))
-
+                defs.log_path.rename(
+                    defs.settings.logging.dir.joinpath(f"log_{now_str}.txt")
+                )
                 defs.log_file = await aiofiles.open(
                     defs.log_path, mode="a", encoding="utf8", newline="\n"
                 )
@@ -69,33 +74,29 @@ def sink(message: Message):
     no_escapes = COLOR_ESCAPE_REGEX.sub("", message)
 
     if is_error:
-        from src.svc import vk
+        from src.svc import vk, telegram
+        from src.svc.common import Source
         
         async def send_error():
-            admin_id = get_key(ENV_PATH, "VK_ADMIN")
-
-            try:
-                await vk.chunked_send(
-                    peer_id = admin_id,
-                    message = str(no_escapes),
-                )
-            except Exception:
-                ...
+            for admin in defs.settings.logging.admins:
+                try:
+                    if admin.src == Source.VK:
+                        await vk.chunked_send(
+                            peer_id=admin.id,
+                            message=str(no_escapes),
+                        )
+                    elif admin.src == Source.TG:
+                        await telegram.chunked_send(
+                            chat_id=admin.id,
+                            message=str(no_escapes),
+                        )
+                except Exception:
+                    ...
 
         defs.create_task(send_error())
 
     defs.create_task(write_out())
 
-
-@dataclass
-class UpdateWaiter:
-    waiter: "BaseCtx"
-
-    def __enter__(self): 
-        defs.add_update_waiter(self.waiter)
-
-    def __exit__(self, type, value, traceback):
-        defs.del_update_waiter(self.waiter.db_key)
 
 @dataclass
 class Defs:
@@ -121,11 +122,11 @@ class Defs:
     logger: Optional["Logger"] = None
 
     data_dir: Optional[Path] = None
-    log_dir: Optional[Path] = None
+    settings: Optional[Settings] = None
     log_path: Optional[Path] = None
     log_file: Optional[AsyncTextIOWrapper] = None
 
-    update_waiters: Optional[list["BaseCtx"]] = None
+    time_mapping: Optional[dict["WEEKDAY_LITERAL", Range[datetime.time]]]
 
     def init_all(
         self, 
@@ -141,7 +142,7 @@ class Defs:
         self.loop = asyncio.get_event_loop()
 
     async def init_http(self):
-        self.http = ClientSession(loop = self.loop)
+        self.http = ClientSession(loop=self.loop)
     
     async def init_schedule_api(self):
         from src.api.schedule import SCHEDULE_API
@@ -152,15 +153,12 @@ class Defs:
     async def get_vk_bot_info(self):
         groups_data = await self.vk_bot.api.groups.get_by_id()
         group_data = groups_data[0]
-
         self.vk_bot_info = group_data
         self.vk_bot_mention = "@" + group_data.screen_name
 
     async def get_tg_bot_info(self):
         me = await self.tg_bot.get_me()
-        
         self.tg_bot_info = me
-        #self.tg_bot_mention = "@" + me.username
         self.tg_bot_mention = "/nigga"
         self.tg_bot_commands = ["/nigga"]
 
@@ -178,7 +176,10 @@ class Defs:
                 break
             except rexeptions.ConnectionError:
                 if not logged:
-                    logger.opt(colors=True).error(f"run redis instance on {host}:{port} first, will keep trying reconnecting every {retry} secs")
+                    logger.opt(colors=True).error(
+                        f"run redis instance on {host}:{port} first, "
+                        f"will keep trying reconnecting every {retry} secs"
+                    )
                     logged = True
                 
                 await asyncio.sleep(retry)
@@ -232,19 +233,17 @@ class Defs:
             logger.info(f"created redis \"{RedisName.TCHR_BROADCAST}\" index")
 
     def init_redis(self):
-        no_addr_error = ValueError("put redis connection details to the .env file like this: REDIS_ADDR = \"127.0.0.1:6379\"")
-        invalid_addr_error = ValueError("invalid addr for redis, make sure there is a \":\" in it like this: 127.0.0.1:6379")
-
-        redis_uri = get_key(ENV_PATH, "REDIS_ADDR")
-        if redis_uri is None:
-            raise no_addr_error
+        invalid_addr_error = ValueError(
+            "invalid database address, "
+            "make sure it follows this format: 127.0.0.1:6379"
+        )
         
-        host_port = redis_uri.split(":")
+        host_port = self.settings.database.addr.split(":")
         if not host_port or len(host_port) < 2:
             raise invalid_addr_error
 
         host, port = host_port
-        password = get_key(ENV_PATH, "REDIS_PASSWORD") or None
+        password = self.settings.database.password
 
         self.redis = Redis(host=host, port=port, password=password)
         self.loop.run_until_complete(self.wait_for_redis())
@@ -257,9 +256,14 @@ class Defs:
         Container.update_forward_refs(**locals())
 
     async def init_logger_svc(self) -> None:
+        """
+        Abandoned logging service
+        """
+        return None
+    
         from src.svc.common.logsvc import Logger
 
-        logger_addr = get_key(ENV_PATH, "LOGGER_ADDR") or "127.0.0.1:7215"
+        logger_addr = "127.0.0.1:7215"
         if not logger_addr.startswith("https://"):
             logger_addr = "https://" + logger_addr
 
@@ -267,7 +271,8 @@ class Defs:
             await self.http.get(logger_addr)
         except aiohttp_exc.ClientConnectorError:
             logger.warning(
-                f"logging service at {logger_addr} is not running, logging may be inconsistent"
+                f"logging service at {logger_addr} is not running, "
+                "logging may be inconsistent"
             )
 
         self.logger = Logger(addr=logger_addr)
@@ -282,15 +287,16 @@ class Defs:
         """
         from src.svc import vk, telegram
 
-        self.vk_bot = vk.load(self.loop)
-        self.tg_bot = telegram.load_bot(self.loop)
-        self.tg_router = telegram.load_router()
-        self.tg_dispatch = telegram.load_dispatch(self.tg_router)
-
         self.loop.run_until_complete(self.init_http())
 
-        self.loop.run_until_complete(self.get_vk_bot_info())
-        self.loop.run_until_complete(self.get_tg_bot_info())
+        if self.settings.tokens.vk:
+            self.vk_bot = vk.load(token=self.settings.tokens.vk, loop=self.loop)
+            self.loop.run_until_complete(self.get_vk_bot_info())
+        if self.settings.tokens.tg:
+            self.tg_bot = telegram.load_bot(token=self.settings.tokens.tg)
+            self.tg_router = telegram.load_router()
+            self.tg_dispatch = telegram.load_dispatch(self.tg_router)
+            self.loop.run_until_complete(self.get_tg_bot_info())
 
         if init_middlewares:
             from src.svc.common import middlewares
@@ -307,20 +313,23 @@ class Defs:
         self.loop.run_until_complete(self.init_logger_svc())
         self.loop.run_until_complete(self.init_schedule_api())
 
-        self.update_waiters = []
-
     def init_fs(self) -> None:
         self.data_dir = Path(".", "data")
         self.data_dir.mkdir(exist_ok=True)
 
-        self.log_dir = self.data_dir.joinpath("log")
-        self.log_dir.mkdir(exist_ok=True)
+        settings_path = self.data_dir.joinpath("settings.json")
+        self.settings = Settings.load_or_init(settings_path)
 
-        self.log_path = self.log_dir.joinpath("log.txt")
-
-        self.log_file = self.loop.run_until_complete(
-            aiofiles.open(self.log_path, mode="a", encoding="utf8", newline="\n")
-        )
+        if self.settings.logging and self.settings.logging.dir:
+            self.log_path = self.settings.logging.dir.joinpath("log.txt")
+            self.log_file = self.loop.run_until_complete(
+                aiofiles.open(
+                    self.log_path,
+                    mode="a",
+                    encoding="utf8",
+                    newline="\n"
+                )
+            )
 
     def init_logger(self) -> None:
         """
@@ -363,30 +372,5 @@ class Defs:
 
             logger.exception(f"task function <{fn}> raised {type(e).__name__}: {e}")
 
-    def add_update_waiter(self, waiter: "BaseCtx"):
-        self.update_waiters.append(waiter)
-        logger.info(f"update waiter {waiter.db_key} has been added")
-    
-    def del_update_waiter(self, db_key: str):
-        for index, waiter in enumerate(self.update_waiters):
-            waiter: "BaseCtx"
-
-            if waiter.db_key == db_key:
-                self.update_waiters.pop(index)
-                logger.info(f"update waiter {db_key} has been deleted")
-                logger.info(f"{self.update_waiters_db_keys=}")
-                break
-    
-    def clean_update_waiters(self):
-        self.update_waiters = []
-    
-    @property
-    def update_waiters_db_keys(self) -> list[str]:
-        waiters_db_keys: list[str] = []
-
-        for waiter in self.update_waiters:
-            waiters_db_keys.append(waiter.db_key)
-        
-        return waiters_db_keys
 
 defs = Defs()

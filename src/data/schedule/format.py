@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from src.svc.common import messages
 from src.data.schedule.compare import Changes, DetailedChanges, PrimitiveChange
-from src.data.schedule import Group, Day, Subject, CommonIdentifier, CommonDay, CommonSubject, Format, FORMAT_LITERAL, compare
+from src.data.schedule import Formation, Day, Subject, CommonIdentifier, CommonDay, CommonSubject, Format, FORMAT_LITERAL, compare
 from src.data.range import Range
 from src.data.weekday import Weekday, WEEKDAY_LITERAL, WEEKDAYS
 from src.data.range import Range
@@ -75,51 +75,6 @@ PRIMITIVE = "{} → {}"
 # ⠀⠀⠀⠀⢸⣿⣀⣀⣀⣼⡿⢿⣿⣿⣿⣿⣿⡿⣿⣿⡿
 
 ZOOM_NAME_PREFIX = Emoji.COMPLETE
-
-TIME_OVERRIDES = {}
-TIME_OVERRIDES[Weekday.MONDAY] = {
-    1: Range(start=datetime.time.fromisoformat("08:30:00"),
-            end=datetime.time.fromisoformat("09:55:00")),
-
-    2: Range(start=datetime.time.fromisoformat("10:20:00"),
-            end=datetime.time.fromisoformat("11:45:00")),
-
-    3: Range(start=datetime.time.fromisoformat("12:00:00"),
-            end=datetime.time.fromisoformat("13:25:00")),
-
-    4: Range(start=datetime.time.fromisoformat("13:55:00"),
-            end=datetime.time.fromisoformat("15:20:00")),
-
-    5: Range(start=datetime.time.fromisoformat("15:40:00"),
-            end=datetime.time.fromisoformat("17:05:00")),
-
-    6: Range(start=datetime.time.fromisoformat("17:15:00"),
-            end=datetime.time.fromisoformat("18:40:00")),
-}
-TIME_OVERRIDES[Weekday.TUESDAY] = TIME_OVERRIDES[Weekday.MONDAY]
-TIME_OVERRIDES[Weekday.WEDNESDAY] = TIME_OVERRIDES[Weekday.MONDAY]
-TIME_OVERRIDES[Weekday.THURSDAY] = TIME_OVERRIDES[Weekday.MONDAY]
-TIME_OVERRIDES[Weekday.FRIDAY] = TIME_OVERRIDES[Weekday.MONDAY]
-TIME_OVERRIDES[Weekday.SATURDAY] = {
-    1: Range(start=datetime.time.fromisoformat("09:00:00"),
-            end=datetime.time.fromisoformat("10:00:00")),
-
-    2: Range(start=datetime.time.fromisoformat("10:10:00"),
-            end=datetime.time.fromisoformat("11:10:00")),
-
-    3: Range(start=datetime.time.fromisoformat("11:30:00"),
-            end=datetime.time.fromisoformat("12:30:00")),
-            
-    4: Range(start=datetime.time.fromisoformat("12:50:00"),
-            end=datetime.time.fromisoformat("13:50:00")),
-
-    5: Range(start=datetime.time.fromisoformat("14:05:00"),
-            end=datetime.time.fromisoformat("15:05:00")),
-
-    6: Range(start=datetime.time.fromisoformat("15:15:00"),
-            end=datetime.time.fromisoformat("16:15:00")),
-}
-TIME_OVERRIDES[Weekday.SUNDAY] = TIME_OVERRIDES[Weekday.MONDAY]
 
 
 def keycap_num(num: int) -> str:
@@ -383,7 +338,7 @@ def days(
             if (
                 subj.is_unknown_window() and
                 compare.cmp_subjects(
-                    hold, ignored_keys=["raw", "num", "time"]
+                    hold, ignored_keys=["num"]
                 )
             ):
                 hold.append(subj)

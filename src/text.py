@@ -1,3 +1,8 @@
+INDENT = " "
+DROPDOWN = "└"
+ELLIPSIS = "..."
+
+
 def indent(
     text: str, 
     width: int = 2, 
@@ -7,24 +12,23 @@ def indent(
     """
     # Indent text, even multilines
     """
-
-    indentation = (" " * width) * times
+    indentation = (INDENT * width) * times
 
     lines: list[str] = []
 
     for line in text.split("\n"):
         already_dropdowned = False
 
-        if line.startswith(" ") and "└" in line:
+        if line.startswith(INDENT) and DROPDOWN in line:
             # this line is indented
             # and dropped down, 
             # avoid adding one more dropdown
             already_dropdowned = True
 
         if add_dropdown and not already_dropdowned:
-            dropdown_line = f"└ {line}"
+            dropdown_line = f"{DROPDOWN} {line}"
         elif already_dropdowned:
-            dropdown_line = f" {line}"
+            dropdown_line = f"{INDENT}{line}"
         else:
             dropdown_line = line
 
@@ -38,7 +42,7 @@ def shorten(text: str, limit: int = 10) -> str:
     text = str(text)
 
     if len(text) > limit:
-        text = text[:limit] + "..."
+        text = text[:limit] + ELLIPSIS
     
     return text
 

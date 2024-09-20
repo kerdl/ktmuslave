@@ -7,5 +7,4 @@ async-timeout==4.0.2
 websockets==10.4
 aiofiles>=0.8.0
 pydantic==1.10.2
-python-dotenv==0.20.0
 loguru==0.6.0

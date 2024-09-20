@@ -10,14 +10,14 @@ from src.api import schedule
 class Error(BaseModel):
     ...
 
+class Updates(BaseModel):
+    last: Optional[datetime.datetime]
+    period: Optional[Duration]
+
 class Data(BaseModel):
     page: Optional[Page]
-    tchr_page: Optional[TchrPage]
-    interactor: Optional[schedule.Interactor]
     notify: Optional[schedule.Notify]
-    url: Optional[str]
-    period: Optional[Duration]
-    last_update: Optional[datetime.datetime]
+    updates: Optional[Updates]
 
 class Response(BaseModel):
     is_ok: bool

@@ -153,8 +153,8 @@ async def hub(
         
         elif ctx.schedule.message.is_daily:
             if temp_mode == Mode.GROUP:
-                daily_page = await SCHEDULE_API.daily(temp_identifier if temp_identifier else identifier)
-                users_identifier_data = daily_page.get_group(temp_identifier if temp_identifier else identifier) if daily_page is not None else None
+                daily_page = await SCHEDULE_API.groups(temp_identifier if temp_identifier else identifier)
+                users_identifier_data = daily_page.get_name(temp_identifier if temp_identifier else identifier) if daily_page is not None else None
             elif temp_mode == Mode.TEACHER:
                 daily_page = await SCHEDULE_API.tchr_daily(temp_identifier if temp_identifier else identifier)
                 users_identifier_data = daily_page.get_teacher(temp_identifier if temp_identifier else identifier) if daily_page is not None else None

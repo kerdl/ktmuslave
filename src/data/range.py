@@ -8,6 +8,7 @@ from src.data import format as fmt
 
 T = TypeVar("T")
 
+
 class Range(GenericModel, Generic[T]):
     start: T
     end: T

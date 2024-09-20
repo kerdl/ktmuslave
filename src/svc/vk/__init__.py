@@ -8,6 +8,7 @@ from vkbottle_types.codegen.responses.messages import BaseBoolInt
 from dotenv import get_key
 from io import StringIO
 import random
+import asyncio
 
 from src import defs, text, ENV_PATH
 from src.svc.vk.types_ import RawEvent
@@ -144,11 +145,14 @@ def text_from_forwards(forwards: list[ForeignMessageMin]) -> Optional[str]:
     return "\n\n".join(texts)
 
 
-def load(loop = None) -> Bot:
+def load(
+    token: Optional[str] = None,
+    loop: asyncio.AbstractEventLoop = None
+) -> Bot:
     """
     ## Set token, load blueprints and return a `Bot`
     """
-    bot = Bot(token=get_key(ENV_PATH, "VK_TOKEN"), loop=loop)
+    bot = Bot(token=token, loop=loop)
 
     # vkbottle does not call raw event middlewares
     # if there's no raw event handlers

@@ -68,7 +68,7 @@ class Duration(BaseModel):
     nanos: int
 
     def __str__(self) -> str:
-        """as minutes"""
+        """As minutes"""
         return str(int(self.secs / 60))
 
 

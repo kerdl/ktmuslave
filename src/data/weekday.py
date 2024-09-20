@@ -2,13 +2,13 @@ from typing import Literal
 
 
 class Weekday:
-    MONDAY    = "Понедельник"
-    TUESDAY   = "Вторник"
+    MONDAY = "Понедельник"
+    TUESDAY = "Вторник"
     WEDNESDAY = "Среда"
-    THURSDAY  = "Четверг"
-    FRIDAY    = "Пятница"
-    SATURDAY  = "Суббота"
-    SUNDAY    = "Воскресенье"
+    THURSDAY = "Четверг"
+    FRIDAY = "Пятница"
+    SATURDAY = "Суббота"
+    SUNDAY = "Воскресенье"
 
 WEEKDAYS = [
     Weekday.MONDAY,

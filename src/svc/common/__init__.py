@@ -319,7 +319,7 @@ class BaseCtx:
         from src.api.schedule import SCHEDULE_API
 
         if sc_type == Type.DAILY:
-            return await SCHEDULE_API.daily(self.settings.group.confirmed)
+            return await SCHEDULE_API.groups(self.settings.group.confirmed)
         if sc_type == Type.WEEKLY:
             return await SCHEDULE_API.weekly(self.settings.group.confirmed)
 
@@ -340,7 +340,7 @@ class BaseCtx:
     ) -> str:
         page = await self.schedule_for_confirmed_group(sc_type)
 
-        try: group = page.groups[0]
+        try: group = page.formations[0]
         except IndexError: group = None
 
         return await sc_format.identifier(
@@ -832,8 +832,8 @@ class Ctx:
                 CHANGE_TYPES = None
                 if mode == Mode.GROUP:
                     CHANGE_TYPES = {
-                        ChangeType.APPEARED: page_compare.groups.appeared if page_compare else None,
-                        ChangeType.CHANGED:  page_compare.groups.changed if page_compare else None
+                        ChangeType.APPEARED: page_compare.formations.appeared if page_compare else None,
+                        ChangeType.CHANGED:  page_compare.formations.changed if page_compare else None
                     }
                 elif mode == Mode.TEACHER:
                     CHANGE_TYPES = {
