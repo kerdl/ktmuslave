@@ -21,7 +21,7 @@ https://t.me/ktmuslave_bot)
 - Both for [VK](https://vk.com/ktmuslave) and [Telegram](https://t.me/ktmuslave_bot) with one codebase
 - Step-by-step registration
 - Paginated editable Zoom data storage
-- Schedule changes broadcast
+- Broadcast of schedule changes
 
 ## Parsing
 This bot is built to work with [**ktmuscrap**](https://github.com/kerdl/ktmuscrap) - a parsing HTTP REST API server.
