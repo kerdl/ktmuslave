@@ -1,12 +1,24 @@
-from typing import TypeVar, Generic, Optional, ClassVar
+import datetime
+from typing import (
+    TypeVar,
+    Generic,
+    Optional,
+    ClassVar
+)
 from pydantic import BaseModel
 from pydantic.generics import GenericModel
-import datetime
-
-from src.data import TranslatedBaseModel, RepredBaseModel
+from src.data import (
+    TranslatedBaseModel,
+    RepredBaseModel
+)
 from src.data.weekday import WEEKDAYS
 from src.data.range import Range
-from src.data.schedule import Page, Formation, Day, Subject, Attender, Cabinet
+from src.data.schedule import (
+    Formation,
+    Day,
+    Subject,
+    Attender
+)
 
 
 T = TypeVar("T")

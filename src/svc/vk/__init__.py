@@ -150,7 +150,7 @@ def load(
     loop: asyncio.AbstractEventLoop = None
 ) -> Bot:
     """
-    ## Set token, load blueprints and return a `Bot`
+    ## Set token, load dummy handlers and return a `Bot`
     """
     bot = Bot(token=token, loop=loop)
 

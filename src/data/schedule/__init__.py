@@ -87,7 +87,10 @@ class Page(BaseModel):
     date: Range[datetime.date]
     formations: list[Formation]
 
-    def get_name(self, name: str) -> Optional[Formation]:
+    def names(self) -> list[str]:
+        return [formation.name for formation in self.formations]
+
+    def get_by_name(self, name: str) -> Optional[Formation]:
         for formation in self.formations:
             if formation.name == name:
                 return formation

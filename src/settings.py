@@ -1,9 +1,8 @@
 from __future__ import annotations
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Literal
 from pathlib import Path
 import aiofiles
-from src.svc.common import MESSENGER_SOURCE
 
 
 class Tokens(BaseModel):
@@ -19,7 +18,7 @@ class Database(BaseModel):
 
 class Admins(BaseModel):
     id: int
-    src: MESSENGER_SOURCE
+    src: Literal["vk", "tg"]
 
 class Logging(BaseModel):
     enabled: bool
@@ -58,8 +57,14 @@ class Settings(BaseModel):
     time: Optional[Time]
 
     async def save(self):
-        async with aiofiles.open(self.path, mode="w") as f:
-            ser = self.json(ensure_ascii=False, indent=2, exclude={"path"})
+        path: str = self.path
+
+        async with aiofiles.open(path, mode="w") as f:
+            ser = self.model_dump_json(
+                ensure_ascii=False,
+                indent=2,
+                exclude={"path"}
+            )
             await f.write(ser)
     
     def poll_save(self):
@@ -68,10 +73,11 @@ class Settings(BaseModel):
     
     @classmethod
     def load(cls, path: Path):
-        self = cls.parse_file(path)
-        self.path = path
+        with open(path, mode="r", encoding="utf8") as f:
+            self = cls.model_validate_json(f.read())
+            self.path = path
 
-        return self
+            return self
 
     @classmethod
     def load_or_init(cls: type[Settings], path: Path) -> Settings:

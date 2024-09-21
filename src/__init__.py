@@ -17,6 +17,7 @@ from loguru._handler import Message
 from dataclasses import dataclass
 from pathlib import Path
 from src.settings import Settings
+from src.api.schedule import ScheduleApi
 from src.data.range import Range
 from src.data.weekday import WEEKDAY_LITERAL
 
@@ -121,8 +122,10 @@ class Defs:
     redis: Optional[Redis] = None
     logger: Optional["Logger"] = None
 
-    data_dir: Optional[Path] = None
     settings: Optional[Settings] = None
+    schedule: Optional[ScheduleApi] = None
+
+    data_dir: Optional[Path] = None
     log_path: Optional[Path] = None
     log_file: Optional[AsyncTextIOWrapper] = None
 
@@ -145,10 +148,8 @@ class Defs:
         self.http = ClientSession(loop=self.loop)
     
     async def init_schedule_api(self):
-        from src.api.schedule import SCHEDULE_API
-
-        await SCHEDULE_API.wait_for_schedule_server()
-        self.create_task(SCHEDULE_API.updates())
+        await self.schedule.await_server()
+        self.create_task(self.schedule.updates())
 
     async def get_vk_bot_info(self):
         groups_data = await self.vk_bot.api.groups.get_by_id()
@@ -318,7 +319,8 @@ class Defs:
         self.data_dir.mkdir(exist_ok=True)
 
         settings_path = self.data_dir.joinpath("settings.json")
-        self.settings = Settings.load_or_init(settings_path)
+        self.settings = Settings.load_or_init(path=settings_path)
+        self.schedule = ScheduleApi(url=self.settings.server.addr)
 
         if self.settings.logging and self.settings.logging.dir:
             self.log_path = self.settings.logging.dir.joinpath("log.txt")
@@ -356,7 +358,6 @@ class Defs:
     
     def create_task(self, coro, *, name=None):
         task = self.loop.create_task(coro, name=name)
-
         task.add_done_callback(self._handle_task)
 
     def _handle_task(self, task: asyncio.Task):
@@ -370,7 +371,9 @@ class Defs:
             except AttributeError:
                 fn = "unknown"
 
-            logger.exception(f"task function <{fn}> raised {type(e).__name__}: {e}")
+            logger.exception(
+                f"task function <{fn}> raised {type(e).__name__}: {e}"
+            )
 
 
 defs = Defs()
