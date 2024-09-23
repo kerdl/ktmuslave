@@ -6,7 +6,6 @@ from typing import (
     ClassVar
 )
 from pydantic import BaseModel
-from pydantic.generics import GenericModel
 from src.data import (
     TranslatedBaseModel,
     RepredBaseModel
@@ -32,17 +31,17 @@ class ChangeType:
     CHANGED = "changed"
 
 
-class DetailedChanges(GenericModel, Generic[CMP_T, ORIGNAL_T]):
+class DetailedChanges(BaseModel, Generic[CMP_T, ORIGNAL_T]):
     appeared: list[ORIGNAL_T]
     disappeared: list[ORIGNAL_T]
     changed: list[CMP_T]
 
-class Changes(GenericModel, Generic[T]):
+class Changes(BaseModel, Generic[T]):
     appeared: list[T]
     disappeared: list[T]
     changed: list[T]
 
-class PrimitiveChange(GenericModel, Generic[T]):
+class PrimitiveChange(BaseModel, Generic[T]):
     old: Optional[T]
     new: Optional[T]
 

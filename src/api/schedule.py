@@ -92,8 +92,8 @@ class ScheduleApi:
             except ClientConnectorError:
                 if not is_connect_error_logged:
                     logger.error(
-                        f"unable to reach parsing server at {url}, "
-                        f"will keep retrying every {retry_period} secs"
+                        "unable to reach ktmuscrap instance "
+                        f"at {url}, awaiting..."
                     )
                     is_connect_error_logged = True
                 await asyncio.sleep(retry_period)
@@ -116,7 +116,7 @@ class ScheduleApi:
         if not force:
             return self._cached_groups
 
-        url = "http://" + self.url + "/groups"
+        url = "http://" + self.url + "/schedule/groups"
         if name is not None: url += f"?name={name}"
 
         self._cached_groups = await self.schedule_from_url(url)
@@ -130,7 +130,7 @@ class ScheduleApi:
         if not force:
             return self._cached_groups
         
-        url = "http://" + self.url + "/teachers"
+        url = "http://" + self.url + "/schedule/teachers"
         if name is not None: url += f"?name={name}"
 
         self._cached_teachers = self.schedule_from_url(url)
@@ -143,12 +143,12 @@ class ScheduleApi:
         if not force:
             return self._cached_last_update
         
-        url = "http://" + self.url + "/update/last"
+        url = "http://" + self.url + "/schedule/updates/last"
 
         return (await get(url)).data.updates.last
 
     async def get_update_period(self, force: bool = True) -> Duration:
-        url = "http://" + self.url + "/update/period"
+        url = "http://" + self.url + "/schedule/updates/period"
         if self._cached_update_period is None or force:
             self._cached_update_period = (await get(url)).data.updates.period
         return self._cached_update_period
@@ -157,8 +157,9 @@ class ScheduleApi:
         from src import defs
 
         retry_period = 5
+        is_connection_attempt_logged = False
         is_connect_error_logged = False
-        url = "ws://" + self.url + f"/updates"
+        url = "ws://" + self.url + f"/schedule/updates"
     
         while True:
             try:
@@ -169,7 +170,9 @@ class ScheduleApi:
 
                     return protocol
 
-                logger.info(f"connecting to {url}")
+                if not is_connection_attempt_logged:
+                    logger.info(f"connecting to {url}")
+                    is_connection_attempt_logged = True
 
                 async with client.connect(
                     url,
@@ -180,10 +183,11 @@ class ScheduleApi:
 
                         self.is_online = True
                         is_connect_error_logged = False
+                        is_connection_attempt_logged = False
 
                         logger.info(f"awaiting updates...")
                         async for message in socket:
-                            notify = Notify.parse_raw(message)
+                            notify = Notify.model_validate_json(message)
 
                             if notify.random == self.last_notify.random:
                                 logger.info(
@@ -203,13 +207,17 @@ class ScheduleApi:
                         logger.info("reconnecting...")
                         continue
 
-            except (ClientConnectorError, ServerDisconnectedError):
+            except (
+                ConnectionRefusedError,
+                ClientConnectorError,
+                ServerDisconnectedError
+            ):
                 if not is_connect_error_logged:
                     self.is_online = False
 
                     logger.error(
-                        f"unable to reach parsing server at {url}, "
-                        f"will keep retrying every {retry_period} secs"
+                        "unable to reach ktmuscrap instance "
+                        f"at {url}, awaiting..."
                     )
 
                     is_connect_error_logged = True

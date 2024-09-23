@@ -1,16 +1,40 @@
 import datetime
 import difflib
-from typing import Optional, Union, Literal, TYPE_CHECKING
+from typing import (
+    Optional,
+    Union,
+    Literal,
+    TYPE_CHECKING
+)
 from dataclasses import dataclass
-
-from src.svc.common import messages
-from src.data.schedule.compare import Changes, DetailedChanges, PrimitiveChange
-from src.data.schedule import Formation, Day, Subject, CommonIdentifier, CommonDay, CommonSubject, Format, FORMAT_LITERAL, compare
-from src.data.range import Range
-from src.data.weekday import Weekday, WEEKDAY_LITERAL, WEEKDAYS
-from src.data.range import Range
-from src.data import zoom, TranslatedBaseModel, RepredBaseModel, format as fmt, Emoji
 from src import text
+from src.svc.common import messages
+from src.data.range import Range
+from src.data.schedule.compare import (
+    Changes,
+    DetailedChanges,
+    PrimitiveChange
+)
+from src.data.schedule import (
+    Formation,
+    Day,
+    Subject,
+    Format,
+    FORMAT_LITERAL,
+    compare
+)
+from src.data.weekday import (
+    Weekday,
+    WEEKDAY_LITERAL,
+    WEEKDAYS
+)
+from src.data import (
+    zoom,
+    TranslatedBaseModel,
+    RepredBaseModel,
+    format as fmt,
+    Emoji
+)
 
 
 if TYPE_CHECKING:
@@ -218,7 +242,7 @@ def guests(
     return fmt_teachers
 
 def subject(
-    subj: CommonSubject,
+    subj: Subject,
     entries: set[zoom.Data],
     rng: Optional[Range[Subject]] = None,
     do_tg_markup: bool = False,
@@ -275,7 +299,7 @@ def subject(
     return base
 
 def days(
-    days: list[CommonDay],
+    days: list[Day],
     entries: set[zoom.Data],
     do_tg_markup: bool = False,
     override_time: bool = True,
@@ -414,8 +438,8 @@ def days(
     
     return fmt_days
 
-async def identifier(
-    identifier: Optional[CommonIdentifier],
+async def formation(
+    form: Optional[Formation],
     entries: list[zoom.Data],
     mode: "MODE_LITERAL",
     do_tg_markup: bool = False,
@@ -424,18 +448,18 @@ async def identifier(
     from src.api.schedule import SCHEDULE_API
     from src.data.settings import Mode
 
-    last_update          = await SCHEDULE_API.last_update()
-    utc3_last_update     = last_update + datetime.timedelta(hours=3)
+    last_update = await SCHEDULE_API.last_update()
+    utc3_last_update = last_update + datetime.timedelta(hours=3)
     fmt_utc3_last_update = utc3_last_update.strftime("%H:%M:%S, %d.%m.%Y")
 
-    update_period        = await SCHEDULE_API.update_period()
+    update_period = await SCHEDULE_API.update_period()
 
     update_params = messages.format_schedule_footer(
         last_update=fmt_utc3_last_update,
         update_period=update_period
     )
 
-    if identifier is None or not identifier.days:
+    if form is None or not form.days:
         if mode == Mode.GROUP:
             return (
                 f"{messages.format_no_schedule()}\n\n"
@@ -447,8 +471,13 @@ async def identifier(
                 f"{update_params}"
             )
 
-    label = identifier.raw
-    days_str = "\n\n".join(days(identifier.days, entries, do_tg_markup, override_time))
+    label = form.raw
+    days_str = "\n\n".join(days(
+        form.days,
+        entries,
+        do_tg_markup,
+        override_time
+    ))
 
     if mode == Mode.GROUP:
         return (
@@ -481,20 +510,20 @@ class CompareFormatted:
     has_detailed: bool
 
 def cmp(
-    compare: Union[TranslatedBaseModel, RepredBaseModel],
-    is_detailed: bool = True
+    model: Union[TranslatedBaseModel, RepredBaseModel],
+    do_detailed: bool = True
 ) -> CompareFormatted:
     rows: list[str] = []
     has_detailed = False
 
-    is_translated = isinstance(compare, TranslatedBaseModel)
+    is_translated = isinstance(model, TranslatedBaseModel)
 
-    for field in compare:
+    for field in model:
         key = field[0]
         value = field[1]
 
         if isinstance(value, (Changes, DetailedChanges)):
-            local_translation = None if not is_translated else compare.translate(key)
+            local_translation = None if not is_translated else model.translate(key)
             local_rows: list[str] = []
 
             for appeared in value.appeared:
@@ -523,7 +552,7 @@ def cmp(
             for changed in value.changed:
                 has_detailed = True
 
-                if is_detailed:
+                if do_detailed:
                     compared = cmp(changed)
                 else:
                     compared = CompareFormatted(text="", has_detailed=False)
@@ -547,7 +576,7 @@ def cmp(
             new = fmt.value_repr(value.new)
 
             rows.append(
-                f"{compare.translate(key)}: {PRIMITIVE.format(old, new)}"
+                f"{model.translate(key)}: {PRIMITIVE.format(old, new)}"
             )
     
     return CompareFormatted(text="\n".join(rows), has_detailed=has_detailed)

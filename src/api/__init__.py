@@ -1,11 +1,14 @@
 import datetime
 from aiohttp import ClientResponse
-from typing import Optional, Callable, Awaitable
+from typing import Optional, Callable, Awaitable, TYPE_CHECKING
 from pydantic import BaseModel
-from src.data import RepredBaseModel
 from src.data.duration import Duration
 from src.data.schedule import Page
 from src.data.schedule.compare import PageCompare
+
+
+if TYPE_CHECKING:
+    from src.data import RepredBaseModel
 
 
 class Error(BaseModel):

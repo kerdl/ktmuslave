@@ -2,24 +2,22 @@ from time import time
 from loguru import logger
 from aiohttp.client_exceptions import ClientConnectorError
 import asyncio
-import async_timeout
 
-from src import defs, UpdateWaiter
-from src.api.schedule import SCHEDULE_API
+from src import defs
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
-from src.data.settings import Group, Mode, Teacher, TimeMode
+from src.data.settings import Group, Mode, Teacher
 from src.data.schedule import format as sc_format
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import INIT, ZOOM, HUB
-from src.svc.common.router import r
+from src.svc.common.router import router
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common import keyboard as kb
 
 
-@r.on_callback(PayloadFilter(kb.Payload.UPDATE))
+@router.on_callback(PayloadFilter(kb.Payload.UPDATE))
 async def update(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -64,26 +62,26 @@ async def update(everything: CommonEverything):
                 allow_send = False,
             )
 
-@r.on_callback(PayloadFilter(kb.Payload.WEEKLY))
+@router.on_callback(PayloadFilter(kb.Payload.WEEKLY))
 async def switch_to_weekly(everything: CommonEverything):
     ctx = everything.ctx
     ctx.schedule.message.switch_to_weekly()
 
     return await hub(everything)
 
-@r.on_callback(PayloadFilter(kb.Payload.DAILY))
+@router.on_callback(PayloadFilter(kb.Payload.DAILY))
 async def switch_to_daily(everything: CommonEverything):
     ctx = everything.ctx
     ctx.schedule.message.switch_to_daily()
 
     return await hub(everything)
 
-@r.on_callback(PayloadFilter(kb.Payload.RESEND))
+@router.on_callback(PayloadFilter(kb.Payload.RESEND))
 async def resend(everything: CommonEverything):
     everything.ctx.schedule.reset_temps()
     return await to_hub(everything, allow_edit=False)
 
-@r.on_everything(StateFilter(HUB.I_MAIN))
+@router.on_everything(StateFilter(HUB.I_MAIN))
 async def hub(
     everything: CommonEverything,
     allow_edit: bool = True,
@@ -165,7 +163,7 @@ async def hub(
         elif temp_mode == Mode.TEACHER:
             zoom_entries = ctx.settings.tchr_zoom.entries.list
         
-        schedule_text = await sc_format.identifier(
+        schedule_text = await sc_format.formation(
             users_identifier_data,
             zoom_entries,
             temp_mode,

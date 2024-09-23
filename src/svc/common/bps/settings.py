@@ -2,17 +2,16 @@ from loguru import logger
 import re
 
 from src import defs
-from src.api.schedule import SCHEDULE_API
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
-from src.data.schedule import TimeMode, format as sc_format
+from src.data.schedule import format as sc_format
 from src.data.weekday import Weekday
 from src.data.settings import Mode
 from src.svc.common.states import formatter as states_fmt, Space
 from src.svc.common.states.tree import INIT, ZOOM, SETTINGS, RESET, HUB
-from src.svc.common.router import r
+from src.svc.common.router import router
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import Keyboard, Payload
 from src.svc.common import keyboard as kb
@@ -64,7 +63,7 @@ async def auto_route(everything: CommonEverything):
 
 """ TIME OVERRIDE ACTIONS """
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.II_TIME_OVERRIDE),
     PayloadFilter(Payload.FALSE)
 )
@@ -73,7 +72,7 @@ async def deny_time_override(everything: CommonEverything):
     ctx.settings.time_mode = TimeMode.ORIGINAL
     return await auto_route(everything)
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.II_TIME_OVERRIDE),
     PayloadFilter(Payload.TRUE)
 )
@@ -85,7 +84,7 @@ async def approve_time_override(everything: CommonEverything):
 
 """ TIME OVERRIDE STATE """
 
-@r.on_everything(StateFilter(SETTINGS.II_TIME_OVERRIDE))
+@router.on_everything(StateFilter(SETTINGS.II_TIME_OVERRIDE))
 async def time_override(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -102,7 +101,7 @@ async def time_override(everything: CommonEverything):
         keyboard = answer_keyboard,
     )
 
-@r.on_callback(
+@router.on_callback(
     PayloadFilter(Payload.TIME),
     StateFilter(SETTINGS.I_MAIN)
 )
@@ -113,14 +112,14 @@ async def to_time_override(everything: CommonEverything):
 
 """ ZOOM ACTIONS """
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.II_ZOOM),
     PayloadFilter(Payload.NEXT_ZOOM)
 )
 async def next_add_zoom(everything: CommonEverything):
     return await auto_route(everything)
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.II_ZOOM),
     PayloadFilter(Payload.SKIP)
 )
@@ -141,14 +140,14 @@ async def skip_add_zoom(everything: CommonEverything):
 
     return await auto_route(everything)
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.II_ZOOM),
     PayloadFilter(Payload.MANUALLY_HUB)
 )
 async def add_zoom_manually_hub(everything: CommonEverything):
     return await zoom_bp.to_name(everything)
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.II_ZOOM),
     PayloadFilter(Payload.FROM_TEXT)
 )
@@ -156,7 +155,7 @@ async def add_zoom_from_text(everything: CommonEverything):
     return await zoom_bp.to_mass(everything)
 
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(ZOOM.I_MASS),
     PayloadFilter(Payload.CONTINUE)
 )
@@ -164,7 +163,7 @@ async def continue_mass_adding(everything: CommonEverything):
     return await zoom_bp.to_browse(everything)
 
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.II_ZOOM),
     PayloadFilter(Payload.MANUALLY_INIT)
 )
@@ -175,7 +174,7 @@ async def add_zoom_manually(everything: CommonEverything):
 
 """ ZOOM STATE """
 
-@r.on_everything(StateFilter(SETTINGS.II_ZOOM))
+@router.on_everything(StateFilter(SETTINGS.II_ZOOM))
 async def add_zoom(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -229,7 +228,7 @@ async def add_zoom(everything: CommonEverything):
         tree_values = ctx.settings
     )
 
-@r.on_callback(
+@router.on_callback(
     PayloadFilter(Payload.ADD_HUB),
     StateFilter(ZOOM.II_BROWSE)
 )
@@ -238,7 +237,7 @@ async def to_add_zoom(everything: CommonEverything):
     return await add_zoom(everything)
 
 
-@r.on_callback(
+@router.on_callback(
     PayloadFilter(Payload.ZOOM),
     StateFilter(SETTINGS.I_MAIN)
 )
@@ -249,7 +248,7 @@ async def to_browse_zoom(everything: CommonEverything):
 
 """ PIN ACTIONS """
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.III_SHOULD_PIN),
     PayloadFilter(Payload.DO_PIN)
 )
@@ -267,14 +266,14 @@ async def check_do_pin(everything: CommonEverything):
         ctx.settings.should_pin = True
         return await auto_route(everything)
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.III_SHOULD_PIN),
     PayloadFilter(Payload.SKIP)
 )
 async def skip_pin(everything: CommonEverything):
     return await deny_pin(everything)
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.III_SHOULD_PIN),
     PayloadFilter(Payload.FALSE)
 )
@@ -285,7 +284,7 @@ async def deny_pin(everything: CommonEverything):
 
     return await auto_route(everything)
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.III_SHOULD_PIN),
     PayloadFilter(Payload.TRUE)
 )
@@ -300,7 +299,7 @@ async def approve_pin(everything: CommonEverything):
 
 """ PIN STATE """
 
-@r.on_everything(StateFilter(SETTINGS.III_SHOULD_PIN))
+@router.on_everything(StateFilter(SETTINGS.III_SHOULD_PIN))
 async def should_pin(everything: CommonEverything):
     ctx = everything.ctx
     is_should_pin_set = everything.ctx.settings.should_pin is not None
@@ -357,7 +356,7 @@ async def should_pin(everything: CommonEverything):
         tree_values = ctx.settings
     )
 
-@r.on_callback(
+@router.on_callback(
     PayloadFilter(Payload.PIN),
     StateFilter(SETTINGS.I_MAIN)
 )
@@ -369,7 +368,7 @@ async def to_should_pin(everything: CommonEverything):
 
 """ BROADCAST ACTIONS """
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.II_BROADCAST),
     PayloadFilter(Payload.FALSE)
 )
@@ -385,7 +384,7 @@ async def deny_broadcast(everything: CommonEverything):
 
     return await auto_route(everything)
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.II_BROADCAST),
     PayloadFilter(Payload.TRUE)
 )
@@ -400,7 +399,7 @@ async def approve_broadcast(everything: CommonEverything):
 
 """ BROADCAST STATE """
 
-@r.on_everything(StateFilter(SETTINGS.II_BROADCAST))
+@router.on_everything(StateFilter(SETTINGS.II_BROADCAST))
 async def broadcast(everything: CommonEverything):
     ctx = everything.ctx
     is_broadcast_set = everything.ctx.settings.broadcast is not None
@@ -425,7 +424,7 @@ async def broadcast(everything: CommonEverything):
         tree_values = ctx.settings
     )
 
-@r.on_callback(
+@router.on_callback(
     PayloadFilter(Payload.BROADCAST),
     StateFilter(SETTINGS.I_MAIN)
 )
@@ -436,7 +435,7 @@ async def to_broadcast(everything: CommonEverything):
 
 """ UNKNOWN_TEACHER ACTIONS """
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.III_UNKNOWN_TEACHER),
     PayloadFilter(Payload.TRUE)
 )
@@ -490,7 +489,7 @@ async def to_unknown_teacher(everything: CommonEverything):
 
 """ TEACHER STATE """
 
-@r.on_callback(StateFilter(SETTINGS.II_TEACHER), PayloadFilter(Payload.GROUP_MODE))
+@router.on_callback(StateFilter(SETTINGS.II_TEACHER), PayloadFilter(Payload.GROUP_MODE))
 async def switch_to_group_mode(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -505,7 +504,7 @@ async def switch_to_group_mode(everything: CommonEverything):
 
     return await main(everything)
 
-@r.on_everything(UnionFilter([
+@router.on_everything(UnionFilter([
     StateFilter(SETTINGS.II_TEACHER),
     StateFilter(SETTINGS.III_UNKNOWN_TEACHER),
 ]))
@@ -643,7 +642,7 @@ async def teacher(everything: CommonEverything):
             tree_values = ctx.settings
         )
 
-@r.on_callback(
+@router.on_callback(
     PayloadFilter(Payload.TEACHER),
     UnionFilter((
         StateFilter(INIT.I_MAIN),
@@ -657,7 +656,7 @@ async def to_teacher(everything: CommonEverything):
 
 """ UNKNOWN_GROUP ACTIONS """
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(SETTINGS.III_UNKNOWN_GROUP),
     PayloadFilter(Payload.TRUE)
 )
@@ -711,7 +710,7 @@ async def to_unknown_group(everything: CommonEverything):
 
 """ GROUP STATE """
 
-@r.on_callback(StateFilter(SETTINGS.II_GROUP), PayloadFilter(Payload.TEACHER_MODE))
+@router.on_callback(StateFilter(SETTINGS.II_GROUP), PayloadFilter(Payload.TEACHER_MODE))
 async def switch_to_teacher_mode(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -726,7 +725,7 @@ async def switch_to_teacher_mode(everything: CommonEverything):
 
     return await main(everything)
 
-@r.on_everything(UnionFilter([
+@router.on_everything(UnionFilter([
     StateFilter(SETTINGS.II_GROUP),
     StateFilter(SETTINGS.III_UNKNOWN_GROUP)
 ]))
@@ -828,7 +827,7 @@ async def group(everything: CommonEverything):
             tree_values = ctx.settings
         )
 
-@r.on_callback(
+@router.on_callback(
     PayloadFilter(Payload.GROUP),
     UnionFilter((
         StateFilter(INIT.I_MAIN),
@@ -841,7 +840,7 @@ async def to_group(everything: CommonEverything):
 
 """ MODE STATE """
 
-@r.on_everything(
+@router.on_everything(
     StateFilter(SETTINGS.II_MODE),
     PayloadFilter(Payload.ME_STUDENT)
 )
@@ -857,7 +856,7 @@ async def me_student_mode(everything: CommonEverything):
 
     return await auto_route(everything)
 
-@r.on_everything(
+@router.on_everything(
     StateFilter(SETTINGS.II_MODE),
     PayloadFilter(Payload.ME_TEACHER)
 )
@@ -873,7 +872,7 @@ async def me_teacher_mode(everything: CommonEverything):
 
     return await auto_route(everything)
 
-@r.on_everything(StateFilter(SETTINGS.II_MODE))
+@router.on_everything(StateFilter(SETTINGS.II_MODE))
 async def mode(everything: CommonEverything):
     ctx = everything.ctx
     is_mode_set = everything.ctx.settings.mode is not None
@@ -897,7 +896,7 @@ async def mode(everything: CommonEverything):
         tree_values = ctx.settings
     )
 
-@r.on_callback(
+@router.on_callback(
     UnionFilter((
         PayloadFilter(Payload.BEGIN),
         PayloadFilter(Payload.MODE)
@@ -913,7 +912,7 @@ async def to_mode(everything: CommonEverything):
 
 
 """ MAIN STATE """
-@r.on_everything(StateFilter(SETTINGS.I_MAIN))
+@router.on_everything(StateFilter(SETTINGS.I_MAIN))
 async def main(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -967,7 +966,7 @@ async def main(everything: CommonEverything):
         keyboard = answer_keyboard
     )
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(HUB.I_MAIN),
     PayloadFilter(Payload.SETTINGS)
 )

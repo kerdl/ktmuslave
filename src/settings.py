@@ -1,20 +1,22 @@
 from __future__ import annotations
-from pydantic import BaseModel
+import aiofiles
+import datetime
+from pydantic import BaseModel, Field
 from typing import Optional, Literal
 from pathlib import Path
-import aiofiles
+from src.data.range import Range
 
 
 class Tokens(BaseModel):
-    vk: Optional[str]
-    tg: Optional[str]
+    vk: Optional[str] = None
+    tg: Optional[str] = None
 
 class Server(BaseModel):
     addr: str
 
 class Database(BaseModel):
     addr: str
-    password: Optional[str]
+    password: Optional[str] = None
 
 class Admins(BaseModel):
     id: int
@@ -22,17 +24,17 @@ class Admins(BaseModel):
 
 class Logging(BaseModel):
     enabled: bool
-    dir: Optional[Path]
-    admins: list[Admins]
+    dir: Optional[Path] = None
+    admins: list[Admins] = Field(default_factory=list)
 
 class Urls(BaseModel):
-    schedules: Optional[str]
-    journals: Optional[str]
-    materials: Optional[str]
+    schedules: Optional[str] = None
+    journals: Optional[str] = None
+    materials: Optional[str] = None
 
 class TimeSchedule(BaseModel):
     name: str
-    nums: dict[str, str]
+    nums: dict[str, Range[datetime.time]] = Field(default_factory=dict)
 
 class TimeMapping(BaseModel):
     monday: str
@@ -44,17 +46,17 @@ class TimeMapping(BaseModel):
     sunday: str
 
 class Time(BaseModel):
-    schedules: list[TimeSchedule]
-    mapping: Optional[str]
+    schedules: list[TimeSchedule] = Field(default_factory=list)
+    mapping: TimeMapping
 
 class Settings(BaseModel):
-    path: Optional[Path]
     tokens: Tokens
     server: Server
     database: Database
-    logging: Optional[Logging]
-    urls: Optional[Urls]
-    time: Optional[Time]
+    logging: Optional[Logging] = None
+    urls: Optional[Urls] = None
+    time: Optional[Time] = None
+    path: Optional[Path] = None
 
     async def save(self):
         path: str = self.path

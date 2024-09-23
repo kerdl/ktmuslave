@@ -32,22 +32,3 @@ class Range(BaseModel, Generic[T]):
             return self.start == value.start and self.end == value.end
         else:
             return False
-        
-    @field_validator("start", "end", pre=True)
-    def parse_time(cls, value):
-        if isinstance(value, str):
-            try:
-                start, end = value.split("-")
-                start = start.strip()
-                end = end.strip()
-
-                args = get_args(cls)
-                if args[0] == datetime.time:
-                    start = datetime.time.fromisoformat(start)
-                    end = datetime.time.fromisoformat(end)
-                
-                return cls(start=start, end=end)
-            except:
-                return None
-        
-        return value

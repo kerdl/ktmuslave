@@ -129,7 +129,7 @@ class Defs:
     log_path: Optional[Path] = None
     log_file: Optional[AsyncTextIOWrapper] = None
 
-    time_mapping: Optional[dict["WEEKDAY_LITERAL", Range[datetime.time]]]
+    time_mapping: Optional[dict["WEEKDAY_LITERAL", Range[datetime.time]]] = None
 
     def init_all(
         self, 
@@ -148,12 +148,12 @@ class Defs:
         self.http = ClientSession(loop=self.loop)
     
     async def init_schedule_api(self):
-        await self.schedule.await_server()
+        #await self.schedule.await_server()
         self.create_task(self.schedule.updates())
 
     async def get_vk_bot_info(self):
-        groups_data = await self.vk_bot.api.groups.get_by_id()
-        group_data = groups_data[0]
+        groups_resp = await self.vk_bot.api.groups.get_by_id()
+        group_data = groups_resp.groups[0]
         self.vk_bot_info = group_data
         self.vk_bot_mention = "@" + group_data.screen_name
 
@@ -178,8 +178,8 @@ class Defs:
             except rexeptions.ConnectionError:
                 if not logged:
                     logger.opt(colors=True).error(
-                        f"run redis instance on {host}:{port} first, "
-                        f"will keep trying reconnecting every {retry} secs"
+                        f"unable to rech redis instance "
+                        f"at {host}:{port}, awaiting..."
                     )
                     logged = True
                 
@@ -253,8 +253,8 @@ class Defs:
         from src.svc.common import DbBaseCtx
         from src.data.zoom import Container
         from src.data.settings import MODE_LITERAL
-        DbBaseCtx.ensure_update_forward_refs()
-        Container.update_forward_refs(**locals())
+        DbBaseCtx.model_rebuild()
+        Container.model_rebuild()
 
     async def init_logger_svc(self) -> None:
         """
@@ -301,7 +301,7 @@ class Defs:
 
         if init_middlewares:
             from src.svc.common import middlewares
-            middlewares.r.assign()
+            middlewares.router.assign()
         
         if init_handlers:
             from src.svc.common.bps import admin, reset, settings, init, zoom, hub

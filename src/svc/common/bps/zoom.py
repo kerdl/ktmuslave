@@ -7,13 +7,13 @@ from src.data.settings import Mode
 from src.svc.common import CommonEverything, messages, pagination, Ctx, bps
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import ZOOM, Space
-from src.svc.common.router import r
+from src.svc.common.router import router
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common import keyboard as kb, template
 from src.data import zoom, Field, error
 
 
-@r.on_callback(StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL), PayloadFilter(kb.Payload.DUMP_AND_REMOVE_ALL))
+@router.on_callback(StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL), PayloadFilter(kb.Payload.DUMP_AND_REMOVE_ALL))
 async def dump_when_removing_all(everything: CommonEverything):
     ctx = everything.ctx
     if ctx.settings.mode == Mode.GROUP:
@@ -34,7 +34,7 @@ async def dump_when_removing_all(everything: CommonEverything):
     return await browse(everything)
 
 
-@r.on_callback(StateFilter(ZOOM.III_DUMP), PayloadFilter(kb.Payload.DUMP))
+@router.on_callback(StateFilter(ZOOM.III_DUMP), PayloadFilter(kb.Payload.DUMP))
 async def dump(everything: CommonEverything):
     ctx = everything.ctx
     if ctx.settings.mode == Mode.GROUP:
@@ -66,7 +66,7 @@ async def going_to_dump(everything: CommonEverything):
         keyboard = answer_keyboard
     )
 
-@r.on_callback(
+@router.on_callback(
     UnionFilter((
         StateFilter(ZOOM.II_BROWSE),
     )),
@@ -77,7 +77,7 @@ async def to_going_to_dump(everything: CommonEverything):
     return await going_to_dump(everything)
 
 
-@r.on_callback(PayloadFilter(kb.Payload.REMOVE))
+@router.on_callback(PayloadFilter(kb.Payload.REMOVE))
 async def remove_entry(everything: CommonEverything):
     ctx = everything.ctx
     if ctx.settings.mode == Mode.GROUP:
@@ -194,7 +194,7 @@ async def set_attribute(
         )
 
 
-@r.on_callback(StateFilter(ZOOM.IIII_CONFIRM_CLEAR_ALL), PayloadFilter(kb.Payload.CLEAR))
+@router.on_callback(StateFilter(ZOOM.IIII_CONFIRM_CLEAR_ALL), PayloadFilter(kb.Payload.CLEAR))
 async def clear_new_entries(everything: CommonEverything):
     ctx = everything.ctx
     if ctx.settings.mode == Mode.GROUP:
@@ -221,13 +221,13 @@ async def confirm_clear_new_entries(everything: CommonEverything):
         keyboard = answer_keyboard,
     )
 
-@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.CLEAR))
+@router.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.CLEAR))
 async def to_confirm_clear_new_entries(everything: CommonEverything):
     everything.ctx.navigator.append(ZOOM.IIII_CONFIRM_CLEAR_ALL)
     return await confirm_clear_new_entries(everything)
 
 
-@r.on_callback(StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL), PayloadFilter(kb.Payload.REMOVE_ALL))
+@router.on_callback(StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL), PayloadFilter(kb.Payload.REMOVE_ALL))
 async def remove_entries(everything: CommonEverything):
     ctx = everything.ctx
     if ctx.settings.mode == Mode.GROUP:
@@ -256,13 +256,13 @@ async def confirm_remove_entries(everything: CommonEverything):
         keyboard = answer_keyboard,
     )
 
-@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.REMOVE_ALL))
+@router.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.REMOVE_ALL))
 async def to_confirm_remove_entries(everything: CommonEverything):
     everything.ctx.navigator.append(ZOOM.IIII_CONFIRM_REMOVE_ALL)
     return await confirm_remove_entries(everything)
 
 
-@r.on_callback(
+@router.on_callback(
     StateFilter(ZOOM.I_MASS_CHECK), 
     PayloadFilter(kb.Payload.CONFIRM)
 )
@@ -318,12 +318,12 @@ async def mass_check(everything: CommonEverything):
         keyboard = answer_keyboard,
     )
 
-@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.ADD_ALL))
+@router.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.ADD_ALL))
 async def to_mass_check(everything: CommonEverything):
     everything.navigator.append(ZOOM.I_MASS_CHECK)
     return await mass_check(everything)
 
-@r.on_everything(StateFilter(ZOOM.IIII_NOTES))
+@router.on_everything(StateFilter(ZOOM.IIII_NOTES))
 async def notes(everything: CommonEverything):
     if everything.ctx.settings.mode == Mode.GROUP:
         storage = everything.ctx.settings.zoom
@@ -354,12 +354,12 @@ async def notes(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.NOTES))
+@router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.NOTES))
 async def to_notes(everything: CommonEverything):
     everything.navigator.append(ZOOM.IIII_NOTES)
     return await notes(everything)
 
-@r.on_everything(StateFilter(ZOOM.IIII_HOST_KEY))
+@router.on_everything(StateFilter(ZOOM.IIII_HOST_KEY))
 async def host_key(everything: CommonEverything):
     if everything.ctx.settings.mode == Mode.GROUP:
         storage = everything.ctx.settings.zoom
@@ -384,12 +384,12 @@ async def host_key(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.HOST_KEY))
+@router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.HOST_KEY))
 async def to_host_key(everything: CommonEverything):
     everything.navigator.append(ZOOM.IIII_HOST_KEY)
     return await host_key(everything)
 
-@r.on_everything(StateFilter(ZOOM.IIII_PWD))
+@router.on_everything(StateFilter(ZOOM.IIII_PWD))
 async def pwd(everything: CommonEverything):
     if everything.ctx.settings.mode == Mode.GROUP:
         storage = everything.ctx.settings.zoom
@@ -414,13 +414,13 @@ async def pwd(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.PWD))
+@router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.PWD))
 async def to_pwd(everything: CommonEverything):
     everything.navigator.append(ZOOM.IIII_PWD)
     return await pwd(everything)
 
 
-@r.on_everything(StateFilter(ZOOM.IIII_ID))
+@router.on_everything(StateFilter(ZOOM.IIII_ID))
 async def id_(everything: CommonEverything):
     if everything.ctx.settings.mode == Mode.GROUP:
         storage = everything.ctx.settings.zoom
@@ -445,13 +445,13 @@ async def id_(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.ID))
+@router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.ID))
 async def to_id(everything: CommonEverything):
     everything.navigator.append(ZOOM.IIII_ID)
     return await id_(everything)
 
 
-@r.on_everything(StateFilter(ZOOM.IIII_URL))
+@router.on_everything(StateFilter(ZOOM.IIII_URL))
 async def url(everything: CommonEverything):
     if everything.ctx.settings.mode == Mode.GROUP:
         storage = everything.ctx.settings.zoom
@@ -476,13 +476,13 @@ async def url(everything: CommonEverything):
         nuller       = nuller,
     )
 
-@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.URL))
+@router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.URL))
 async def to_url(everything: CommonEverything):
     everything.navigator.append(ZOOM.IIII_URL)
     return await url(everything)
 
 
-@r.on_message(StateFilter(ZOOM.IIII_NAME))
+@router.on_message(StateFilter(ZOOM.IIII_NAME))
 async def name(everything: CommonEverything):
     if everything.ctx.settings.mode == Mode.GROUP:
         storage = everything.ctx.settings.zoom
@@ -526,12 +526,12 @@ async def name(everything: CommonEverything):
         limit        = zoom.NAME_LIMIT
     )
 
-@r.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.NAME))
+@router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.NAME))
 async def to_name(everything: CommonEverything):
     everything.navigator.append(ZOOM.IIII_NAME)
     return await name(everything)
 
-@r.on_everything(StateFilter(ZOOM.III_ENTRY))
+@router.on_everything(StateFilter(ZOOM.III_ENTRY))
 async def entry(everything: CommonEverything):
     ignored_keys = []
     field_filter = lambda field: field[0] not in ["name"]
@@ -564,13 +564,13 @@ async def to_entry(everything: CommonEverything):
     everything.navigator.jump_back_to_or_append(ZOOM.III_ENTRY)
     return await entry(everything)
 
-@r.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.ADD_INIT))
+@router.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.ADD_INIT))
 async def add_init_entry(everything: CommonEverything):
     return await to_name(everything)
 
 
 
-@r.on_everything(
+@router.on_everything(
     StateFilter(ZOOM.II_BROWSE),
     lambda every: every.event.payload != kb.Payload.ADD_HUB if every.is_from_event else True
 )
@@ -691,7 +691,7 @@ async def to_browse(
 
     return await browse(everything, text_footer, first_call)
 
-@r.on_everything(
+@router.on_everything(
     UnionFilter((
         StateFilter(ZOOM.I_MASS),
         StateFilter(ZOOM.II_BROWSE)

@@ -565,6 +565,3 @@ ZOOM_BUTTON = Button(text = Text.ZOOM, callback = Payload.ZOOM, color = Color.BL
 TIME_BUTTON = Button(text = Text.TIME, callback = Payload.TIME, color = Color.BLUE)
 EXECUTE_CODE_BUTTON = Button(text = Text.EXECUTE_CODE, callback = Payload.EXECUTE_CODE, color = Color.BLUE)
 RESET_BUTTON = Button(text = Text.RESET, callback = Payload.RESET, color = Color.RED)
-
-MATERIALS_BUTTON = Button(text = Text.MATERIALS, url = schedule.MATERIALS_URL)
-JOURNALS_BUTTON = Button(text = Text.JOURNALS, url = schedule.JOURNALS_URL)

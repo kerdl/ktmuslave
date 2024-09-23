@@ -47,7 +47,7 @@ class VkRawCatcher(BaseMiddleware[RawEvent]):
         try:
             event = CommonEvent.from_vk(self.event, dt=datetime.datetime.now())
             everything = CommonEverything.from_event(event)
-            await r.choose_handler(everything)
+            await router.choose_handler(everything)
         except Exception as e:
             logger.exception(f"{type(e).__name__}({e})")
 
@@ -60,7 +60,7 @@ class VkMessageCatcher(BaseMiddleware[VkMessage]):
 
             message = CommonMessage.from_vk(self.event)
             everything = CommonEverything.from_message(message)
-            await r.choose_handler(everything)
+            await router.choose_handler(everything)
         except Exception as e:
             logger.exception(f"{type(e).__name__}({e})")
 
@@ -99,7 +99,7 @@ class TgUpdateCatcher:
         # channel_post
         # edited_channel_post
 
-        await r.choose_handler(everything)
+        await router.choose_handler(everything)
 
 
 @dataclass
@@ -188,11 +188,13 @@ class Router:
         """
 
         """ Assign to VK """
-        defs.vk_bot.labeler.message_view.register_middleware(VkMessageCatcher)
-        defs.vk_bot.labeler.raw_event_view.register_middleware(VkRawCatcher)
+        if defs.vk_bot:
+            defs.vk_bot.labeler.message_view.register_middleware(VkMessageCatcher)
+            defs.vk_bot.labeler.raw_event_view.register_middleware(VkRawCatcher)
 
         """ Assign to Telegram """
-        defs.tg_dispatch.update.outer_middleware(TgUpdateCatcher())
+        if defs.tg_dispatch:
+            defs.tg_dispatch.update.outer_middleware(TgUpdateCatcher())
 
     async def call_pre_middlewares(self, everything: CommonEverything):
         if everything.is_from_event:
@@ -303,4 +305,4 @@ class Router:
         if not avoid_post_mw:
             await self.call_post_middlewares(everything)
 
-r = Router()
+router = Router()

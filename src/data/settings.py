@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field as PydField
 import difflib
 
 from src.data import zoom as zoom_mod
-from src.data.schedule import TIME_MODE_LITERAL, TimeMode
 from src.svc import common
 from src.parse import pattern
 from src.svc.common.states import State, Values
@@ -51,7 +50,9 @@ class Teacher(BaseModel):
         teacher_case_ignored = pattern.TEACHER_CASE_IGNORED.search(self.typed)
         if teacher_case_ignored is not None:
             teacher_case_ignored: str = teacher_case_ignored.group()
-            last_name = pattern.TEACHER_LAST_NAME_CASE_IGNORED.search(teacher_case_ignored)
+            last_name = pattern.TEACHER_LAST_NAME_CASE_IGNORED.search(
+                teacher_case_ignored
+            )
             rest = teacher_case_ignored[:last_name.pos]
             rest = rest.upper()
             last_name = last_name.group().capitalize()
@@ -61,7 +62,9 @@ class Teacher(BaseModel):
         teacher_no_dots_case_ignored = pattern.TEACHER_NO_DOTS_CASE_IGNORED.search(self.typed)
         if teacher_no_dots_case_ignored is not None:
             teacher_no_dots_case_ignored: str = teacher_no_dots_case_ignored.group()
-            last_name = pattern.TEACHER_LAST_NAME_CASE_IGNORED.search(teacher_no_dots_case_ignored)
+            last_name = pattern.TEACHER_LAST_NAME_CASE_IGNORED.search(
+                teacher_no_dots_case_ignored
+            )
             rest = teacher_no_dots_case_ignored[last_name.end():]
             rest = rest.strip()
             rest = rest.upper()
@@ -110,7 +113,6 @@ class Settings(Values):
     tchr_zoom: zoom_mod.Container = PydField(default_factory=zoom_mod.Container.as_tchr)
     broadcast: Optional[bool] = None
     should_pin: Optional[bool] = None
-    time_mode: Optional[TIME_MODE_LITERAL] = TimeMode.OVERRIDE
 
     def get_from_state(self, state: State) -> Any:
         storage = None
@@ -121,12 +123,12 @@ class Settings(Values):
             storage = self.tchr_zoom
         
         VALUES = {
-            SettingsTree.II_MODE:        self.mode,
-            SettingsTree.II_GROUP:       self.group.confirmed,
-            SettingsTree.II_TEACHER:     self.teacher.confirmed,
-            SettingsTree.II_BROADCAST:   self.broadcast,
+            SettingsTree.II_MODE: self.mode,
+            SettingsTree.II_GROUP: self.group.confirmed,
+            SettingsTree.II_TEACHER: self.teacher.confirmed,
+            SettingsTree.II_BROADCAST: self.broadcast,
             SettingsTree.III_SHOULD_PIN: self.should_pin,
-            SettingsTree.II_ZOOM:        len(storage.entries) if storage and storage.is_finished else None
+            SettingsTree.II_ZOOM: len(storage.entries) if storage and storage.is_finished else None
         }
 
         return VALUES.get(state)

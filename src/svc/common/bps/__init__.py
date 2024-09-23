@@ -7,7 +7,7 @@ from src.svc.common.filters import PayloadFilter
 from src.svc.common.keyboard import Payload
 from src.svc.common.states import SPACE_LITERAL, Space, State
 from src.svc.common.states.tree import HUB
-from src.svc.common.router import r
+from src.svc.common.router import router
 
 
 class SpaceType(ModuleType):
@@ -41,13 +41,13 @@ async def auto_execute(everything: CommonEverything):
     return await handler(everything)
 
 
-@r.on_callback(PayloadFilter(Payload.GO_TO_HUB))
+@router.on_callback(PayloadFilter(Payload.GO_TO_HUB))
 async def to_hub(everything: CommonEverything):
     from . import hub
     return await hub.to_hub(everything, allow_edit=False)
 
 
-@r.on_callback(PayloadFilter(Payload.PAGE_BACK))
+@router.on_callback(PayloadFilter(Payload.PAGE_BACK))
 async def page_back(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -72,7 +72,7 @@ async def page_back(everything: CommonEverything):
     except TelegramBadRequest:
         pass
 
-@r.on_callback(PayloadFilter(Payload.PAGE_NEXT))
+@router.on_callback(PayloadFilter(Payload.PAGE_NEXT))
 async def page_next(everything: CommonEverything):
     ctx = everything.ctx
 
@@ -98,12 +98,12 @@ async def page_next(everything: CommonEverything):
         pass
 
 
-@r.on_callback(PayloadFilter(Payload.BACK))
+@router.on_callback(PayloadFilter(Payload.BACK))
 async def back(everything: CommonEverything):
     everything.navigator.back()
     return await auto_execute(everything)
 
-@r.on_callback(PayloadFilter(Payload.NEXT))
+@router.on_callback(PayloadFilter(Payload.NEXT))
 async def next(everything: CommonEverything):
     everything.navigator.next()
     return await auto_execute(everything)

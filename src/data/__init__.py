@@ -2,10 +2,8 @@ from __future__ import annotations
 from typing import ClassVar, Iterable, TypeVar, Generic, Optional, Generator, Any
 from dataclasses import dataclass, field
 from pydantic import BaseModel, Field as PydField
-from pydantic.generics import GenericModel
 
 from . import format as fmt
-from src.svc import telegram as tg
 
 
 T = TypeVar("T")
@@ -88,7 +86,7 @@ class Warning:
     def __eq__(self, other: object) -> bool:
         return self.anchor == other
 
-class Field(GenericModel, Generic[T], Repred):
+class Field(BaseModel, Generic[T], Repred):
     value: T
     warnings: list[Warning] = PydField(default_factory=list, exclude=True)
 
@@ -105,6 +103,7 @@ class Field(GenericModel, Generic[T], Repred):
         escape_tg_markdown: bool = False
     ) -> str:
         from src.svc import common
+        from src.svc import telegram as tg
 
         if display_value:
             value = fmt.value_repr(self.value)
@@ -140,6 +139,7 @@ class Field(GenericModel, Generic[T], Repred):
     
     def __eq__(self, other: object) -> bool:
         return self.value == other
+
 
 INCORRECT_NAME_FORMAT = Warning(
     "incorrect_name_format", 

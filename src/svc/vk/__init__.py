@@ -1,25 +1,23 @@
 from typing import Optional, Callable
-from vkbottle import Bot, VKAPIError, GroupEventType
+from vkbottle import Bot, VKAPIError, GroupEventType, API
+from vkbottle.http import SingleAiohttpClient
 from vkbottle.bot import Message, MessageEvent
-from vkbottle.tools.dev.mini_types.bot.foreign_message import ForeignMessageMin
+from vkbottle.tools.mini_types.bot.foreign_message import ForeignMessageMin
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
-from vkbottle_types.objects import MessagesForward
-from vkbottle_types.codegen.responses.messages import BaseBoolInt
-from dotenv import get_key
-from io import StringIO
+from vkbottle_types.objects import MessagesForward, BaseBoolInt
+from aiohttp import TCPConnector
 import random
 import asyncio
 
-from src import defs, text, ENV_PATH
+from src import defs, text
 from src.svc.vk.types_ import RawEvent
 
 
 async def has_admin_rights(peer_id: int) -> bool:
     try:
-        members = await defs.vk_bot.api.messages.get_conversation_members(
+        await defs.vk_bot.api.messages.get_conversation_members(
             peer_id = peer_id
         )
-
         return True
     # You don't have access to this chat
     except VKAPIError[917]:
@@ -49,9 +47,9 @@ async def chunked_send(
 
     if reply_to is not None:
         fwd = MessagesForward(
-            is_reply                 = True,
+            is_reply = True,
             conversation_message_ids = [reply_to],
-            peer_id                  = peer_id
+            peer_id = peer_id
         )
 
     for (index, chunk) in enumerate(chunks):
@@ -60,17 +58,15 @@ async def chunked_send(
 
         api_responses: list[MessagesSendUserIdsResponseItem] = (
             await defs.vk_bot.api.messages.send(
-                random_id        = random.randint(0, 99999),
-                peer_ids         = [peer_id],
-                message          = chunk,
-                keyboard         = keyboard if is_last else None,
-                forward          = fwd if is_first else None,
-                dont_parse_links = dont_parse_links,
+                random_id=random.randint(0, 99999),
+                peer_ids=[peer_id],
+                message=chunk,
+                keyboard=keyboard if is_last else None,
+                forward=fwd if is_first else None,
+                dont_parse_links=dont_parse_links,
             )
         )
-
         response = api_responses[0]
-
         responses.append(response)
 
     return responses
@@ -96,27 +92,24 @@ async def chunked_edit(
         if not used_first_edit:
             response: BaseBoolInt = (
                 await defs.vk_bot.api.messages.edit(
-                    peer_id                 = peer_id,
-                    conversation_message_id = conversation_message_id,
-                    message                 = chunk,
-                    keyboard                = keyboard if is_last else None,
-                    dont_parse_links        = True,
+                    peer_id=peer_id,
+                    conversation_message_id=conversation_message_id,
+                    message=chunk,
+                    keyboard=keyboard if is_last else None,
+                    dont_parse_links=True,
             ))
-
             edit_response = response
-
             used_first_edit = True
         else:
             api_responses: list[MessagesSendUserIdsResponseItem] = (
                 await defs.vk_bot.api.messages.send(
-                    random_id        = random.randint(0, 99999),
-                    peer_ids         = [peer_id],
-                    message          = chunk,
-                    keyboard         = keyboard if is_last else None,
-                    dont_parse_links = dont_parse_links,
+                    random_id=random.randint(0, 99999),
+                    peer_ids=[peer_id],
+                    message=chunk,
+                    keyboard=keyboard if is_last else None,
+                    dont_parse_links=dont_parse_links,
                 )
             )
-
             sending_responses.append(api_responses[0])
     
     return (edit_response, sending_responses)
@@ -145,22 +138,24 @@ def text_from_forwards(forwards: list[ForeignMessageMin]) -> Optional[str]:
     return "\n\n".join(texts)
 
 
-def load(
-    token: Optional[str] = None,
-    loop: asyncio.AbstractEventLoop = None
-) -> Bot:
+def load(token: Optional[str] = None, loop: asyncio.AbstractEventLoop = None) -> Bot:
     """
     ## Set token, load dummy handlers and return a `Bot`
     """
-    bot = Bot(token=token, loop=loop)
+    # disabling SSL verification
+    # because VK uses self-signed shit
+    connector = TCPConnector(ssl=False, loop=loop)
+    http_client = SingleAiohttpClient(connector=connector)
+    api = API(token=token,http_client=http_client)
+    bot = Bot(token=token, api=api)
 
     # vkbottle does not call raw event middlewares
     # if there's no raw event handlers
     @bot.on.raw_event(GroupEventType.MESSAGE_EVENT, MessageEvent)
-    async def event_dummy(*_): ...
+    async def _event_dummy(*_): ...
 
     @bot.on.message()
-    async def message_dummy(*_): ...
+    async def _message_dummy(*_): ...
 
     bot.labeler.message_view.replace_mention = True
 

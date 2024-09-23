@@ -1,15 +1,25 @@
 from __future__ import annotations
-
-if __name__ == "__main__":
-    import sys
-    sys.path.append(".")
-
-from typing import Generator, Union, TypeVar, Optional, TYPE_CHECKING
+from typing import (
+    Generator,
+    Union,
+    TypeVar,
+    Optional,
+    List,
+    TYPE_CHECKING
+)
 from dataclasses import dataclass
 from pydantic import BaseModel, Field as PydField
-
-from src.svc.common.keyboard import BACK_BUTTON, Keyboard, Button, Color, Payload
-from src.svc.common.template import CommonBotTemplate, MetadataKeys
+from src.svc.common.keyboard import (
+    BACK_BUTTON,
+    Keyboard,
+    Button,
+    Color,
+    Payload
+)
+from src.svc.common.template import (
+    CommonBotTemplate,
+    MetadataKeys
+)
 from src.svc.common import error, messages
 from src.data import zoom
 
@@ -28,7 +38,9 @@ def chunks(lst: list[T], n: int) -> Generator[list[T], None, None]:
         yield lst[i:i + n]
 
 class Container(BaseModel):
-    list: list[CommonBotTemplate] = PydField(default_factory=list)
+    list: List[CommonBotTemplate] = PydField(
+        default_factory=lambda *a, **kw: list(*a, **kw)
+    )
     """ ## List of pages, containing messsage templates """
     current_num: int = 0
     """ ## On which page number user is currently on """
@@ -178,11 +190,3 @@ def from_zoom(
         msgs.append(message)
 
     return msgs
-
-
-if __name__ == "__main__":
-
-    text = """"""
-
-    data = zoom.Data.parse(text)
-    from_zoom(data=data)

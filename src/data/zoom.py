@@ -1,17 +1,18 @@
 from __future__ import annotations
-
-from src import data
-
-if __name__ == "__main__":
-    import sys
-    sys.path.append(".")
-
-from loguru import logger
-from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar, TYPE_CHECKING
-from dataclasses import dataclass, field
+from typing import (
+    Callable,
+    Literal,
+    Optional,
+    Union,
+    Any,
+    ClassVar,
+    TypeVar,
+    List,
+    TYPE_CHECKING
+)
 from pydantic import BaseModel, Field as PydField
 from urllib.parse import urlparse
-
+from src import data
 from src.svc import common
 from src.data import error
 from src.data import Emojized, Translated, Warning, Field
@@ -22,6 +23,7 @@ from src.svc import telegram as tg
 T = TypeVar("T")
 if TYPE_CHECKING:
     from src.data.settings import MODE_LITERAL
+
 
 NAME_LIMIT = 30
 VALUE_LIMIT = 500
@@ -61,11 +63,21 @@ def format_section(name: str, fields: list[str]):
 
 class Data(BaseModel, Translated, Emojized):
     name: Field[str]
-    url: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
-    id: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
-    pwd: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
-    host_key: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
-    notes: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
+    url: Field[Optional[str]] = PydField(
+        default_factory = lambda: Field(value=None)
+    )
+    id: Field[Optional[str]] = PydField(
+        default_factory = lambda: Field(value=None)
+    )
+    pwd: Field[Optional[str]] = PydField(
+        default_factory = lambda: Field(value=None)
+    )
+    host_key: Field[Optional[str]] = PydField(
+        default_factory = lambda: Field(value=None)
+    )
+    notes: Field[Optional[str]] = PydField(
+        default_factory = lambda: Field(value=None)
+    )
 
     __translation__: ClassVar[dict[str, str]] = {
         "name": "Имя",
@@ -91,18 +103,6 @@ class Data(BaseModel, Translated, Emojized):
         "host_key": zoom.Key.HOST_KEY,
         "notes": zoom.Key.NOTES
     }
-
-    def i_promise_i_will_get_rid_of_this_thing_but_not_now(self):
-        """
-        put new trash added to the dataclass here
-        to add it to old pickled objects
-        """
-        return
-
-        try:
-            self.notes
-        except AttributeError:
-            self.notes = Field(value=None)
 
     @classmethod
     def parse(cls: type[Data], text: str) -> list[Data]:
@@ -369,7 +369,9 @@ class Data(BaseModel, Translated, Emojized):
 
 
 class Entries(BaseModel):
-    list: list[Data] = PydField(default_factory=list)
+    list: List[Data] = PydField(
+        default_factory=lambda *a, **kw: list(*a, *kw)
+    )
     """
     # The collection of data itself
     """
@@ -382,7 +384,7 @@ class Entries(BaseModel):
 
     @classmethod
     def from_list(cls: type[Entries], list: list[Data]):
-        return cls(list = list)
+        return cls(list=list)
     
     @property
     def selected(self) -> Data:
@@ -391,12 +393,12 @@ class Entries(BaseModel):
     def change_name(self, old: str, new: str) -> None:
         if old not in self.list:
             raise error.ZoomNameNotInDatabase(
-                "you're trying to change inexistent name"
+                "tried to change inexistent name"
             )
         
         if new in self.list:
             raise error.ZoomNameInDatabase(
-                "new name is already in database"
+                "new name is already in the database"
             )
         
         # get current data from old name
@@ -418,8 +420,8 @@ class Entries(BaseModel):
         # in this container
         if not self.has(name):
             raise error.ZoomNameNotInDatabase(
-                "you're trying to select a name "
-                "that is not in database"
+                "tried to select a name "
+                "that is not in the database"
             )
         
         self.selected_name = name
