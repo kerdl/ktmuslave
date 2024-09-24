@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Literal
 from pathlib import Path
 from src.data.range import Range
+from src.data.weekday import Weekday, WEEKDAY_LITERAL
 
 
 class Tokens(BaseModel):
@@ -48,6 +49,34 @@ class TimeMapping(BaseModel):
 class Time(BaseModel):
     schedules: list[TimeSchedule] = Field(default_factory=list)
     mapping: TimeMapping
+    
+    def get_for(
+        self,
+        wkd: WEEKDAY_LITERAL,
+        num: int
+    ) -> Optional[Range[datetime.time]]:
+        schedule_name = None
+        
+        if wkd == Weekday.MONDAY:
+            schedule_name = self.mapping.monday
+        elif wkd == Weekday.TUESDAY:
+            schedule_name = self.mapping.tuesday
+        elif wkd == Weekday.WEDNESDAY:
+            schedule_name = self.mapping.wednesday
+        elif wkd == Weekday.THURSDAY:
+            schedule_name = self.mapping.thursday
+        elif wkd == Weekday.FRIDAY:
+            schedule_name = self.mapping.friday
+        elif wkd == Weekday.SATURDAY:
+            schedule_name = self.mapping.saturday
+        elif wkd == Weekday.SUNDAY:
+            schedule_name = self.mapping.sunday
+        
+        for schedule in self.schedules:
+            if schedule.name == schedule_name:
+                try: return schedule.nums[str(num)]
+                except KeyError: return None
+            
 
 class Settings(BaseModel):
     tokens: Tokens
@@ -98,3 +127,12 @@ class Settings(BaseModel):
 
             return self
     
+    def get_time_for(
+        self,
+        wkd: WEEKDAY_LITERAL,
+        num: int
+    ) -> Optional[Range[datetime.time]]:
+        if self.time is None:
+            return None
+        
+        return self.time.get_for(wkd=wkd, num=num)

@@ -23,7 +23,7 @@ class Group(BaseModel):
 
     def generate_valid(self):
         # remove nonword from group (separators like "-")
-        group_nonword: str = pattern.NON_LETTER.sub("", self.typed)
+        group_nonword: str = pattern.NON_WORD.sub("", self.typed)
         # make group all caps
         group_caps = group_nonword.upper()
         # add validated group to context as valid group

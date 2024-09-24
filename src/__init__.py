@@ -18,7 +18,7 @@ from loguru._handler import Message
 from dataclasses import dataclass
 from pathlib import Path
 from src.settings import Settings
-from src.api.schedule import ScheduleApi
+from src.api.schedule import ScheduleApi, LastNotify
 from src.data.range import Range
 from src.data.weekday import WEEKDAY_LITERAL
 
@@ -316,7 +316,10 @@ class Defs:
 
         settings_path = self.data_dir.joinpath("settings.json")
         self.settings = Settings.load_or_init(path=settings_path)
-        self.schedule = ScheduleApi(url=self.settings.server.addr)
+        self.schedule = ScheduleApi(
+            url=self.settings.server.addr,
+            last_notify=LastNotify.load_or_init(self.data_dir.joinpath("last_notify.json"))
+        )
 
         if self.settings.logging and self.settings.logging.dir:
             self.log_path = self.settings.logging.dir.joinpath("log.txt")

@@ -19,14 +19,13 @@ from src.data.duration import Duration
 
 
 class LastNotify(BaseModel):
-    path: Optional[Path]
-    random: Optional[str]
+    path: Optional[Path] = None
+    random: Optional[str] = None
 
     async def save(self):
         path: Path = self.path
         async with aiofiles.open(path, mode="w") as f:
-            ser = self.json(
-                ensure_ascii=False,
+            ser = self.model_dump_json(
                 indent=2,
                 exclude={"path"}
             )
@@ -113,8 +112,13 @@ class ScheduleApi:
 
         url = "http://" + self.url + "/schedule/groups"
         if name is not None: url += f"?name={name}"
+        
+        schedule = await self.schedule_from_url(url)
 
-        self._cached_groups = await self.schedule_from_url(url)
+        if name is not None:
+            return schedule
+        
+        self._cached_groups = schedule
         return self._cached_groups
 
     async def get_teachers(
@@ -128,24 +132,33 @@ class ScheduleApi:
         url = "http://" + self.url + "/schedule/teachers"
         if name is not None: url += f"?name={name}"
 
-        self._cached_teachers = await self.schedule_from_url(url)
+        schedule = await self.schedule_from_url(url)
+        
+        if name is not None:
+            return schedule
+        
+        self._cached_teachers = schedule
         return self._cached_teachers
 
     async def get_last_update(
         self,
         force: bool = False
     ) -> datetime.datetime:
-        if not force:
+        if not force and self._cached_last_update:
             return self._cached_last_update
         
         url = "http://" + self.url + "/schedule/updates/last"
 
-        return (await get(url)).data.updates.last
+        self._cached_last_update = (await get(url)).data.updates.last
+        return self._cached_last_update
 
     async def get_update_period(self, force: bool = True) -> Duration:
+        if not force and self._cached_update_period:
+            return self._cached_update_period
+        
         url = "http://" + self.url + "/schedule/updates/period"
-        if self._cached_update_period is None or force:
-            self._cached_update_period = (await get(url)).data.updates.period
+        
+        self._cached_update_period = (await get(url)).data.updates.period
         return self._cached_update_period
 
     async def updates(self):
@@ -174,6 +187,9 @@ class ScheduleApi:
                     create_protocol=protocol_factory
                 ) as socket:
                     try:
+                        await self.get_groups(force=True)
+                        await self.get_teachers(force=True)
+                        await self.get_last_update(force=True)
                         await self.get_update_period(force=True)
 
                         self.is_online = True
@@ -192,8 +208,8 @@ class ScheduleApi:
                             
                             self.last_notify.set_random(notify.random)
 
-                            await self.get_groups()
-                            await self.get_teachers()
+                            await self.get_groups(force=True)
+                            await self.get_teachers(force=True)
 
                             await defs.check_redisearch_index()
                             await defs.ctx.broadcast(notify)

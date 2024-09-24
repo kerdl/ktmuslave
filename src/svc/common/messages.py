@@ -873,12 +873,12 @@ def format_tchr_no_schedule() -> str:
 
 MSG_SCHEDULE_FOOTER = (
     "⏱ Последнее обновление: {last_update}\n"
-    "✉ Период автообновления: {update_period} мин"
+    "✉ Период автообновления: {update_period}"
 )
 def format_schedule_footer(last_update: Any, update_period: Any) -> str:
     return MSG_SCHEDULE_FOOTER.format(
-        last_update=last_update,
-        update_period=update_period
+        last_update=last_update if last_update else "неизвестно",
+        update_period=f"{update_period} мин" if update_period else "неизвестно"
     )
 
 

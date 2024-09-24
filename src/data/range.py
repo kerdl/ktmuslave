@@ -1,7 +1,7 @@
 from __future__ import annotations
 import datetime
-from typing import Generic, TypeVar, get_args
-from pydantic import BaseModel, field_validator
+from typing import Generic, TypeVar, Any
+from pydantic import BaseModel
 from src.data import format as fmt
 
 
@@ -32,3 +32,15 @@ class Range(BaseModel, Generic[T]):
             return self.start == value.start and self.end == value.end
         else:
             return False
+        
+    def __contains__(self, item: Any) -> bool:
+        if (
+            isinstance(self.start, datetime.date) and
+            isinstance(self.end, datetime.date) and
+            isinstance(item, datetime.date)
+        ): 
+            rng = range(self.start.toordinal(), self.end.toordinal())
+            return item.toordinal() in rng
+        else:
+            rng = range(self.start, self.end)
+            return item in rng

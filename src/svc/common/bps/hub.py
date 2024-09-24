@@ -7,7 +7,7 @@ from src import defs
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
-from src.data import zoom as zoom_data
+from src.data import zoom as zoom_data, week
 from src.data.settings import Group, Mode, Teacher
 from src.data.schedule import format as sc_format
 from src.svc.common.states import formatter as states_fmt
@@ -27,7 +27,7 @@ async def hub(
     everything: CommonEverything,
     allow_edit: bool = True,
     allow_send: bool = True
-):
+):    
     ctx = everything.ctx
     current_mode = (
         ctx.schedule.temp_mode if ctx.schedule.temp_mode else ctx.settings.mode
@@ -96,7 +96,7 @@ async def hub(
                 temp_identifier if temp_identifier else identifier
             )
 
-        users_identifier_data = page.get_by_name(
+        users_formation = page.get_by_name(
             temp_identifier if temp_identifier else identifier
         ) if page is not None else None
 
@@ -106,14 +106,16 @@ async def hub(
         elif current_mode == Mode.TEACHER:
             zoom_entries = ctx.settings.tchr_zoom.entries.list
         
-        """
+        users_formation = users_formation.retain_days(
+            week.current_active()
+        )
+        
         schedule_text = await sc_format.formation(
-            form=users_identifier_data,
+            form=users_formation,
             entries=zoom_entries,
             mode=current_mode,
             do_tg_markup=everything.is_from_tg_generally
         )
-        """
     else:
         schedule_text = messages.format_cant_connect_to_schedule_server()
 

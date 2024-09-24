@@ -2,6 +2,7 @@ from __future__ import annotations
 import datetime
 from typing import Literal, Optional
 from pydantic import BaseModel
+from src.parse import pattern
 from src.data import RepredBaseModel
 from src.data.weekday import WEEKDAYS
 from src.data.schedule import raw
@@ -40,6 +41,33 @@ class Cabinet(BaseModel):
 
     def do_versions_match(self) -> bool:
         self.primary == self.opposite
+    
+    def do_versions_match_complex(self) -> bool:
+        if self.primary is None and self.opposite is not None:
+            return False
+        if self.primary is not None and self.opposite is None:
+            return False
+        if self.primary is None and self.opposite is None:
+            return True
+
+        primary_contains_digits = pattern.DIGIT.search(self.primary)
+        opposite_contains_digits = pattern.DIGIT.search(self.opposite)
+        
+        clean_primary = self.primary.lower().replace(
+            "каб", ""
+        ) if primary_contains_digits else self.primary
+        clean_opposite = self.opposite.lower().replace(
+            "каб", ""
+        ) if opposite_contains_digits else self.opposite
+        
+        # remove punctuation
+        clean_primary = pattern.SPACE.sub("", clean_primary)
+        clean_opposite = pattern.SPACE.sub("", clean_opposite)
+        clean_primary = pattern.PUNCTUATION.sub("", clean_primary)
+        clean_opposite = pattern.PUNCTUATION.sub("", clean_opposite)
+        
+        
+        return clean_primary == clean_opposite
 
 
 class Attender(RepredBaseModel):
@@ -82,7 +110,22 @@ class Formation(RepredBaseModel):
     @property
     def repr_name(self) -> str:
         return self.name
-
+    
+    def retain_days(self, rng: Range[datetime.date]) -> Formation:
+        """
+        # Only keep days in date range
+        """
+        kept_days = []
+        
+        for day in self.days:
+            if day.date in rng:
+                kept_days.append(day)
+                
+        return Formation(
+            raw=self.raw,
+            name=self.name,
+            days=kept_days
+        )
 
 class Page(BaseModel):
     kind: raw.KIND_LITERAL

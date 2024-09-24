@@ -7,18 +7,20 @@ from typing import (
     TYPE_CHECKING
 )
 from dataclasses import dataclass
-from src import text
-from src.svc.common import messages
+from src import text, defs
 from src.data.range import Range
+from src.svc.common import messages
 from src.data.schedule.compare import (
     Changes,
     DetailedChanges,
-    PrimitiveChange
+    PrimitiveChange,
 )
 from src.data.schedule import (
     Formation,
     Day,
     Subject,
+    Attender,
+    AttenderKind,
     Format,
     FORMAT_LITERAL,
     compare
@@ -71,7 +73,8 @@ CIRCLE_KEYCAPS_RANGE_DASH = "-"
 
 FORMAT_EMOJIS = {
     Format.FULLTIME: "🏫",
-    Format.REMOTE: "🛌"
+    Format.REMOTE: "🛌",
+    Format.UNKNOWN: "⚪"
 }
 
 LITERAL_FORMAT = {
@@ -139,88 +142,46 @@ def date(dt: datetime.date) -> str:
 
     return f"{str_day}.{str_month}.{str_year}"
 
-def time_overrides_table(ignored: list[WEEKDAY_LITERAL] = []) -> str:
-    def format_map(num_map: dict[int, Range[datetime.time]]) -> str:
-        parts = []
-        i = 1
-        while True:
-            try: rng = num_map[i]
-            except KeyError: break
+def attender_cabinet(att: Attender) -> str:
+    if (
+        att.cabinet.primary and
+        att.cabinet.opposite and
+        not att.cabinet.do_versions_match_complex()
+    ):
+        if att.kind == AttenderKind.TEACHER:
+            return (
+                f"{att.name} (у группы - {att.cabinet.primary}, "
+                f"у препода - {att.cabinet.opposite})"
+            )
+        if att.kind == AttenderKind.GROUP:
+            return (
+                f"{att.name} (у препода - {att.cabinet.primary}, "
+                f"у группы - {att.cabinet.opposite})"
+            )
+    elif att.cabinet.primary:
+        return f"{att.name} {att.cabinet.primary}"
+    elif att.cabinet.opposite:
+        return f"{att.name} {att.cabinet.opposite}" 
+    else:
+        return att.name
 
-            fmt_num = keycap_num(i)
-            fmt_rng = str(rng)
-
-            parts.append(f"{fmt_num}: {fmt_rng}")
-
-            i += 1
-        
-        return "\n".join(parts)
-
-    parts = []
-    holden_weekdays = []
-
-    for i, weekday in enumerate(WEEKDAYS):
-        is_last = i == len(WEEKDAYS) - 1
-        if is_last and weekday in ignored:
-            break
-        try: maps = TIME_OVERRIDES[weekday]
-        except KeyError: continue
-
-        try:
-            if i > 0: prev_wkd = WEEKDAYS[i-1]
-            else: prev_wkd = None
-        except IndexError: prev_wkd = None
-        try: prev_wkd_maps = TIME_OVERRIDES[prev_wkd]
-        except KeyError: prev_wkd_maps = None
-        try: next_wkd = WEEKDAYS[i+1]
-        except IndexError: next_wkd = None
-        try: next_wkd_maps = TIME_OVERRIDES[next_wkd]
-        except KeyError: next_wkd_maps = None
-
-        if maps == next_wkd_maps and weekday not in ignored:
-            holden_weekdays.append(weekday)
-            continue
-        else:
-            try: first_wkd = holden_weekdays[0]
-            except IndexError: first_wkd = weekday
-
-            if weekday in ignored:
-                if first_wkd == prev_wkd:
-                    header = first_wkd
-                else:
-                    header = f"{first_wkd} - {prev_wkd}"
-                fmt_timetable = format_map(prev_wkd_maps)
-            else:
-                if first_wkd == weekday and weekday not in ignored:
-                    header = weekday
-                else:
-                    header = f"{first_wkd} - {weekday}"
-                fmt_timetable = format_map(maps)
-            
-            parts.append(f"{header}\n{fmt_timetable}")
-            holden_weekdays = []
-    
-    return "\n\n".join(parts)
-
-def guests(
-    tchrs: list[str],
+def attenders(
+    atts: list[Attender],
     format: FORMAT_LITERAL,
     entries: set[zoom.Data],
     do_tg_markup: bool = False
 ) -> list[str]:
     str_entries = [entry.name.value for entry in entries]
 
-    fmt_teachers: list[str] = []
+    fmt_attenders: list[str] = []
 
-    for teacher in tchrs:
-        matches = difflib.get_close_matches(teacher, str_entries, cutoff=0.8)
+    for att in atts:
+        matches = difflib.get_close_matches(att.name, str_entries, cutoff=0.8)
 
         if len(matches) < 1:
-            fmt_teachers.append(teacher)
+            fmt_attenders.append(attender_cabinet(att))
             continue
         
-        data: list[str] = []
-
         first_match = matches[0]
         found_entry = None
 
@@ -235,18 +196,17 @@ def guests(
         )
         
         if fmt_data:
-            fmt_teachers.append(f"{teacher} ({fmt_data})")
+            fmt_attenders.append(f"{attender_cabinet(att)} ({fmt_data})")
         else:
-            fmt_teachers.append(teacher)
+            fmt_attenders.append(attender_cabinet(att))
     
-    return fmt_teachers
+    return fmt_attenders
 
 def subject(
     subj: Subject,
     entries: set[zoom.Data],
     rng: Optional[Range[Subject]] = None,
     do_tg_markup: bool = False,
-    override_time: bool = True,
     weekday: Optional[WEEKDAY_LITERAL] = None
 ) -> str:
     if subj.is_unknown_window():
@@ -255,28 +215,44 @@ def subject(
                 start=rng.start.num,
                 end=rng.end.num
             )
-            time_range = Range(
-                start=rng.start.time.start,
-                end=rng.end.time.end
+            start_time = defs.settings.get_time_for(
+                wkd=weekday,
+                num=num_range.start
             )
-            if override_time and weekday:
-                try: time_range = TIME_OVERRIDES[weekday][subj.num]
-                except KeyError: ...
+            end_time = defs.settings.get_time_for(
+                wkd=weekday,
+                num=num_range.end
+            )
+            time_range = Range(
+                start=start_time.start,
+                end=end_time.end
+            ) if start_time and end_time else None
             
-            return f"{circle_keycap_num_range(num_range)} {time_range}: {subj.name}"
+            fmt = ""
+            fmt += f"{circle_keycap_num_range(num_range)} "
+            if time_range:
+                fmt += f"{time_range}: "
+            else:
+                fmt = fmt.strip()
+                fmt += ": "
+            fmt += subj.name
+                
+            return fmt
         
         return f"{circle_keycap_num(subj.num)} {subj.name}"
     
-    num     = keycap_num(subj.num)
-    time    = str(subj.time) if subj.time else ""
-    if override_time and weekday:
-        try: time = str(TIME_OVERRIDES[weekday][subj.num])
-        except KeyError: ...
-    name    = subj.name
-    guests_ = guests(subj.guests(), subj.format, entries, do_tg_markup)
-    cabinet = subj.cabinet
+    num = keycap_num(subj.num)
+    raw_time = defs.settings.get_time_for(wkd=weekday, num=subj.num)
+    time = str(raw_time) if raw_time else ""
+    name = subj.name
+    attenders_ = attenders(
+        atts=subj.attenders,
+        format=subj.format,
+        entries=entries,
+        do_tg_markup=do_tg_markup
+    )
 
-    joined_guests = ", ".join(guests_)
+    joined_attenders = ", ".join(attenders_)
 
     left_base_parts = []
     left_base_parts.append(num)
@@ -288,13 +264,9 @@ def subject(
     else:
         base = f"{left_base}:"
 
-    if len(guests_) > 0:
+    if len(attenders_) > 0:
         base += " "
-        base += joined_guests
-    
-    if cabinet is not None:
-        base += " "
-        base += cabinet
+        base += joined_attenders
     
     return base
 
@@ -306,7 +278,7 @@ def days(
     fmt_days: list[str] = []
 
     for day in days:
-        weekday = day.weekday
+        weekday = Weekday.from_index(day.date.weekday())
         dt = date(day.date)
 
         hold: list[Subject] = []
@@ -350,10 +322,11 @@ def days(
         def format_holden_ranges():
             for rng in holden_ranges:
                 subj_fmt = subject(
-                    rng.start,
-                    entries,
-                    rng,
-                    do_tg_markup
+                    subj=rng.start,
+                    entries=entries,
+                    rng=rng,
+                    do_tg_markup=do_tg_markup,
+                    weekday=weekday
                 )
                 fmt_subjs.append((rng, subj_fmt))
 
@@ -372,10 +345,9 @@ def days(
                 hold = []
 
             fmt_subj = subject(
-                subj,
-                entries,
+                subj=subj,
+                entries=entries,
                 do_tg_markup=do_tg_markup,
-                override_time=override_time,
                 weekday=weekday
             )
             fmt_subjs.append((
@@ -418,7 +390,20 @@ def days(
                 if len(rows) > 0:
                     rows[-1] += "\n"
 
-                fmt_day = f"{emoji} | {weekday} ({literal_format}) {dt}:"
+                fmt_day = ""
+                
+                if emoji:
+                    fmt_day += f"{emoji} | "
+                if weekday:
+                    fmt_day += f"{weekday} "
+                if literal_format:
+                    fmt_day += f"({literal_format}) "
+                if dt:
+                    fmt_day += dt
+                
+                fmt_day = fmt_day.strip()
+                fmt_day += ":"
+                    
                 fmt = text.indent(fmt, add_dropdown = True)
 
                 rows.append(fmt_day)
@@ -443,14 +428,17 @@ async def formation(
     mode: "MODE_LITERAL",
     do_tg_markup: bool = False
 ) -> str:
-    from src.api.schedule import SCHEDULE_API
     from src.data.settings import Mode
 
-    last_update = await SCHEDULE_API.last_update()
-    utc3_last_update = last_update + datetime.timedelta(hours=3)
-    fmt_utc3_last_update = utc3_last_update.strftime("%H:%M:%S, %d.%m.%Y")
+    last_update = await defs.schedule.get_last_update()
+    utc3_last_update = (
+        last_update + datetime.timedelta(hours=3)
+    ) if last_update else None
+    fmt_utc3_last_update = (
+        utc3_last_update.strftime("%H:%M:%S, %d.%m.%Y")
+    ) if utc3_last_update else None
 
-    update_period = await SCHEDULE_API.update_period()
+    update_period = await defs.schedule.get_update_period()
 
     update_params = messages.format_schedule_footer(
         last_update=fmt_utc3_last_update,
