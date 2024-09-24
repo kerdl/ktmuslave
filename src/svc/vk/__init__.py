@@ -10,7 +10,7 @@ import random
 import asyncio
 
 from src import defs, text
-from src.svc.vk.types_ import RawEvent
+from src.svc.vk.types_ import RawEvent, MessageV2
 
 
 async def has_admin_rights(peer_id: int) -> bool:
@@ -23,12 +23,16 @@ async def has_admin_rights(peer_id: int) -> bool:
     except VKAPIError[917]:
         return False
 
-async def name_from_message(msg: Message) -> tuple[Optional[str], Optional[str], str]:
-    user = (await defs.vk_bot.api.users.get([msg.from_id]))[0]
+async def name_from_message(msg: MessageV2) -> tuple[Optional[str], Optional[str], str]:
+    user = (await defs.vk_bot.api.users.get(user_ids=[msg.from_id]))
+    if len(user) < 1: return (None, None, msg.from_id)
+    user = user[0]
     return (user.first_name, user.last_name, user.nickname or str(user.id))
 
 async def name_from_raw(raw: RawEvent) -> tuple[Optional[str], Optional[str], str]:
-    user = (await defs.vk_bot.api.users.get([raw["object"]["user_id"]]))[0]
+    user = (await defs.vk_bot.api.users.get(user_ids=[raw["object"]["user_id"]]))
+    if len(user) < 1: return (None, None, raw["object"]["user_id"])
+    user = user[0]
     return (user.first_name, user.last_name, user.nickname or str(user.id))
 
 
@@ -47,9 +51,9 @@ async def chunked_send(
 
     if reply_to is not None:
         fwd = MessagesForward(
-            is_reply = True,
-            conversation_message_ids = [reply_to],
-            peer_id = peer_id
+            is_reply=True,
+            conversation_message_ids=[reply_to],
+            peer_id=peer_id
         )
 
     for (index, chunk) in enumerate(chunks):
@@ -90,13 +94,12 @@ async def chunked_edit(
         is_last = (index + 1) == len(chunks)
 
         if not used_first_edit:
-            response: BaseBoolInt = (
-                await defs.vk_bot.api.messages.edit(
-                    peer_id=peer_id,
-                    conversation_message_id=conversation_message_id,
-                    message=chunk,
-                    keyboard=keyboard if is_last else None,
-                    dont_parse_links=True,
+            response: BaseBoolInt = (await defs.vk_bot.api.messages.edit(
+                peer_id=peer_id,
+                conversation_message_id=conversation_message_id,
+                message=chunk,
+                keyboard=keyboard if is_last else None,
+                dont_parse_links=True,
             ))
             edit_response = response
             used_first_edit = True
@@ -119,7 +122,7 @@ async def chunked_edit(
 def is_group_chat(peer_id: int, from_id: int) -> bool:
     return peer_id != from_id
 
-def text_from_forwards(forwards: list[ForeignMessageMin]) -> Optional[str]: 
+def text_from_forwards(forwards: list[MessageV2]) -> Optional[str]: 
     texts: list[str] = []
 
     for message in forwards:

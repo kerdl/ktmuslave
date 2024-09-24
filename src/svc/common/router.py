@@ -10,9 +10,8 @@ from vkbottle.bot import Message as VkMessage
 from aiogram.types import Update
 import inspect
 import datetime
-
 from src import defs
-from src.svc.vk.types_ import RawEvent
+from src.svc.vk.types_ import RawEvent, MessageV2 as VkMessageV2
 from src.svc.common import CommonEverything, CommonMessage
 from src.svc.common import CommonEvent
 from src.svc.common.filters import BaseFilter, MessageOnlyFilter, EventOnlyFilter
@@ -58,7 +57,8 @@ class VkMessageCatcher(BaseMiddleware[VkMessage]):
             # and it fails to serialize 🖕🖕🖕
             self.event.unprepared_ctx_api = None
 
-            message = CommonMessage.from_vk(self.event)
+            message_v2 = VkMessageV2.from_v1(self.event)
+            message = CommonMessage.from_vk(message_v2)
             everything = CommonEverything.from_message(message)
             await router.choose_handler(everything)
         except Exception as e:

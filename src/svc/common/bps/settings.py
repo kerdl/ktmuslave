@@ -462,7 +462,7 @@ async def teacher(everything: CommonEverything):
         ctx.navigator.jump_back_to_or_append(SETTINGS.II_TEACHER)
 
     answer_keyboard = Keyboard([
-        [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload)],
+        [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload and defs.schedule.is_online)],
         [kb.GROUP_MODE_BUTTON.only_if(is_from_hub and not ctx.is_switching_modes)],
     ]).assign_next(
         kb.NEXT_BUTTON.only_if(is_teacher_set and not is_from_hub)
@@ -688,7 +688,7 @@ async def group(everything: CommonEverything):
         ctx.navigator.jump_back_to_or_append(SETTINGS.II_GROUP)
 
     answer_keyboard = Keyboard([
-        [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload)],
+        [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload and defs.schedule.is_online)],
         [kb.TEACHER_MODE_BUTTON.only_if(is_from_hub and not ctx.is_switching_modes)],
     ]).assign_next(
         kb.NEXT_BUTTON.only_if(is_group_set and not is_from_hub)

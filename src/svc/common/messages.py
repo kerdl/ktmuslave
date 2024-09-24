@@ -4,9 +4,10 @@ from typing import Any, Optional, TYPE_CHECKING
 from src import defs
 from src.svc import common
 from src.data.settings import Settings
-from src.data import zoom, format as fmt, schedule
+from src.data import zoom, format as fmt
 from src.data.schedule import compare
 from src.parse.zoom import Key
+from src.svc import telegram as tg
 from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
@@ -399,10 +400,11 @@ MSG_ZOOM_DATA_FORMAT = (
     f"   ↵ {Key.ID}: <ID>\n"
     f"   ↵ {'/'.join(Key.PWD)}: <Код>\n"
     f"   ↵ {Key.NOTES}: <Любой текст>\n"
-    "   ↵ ..."
+    f"   ↵ ..."
 )
 def format_zoom_data_format(do_escape: bool = False):
     text = MSG_ZOOM_DATA_FORMAT
+    
     if do_escape:
         return html.escape(text)
 
@@ -417,10 +419,11 @@ MSG_TCHR_ZOOM_DATA_FORMAT = (
     f"   ↵ {'/'.join(Key.PWD)}: <Код>\n"
     f"   ↵ {Key.HOST_KEY}: <Ключ хоста>\n"
     f"   ↵ {Key.NOTES}: <Любой текст>\n"
-    "   ↵ ..."
+    f"   ↵ ..."
 )
 def format_tchr_zoom_data_format(do_escape: bool = False):
     text = MSG_TCHR_ZOOM_DATA_FORMAT
+    
     if do_escape:
         return html.escape(text)
 
@@ -429,50 +432,61 @@ def format_tchr_zoom_data_format(do_escape: bool = False):
 
 MSG_ZOOM_EXAMPLE = (
     "🔖 | Например:\n"
-    "<code>\n"
-    "имя: Говновоз Ж.Д.\n"
-    "ссылка: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d\n"
-    "Ид: 22813376969\n"
-    "Код: 0oChK0\n"
+    "<code>"
+    "   имя: Говновоз Ж.Д.\n"
+    "   ссылка: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d\n"
+    "   Ид: 22813376969\n"
+    "   Код: 0oChK0\n"
     "\n"
-    "имя: Говновоз Ж.\n"
-    "Ид: 22813376969\n"
-    "заметки: говновоз жидкий дрист https://www.nsopw.gov\n"
+    "   имя: Говновоз Ж.\n"
+    "   Ид: 22813376969\n"
+    "   заметки: говновоз жидкий дрист https://www.nsopw.gov"
     "</code>"
 )
-def format_zoom_example():
-    return MSG_ZOOM_EXAMPLE
+def format_zoom_example(do_markup: bool = True):
+    text = MSG_ZOOM_EXAMPLE
+    
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_TCHR_ZOOM_EXAMPLE = (
     "🔖 | Например:\n"
-    "<code>\n"
-    "имя: Для 1КДД69\n"
-    "ссылка: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d\n"
-    "Ид: 22813376969\n"
-    "Код: 0oChK0\n"
-    "ключ: mRp3ni5\n"
+    "<code>"
+    "   имя: Для 1КДД69\n"
+    "   ссылка: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d\n"
+    "   Ид: 22813376969\n"
+    "   Код: 0oChK0\n"
+    "   ключ: mRp3ni5\n"
     "\n"
-    "Имя: Доп. занятия\n"
-    "Ид: 22813376969\n"
-    "заметки: только 2КДД69\n"
+    "   Имя: Доп. занятия\n"
+    "   Ид: 22813376969\n"
+    "   заметки: только 2КДД69"
     "</code>"
 )
-def format_tchr_zoom_example():
-    return MSG_TCHR_ZOOM_EXAMPLE
+def format_tchr_zoom_example(do_markup: bool = True):
+    text = MSG_TCHR_ZOOM_EXAMPLE
+    
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_MASS_ZOOM_DATA_EXPLAIN = (
     "❗ Обязательно ставь префикс в начале строки, регистр неважен\n"
-    "💡 Можешь писать в разной последовательности и пропускать некоторые поля"
+    "💡 Можешь писать в разной последовательности и пропускать некоторые поля\n"
+    "💡 В одном сообщении может быть несколько блоков, смотри пример"
 )
 def format_mass_zoom_data_explain():
     return MSG_MASS_ZOOM_DATA_EXPLAIN
 
 
 MSG_DOESNT_CONTAIN_ZOOM = (
-    "❌ | По формату тут ничего нет\n"
-    "  └ 💡 Блоки без ФИО игнорируются\n"
+    f"❌ | По формату тут ничего нет\n"
+    f"  └ 💡 Блоки без ФИО игнорируются\n"
     f"  └ 💡 Имена больше {zoom.NAME_LIMIT} символов игнорируются"
 )
 def format_doesnt_contain_zoom():
@@ -480,8 +494,8 @@ def format_doesnt_contain_zoom():
 
 
 MSG_TCHR_DOESNT_CONTAIN_ZOOM = (
-    "❌ | По формату тут ничего нет\n"
-    "  └ 💡 Блоки без имён игнорируются\n"
+    f"❌ | По формату тут ничего нет\n"
+    f"  └ 💡 Блоки без имён игнорируются\n"
     f"  └ 💡 Имена больше {zoom.NAME_LIMIT} символов игнорируются"
 )
 def format_tchr_doesnt_contain_zoom():
@@ -507,16 +521,26 @@ MSG_ENTER_NAME = (
     "🐷 | Отправь новое имя этой записи\n"
     "  └ 👉 Например: <code>Говновоз Ж.Д.</code>, <code>Говновоз Ж.</code>"
 )
-def format_enter_name():
-    return MSG_ENTER_NAME
+def format_enter_name(do_markup: bool = True):
+    text = MSG_ENTER_NAME
+    
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_TCHR_ENTER_NAME = (
     "🐷 | Отправь новое имя этой записи\n"
     "  └ 👉 Например: <code>Для 1КДД69</code>, <code>Доп. занятия</code>"
 )
-def format_tchr_enter_name():
-    return MSG_TCHR_ENTER_NAME
+def format_tchr_enter_name(do_markup: bool = True):
+    text = MSG_TCHR_ENTER_NAME
+    
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_NAME_IN_DATABASE = (
@@ -528,34 +552,54 @@ def format_name_in_database():
 
 MSG_ENTER_URL = (
     "🌐 | Отправь новую ссылку для этой записи\n"
-    "  └ 👉 Например: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d"
+    "  └ 👉 Например: <code>https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d</code>"
 )
-def format_enter_url():
-    return MSG_ENTER_URL
+def format_enter_url(do_markup: bool = True):
+    text = MSG_ENTER_URL
+    
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_ENTER_ID = (
     "📍 | Отправь новый ID для этой записи\n"
     "  └ 👉 Например: <code>2281337300</code>"
 )
-def format_enter_id():
-    return MSG_ENTER_ID
+def format_enter_id(do_markup: bool = True):
+    text = MSG_ENTER_ID
+
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_ENTER_PWD = (
     "🔑 | Отправь новый пароль для этой записи\n"
-    "  └ 👉 Например: 0oChKo или др."
+    "  └ 👉 Например: <code>0oChKo</code> или др."
 )
-def format_enter_pwd():
-    return MSG_ENTER_PWD
+def format_enter_pwd(do_markup: bool = True):
+    text = MSG_ENTER_PWD
+
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_ENTER_HOST_KEY = (
     "🔒 | Отправь новый ключ хоста для этой записи\n"
-    "  └ 👉 Например: mRp3ni5 или др."
+    "  └ 👉 Например: <code>mRp3ni5</code> или др."
 )
-def format_enter_host_key():
-    return MSG_ENTER_HOST_KEY
+def format_enter_host_key(do_markup: bool = True):
+    text = MSG_ENTER_HOST_KEY
+
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_ENTER_NOTES = (
@@ -618,11 +662,11 @@ def format_zoom_mass_adding_overview(
 
 
 MSG_DUMP_EXPLAIN = (
-    "💾 | Ты можешь преобразовать "
-    "все добавленные здесь записи в текстовый вид "
+    f"💾 | Ты можешь преобразовать "
+    f"все добавленные здесь записи в текстовый вид "
     f"и добавить их в другом диалоге через функцию {Text.FROM_TEXT}\n\n"
-    "💡 | Если записей слишком много, "
-    "они могут быть отправлены несколькими сообщениями\n\n"
+    f"💡 | Если записей слишком много, "
+    f"они могут быть отправлены несколькими сообщениями\n\n"
     f"👇 | Нажимай {Text.DUMP} чтобы засрать беседу"
 )
 def format_dump_explain():
@@ -645,7 +689,7 @@ def format_you_can_dump_entries_before_removal():
 
 
 MSG_FINISH = (
-    "👍 | Готово, можешь перепроверить "
+    f"👍 | Готово, можешь перепроверить "
     f"или нажать {Text.FINISH}"
 )
 def format_finish():
@@ -654,42 +698,42 @@ def format_finish():
 
 MSG_GROUP_SETTING_EXPLAIN = (
     f"{Text.GROUP}: ""{group}\n"
-    "└ Настройки группы, с которой работает негр"
+    f"└ Настройки группы, с которой работает негр"
 )
 MSG_TEACHER_SETTING_EXPLAIN = (
     f"{Text.TEACHER}: ""{teacher}\n"
-    "└ Настройки препода, с которым работает негр"
+    f"└ Настройки препода, с которым работает негр"
 )
 MSG_BROADCAST_SETTING_EXPLAIN = (
     f"{Text.BROADCAST}: ""{broadcast}\n"
-    "└ Получишь ли ты новое сообщение "
-    "при обновлении расписания для установленной группы"
+    f"└ Получишь ли ты новое сообщение "
+    f"при обновлении расписания для установленной группы"
 )
 MSG_TCHR_BROADCAST_SETTING_EXPLAIN = (
     f"{Text.BROADCAST}: ""{broadcast}\n"
-    "└ Получишь ли ты новое сообщение "
-    "при обновлении расписания для установленного препода"
+    f"└ Получишь ли ты новое сообщение "
+    f"при обновлении расписания для установленного препода"
 )
 MSG_PIN_SETTING_EXPLAIN = (
     f"{Text.PIN}: ""{do_pin}\n"
-    "└ Закрепит ли негр рассылку расписания"
+    f"└ Закрепит ли негр рассылку расписания"
 )
 MSG_ZOOM_SETTING_EXPLAIN = (
     f"{Text.ZOOM}: ""{zoom}\n"
-    "└ Настройки данных преподов: "
-    "их имена, ссылки, ID, пароли и заметки, "
-    "которые показываются в расписании"
+    f"└ Настройки данных преподов: "
+    f"их имена, ссылки, ID, пароли и заметки, "
+    f"которые показываются в расписании"
 )
 MSG_TCHR_ZOOM_SETTING_EXPLAIN = (
     f"{Text.ZOOM}: ""{zoom}\n"
-    "└ Настройки данных Zoom: "
-    "ссылки, ID, пароли и заметки, "
-    "которые показываются в расписании"
+    f"└ Настройки данных Zoom: "
+    f"ссылки, ID, пароли и заметки, "
+    f"которые показываются в расписании"
 )
 MSG_RESET_SETTING_EXPLAIN = (
     f"{Text.RESET}\n"
-    "└ Сбросить все данные "
-    "и начать первоначальную настройку"
+    f"└ Сбросить все данные "
+    f"и начать первоначальную настройку"
 )
 def format_settings_main(
     is_group_chat: bool,
@@ -753,10 +797,10 @@ def format_tchr_settings_main(
 
 
 MSG_RESET_EXPLAIN = (
-    "🗑️ | Это сбросит все настройки + Zoom данные "
-    "и потребует пройти начальную настройку\n\n"
+    f"🗑️ | Это сбросит все настройки + Zoom данные "
+    f"и потребует пройти начальную настройку\n\n"
     f"👇 | Нажимай {Text.RESET} если тоже хочешь "
-    "болезнь Альцгеймера"
+    f"болезнь Альцгеймера"
 )
 def format_reset_explain() -> str:
     return MSG_RESET_EXPLAIN

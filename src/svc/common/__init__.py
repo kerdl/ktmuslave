@@ -11,7 +11,6 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from pydantic import BaseModel
 from vkbottle import ShowSnackbarEvent, VKAPIError
-from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 from aiogram.types import Message as TgMessage, CallbackQuery, ChatMemberUpdated
@@ -19,6 +18,7 @@ from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError, Teleg
 from redis.commands.json.path import Path
 from src import defs, RedisName, text
 from src.svc import vk, telegram as tg
+from src.svc.vk.types_ import MessageV2 as VkMessage
 from src.svc.common.states import formatter as states_fmt, Values
 from src.svc.common.states.tree import HUB
 from src.svc.common.navigator import Navigator, DbNavigator

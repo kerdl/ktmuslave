@@ -1,4 +1,4 @@
-# Structure
+# Source code
 
 - `api` - code to communicate with
 [ktmuscrap](https://github.com/kerdl/ktmuscrap)

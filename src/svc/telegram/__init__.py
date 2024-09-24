@@ -19,10 +19,10 @@ from src import defs, text as text_utils
 
 
 class ChatType:
-    PRIVATE    = "private"
-    GROUP      = "group"
+    PRIVATE = "private"
+    GROUP = "group"
     SUPERGROUP = "supergroup"
-    CHANNEL    = "channel"
+    CHANNEL = "channel"
 
 CHAT_TYPE = Literal[
     "private",
@@ -146,6 +146,12 @@ def extract_commands(entities: list[MessageEntity], text: str) -> list[str]:
 
 def escape_html(text: str) -> str:
     return html.escape(text)
+
+def remove_markup(text: str) -> str:
+    return (text
+        .replace("<code>", "")
+        .replace("</code>", "")
+    )
 
 def force_reply() -> ForceReply:
     return ForceReply(force_reply=True)

@@ -4,7 +4,7 @@ from loguru import logger
 from src import defs, text
 from src.parse import pattern
 from src.data.settings import Mode
-from src.svc.common import CommonEverything, messages, pagination, Ctx, bps
+from src.svc.common import CommonEverything, messages, pagination, bps, Source
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import ZOOM, Space
 from src.svc.common.router import router
@@ -13,7 +13,10 @@ from src.svc.common import keyboard as kb, template
 from src.data import zoom, DataField, error
 
 
-@router.on_callback(StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL), PayloadFilter(kb.Payload.DUMP_AND_REMOVE_ALL))
+@router.on_callback(
+    StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL),
+    PayloadFilter(kb.Payload.DUMP_AND_REMOVE_ALL)
+)
 async def dump_when_removing_all(everything: CommonEverything):
     ctx = everything.ctx
     if ctx.settings.mode == Mode.GROUP:
@@ -22,8 +25,8 @@ async def dump_when_removing_all(everything: CommonEverything):
         storage = ctx.settings.tchr_zoom
 
     await everything.send_message(
-        text = storage.entries.dump(),
-        chunker = text.double_newline_chunks
+        text=storage.entries.dump(),
+        chunker=text.double_newline_chunks
     )
 
     storage.focused.clear()
@@ -43,8 +46,8 @@ async def dump(everything: CommonEverything):
         storage = ctx.settings.tchr_zoom
 
     await everything.send_message(
-        text = storage.entries.dump(),
-        chunker = text.double_newline_chunks
+        text=storage.entries.dump(),
+        chunker=text.double_newline_chunks
     )
 
     everything.force_send = True
@@ -55,15 +58,15 @@ async def dump(everything: CommonEverything):
 async def going_to_dump(everything: CommonEverything):
     answer_text = (
         messages.Builder()
-                .add(messages.format_dump_explain())
+            .add(messages.format_dump_explain())
     )
     answer_keyboard = kb.Keyboard([
         [kb.DUMP_BUTTON]
     ])
 
     return await everything.edit_or_answer(
-        text = answer_text.make(),
-        keyboard = answer_keyboard
+        text=answer_text.make(),
+        keyboard=answer_keyboard
     )
 
 @router.on_callback(
@@ -125,29 +128,29 @@ async def set_attribute(
         if not message.text:
             answer_text = (
                 messages.Builder()
-                        .add(messages.format_no_text())
-                        .add(messages.format_current_value(getter()))
-                        .add(main_message)
-                        .add(footer_addition)
+                    .add(messages.format_no_text())
+                    .add(messages.format_current_value(getter()))
+                    .add(main_message)
+                    .add(footer_addition)
             )
 
             return await message.answer(
-                text     = answer_text.make(),
-                keyboard = answer_keyboard
+                text=answer_text.make(),
+                keyboard=answer_keyboard
             )
         
         if len(message.text) > limit:
             answer_text = (
                 messages.Builder()
-                        .add(messages.format_current_value(getter()))
-                        .add(main_message)
-                        .add(messages.format_value_too_big(limit))
-                        .add(footer_addition)
+                    .add(messages.format_current_value(getter()))
+                    .add(main_message)
+                    .add(messages.format_value_too_big(limit))
+                    .add(footer_addition)
             )
 
             return await message.answer(
-                text     = answer_text.make(),
-                keyboard = answer_keyboard
+                text=answer_text.make(),
+                keyboard=answer_keyboard
             )
 
         try:
@@ -155,20 +158,20 @@ async def set_attribute(
         except error.ZoomNameInDatabase:
             answer_text = (
                 messages.Builder()
-                        .add(messages.format_name_in_database())
-                        .add(messages.format_current_value(getter()))
-                        .add(main_message)
-                        .add(footer_addition)
+                    .add(messages.format_name_in_database())
+                    .add(messages.format_current_value(getter()))
+                    .add(main_message)
+                    .add(footer_addition)
             )
 
             return await message.answer(
-                text     = answer_text.make(),
-                keyboard = answer_keyboard
+                text=answer_text.make(),
+                keyboard=answer_keyboard
             )
 
         ctx.navigator.jump_back_to(
             ZOOM.II_BROWSE, 
-            execute_actions = False
+            execute_actions=False
         )
 
         return await to_entry(everything)
@@ -178,19 +181,18 @@ async def set_attribute(
 
         if event.payload == kb.Payload.NULL:
             nuller()
-
             return await to_entry(everything)
 
         answer_text = (
             messages.Builder()
-                    .add(messages.format_current_value(getter()))
-                    .add(main_message)
-                    .add(footer_addition)
+                .add(messages.format_current_value(getter()))
+                .add(main_message)
+                .add(footer_addition)
         )
 
         return await event.edit_message(
-            text     = answer_text.make(),
-            keyboard = answer_keyboard
+            text=answer_text.make(),
+            keyboard=answer_keyboard
         )
 
 
@@ -217,8 +219,8 @@ async def confirm_clear_new_entries(everything: CommonEverything):
     ])
 
     return await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard,
+        text=answer_text.make(),
+        keyboard=answer_keyboard,
     )
 
 @router.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.CLEAR))
@@ -241,19 +243,23 @@ async def remove_entries(everything: CommonEverything):
     return await browse(everything)
 
 async def confirm_remove_entries(everything: CommonEverything):
+    ctx = everything.ctx
+    is_init_space = Space.INIT in ctx.navigator.spaces
+    is_hub_space = Space.HUB in ctx.navigator.spaces
+    
     answer_text = (
         messages.Builder()
             .add(messages.format_remove_confirmation(removal_type="удалить"))
-            .add(messages.format_you_can_dump_entries_before_removal())
+            .add_if(messages.format_you_can_dump_entries_before_removal(), not is_init_space)
     )
     answer_keyboard = kb.Keyboard([
-        [kb.DUMP_AND_REMOVE_ALL_BUTTON],
+        [kb.DUMP_AND_REMOVE_ALL_BUTTON.only_if(not is_init_space)],
         [kb.REMOVE_ALL_BUTTON]
     ])
 
     return await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard,
+        text=answer_text.make(),
+        keyboard=answer_keyboard,
     )
 
 @router.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.REMOVE_ALL))
@@ -314,8 +320,8 @@ async def mass_check(everything: CommonEverything):
     ])
 
     return await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard,
+        text=answer_text.make(),
+        keyboard=answer_keyboard,
     )
 
 @router.on_callback(StateFilter(ZOOM.II_BROWSE), PayloadFilter(kb.Payload.ADD_ALL))
@@ -347,11 +353,11 @@ async def notes(everything: CommonEverything):
         main_message = messages.format_thcr_enter_notes()
 
     return await set_attribute(
-        everything   = everything,
-        main_message = main_message,
-        getter       = getter,
-        setter       = setter,
-        nuller       = nuller,
+        everything=everything,
+        main_message=main_message,
+        getter=getter,
+        setter=setter,
+        nuller=nuller,
     )
 
 @router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.NOTES))
@@ -377,11 +383,13 @@ async def host_key(everything: CommonEverything):
         storage.focused.selected.host_key = DataField(value=None)
 
     return await set_attribute(
-        everything   = everything,
-        main_message = messages.format_enter_host_key(),
-        getter       = getter,
-        setter       = setter,
-        nuller       = nuller,
+        everything=everything,
+        main_message=messages.format_enter_host_key(
+            do_markup=everything.is_from_tg_generally
+        ),
+        getter=getter,
+        setter=setter,
+        nuller=nuller,
     )
 
 @router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.HOST_KEY))
@@ -407,11 +415,13 @@ async def pwd(everything: CommonEverything):
         storage.focused.selected.pwd = DataField(value=None)
 
     return await set_attribute(
-        everything   = everything,
-        main_message = messages.format_enter_pwd(),
-        getter       = getter,
-        setter       = setter,
-        nuller       = nuller,
+        everything=everything,
+        main_message=messages.format_enter_pwd(
+            do_markup=everything.is_from_tg_generally
+        ),
+        getter=getter,
+        setter=setter,
+        nuller=nuller,
     )
 
 @router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.PWD))
@@ -438,11 +448,13 @@ async def id_(everything: CommonEverything):
         storage.focused.selected.id = DataField(value=None)
 
     return await set_attribute(
-        everything   = everything,
-        main_message = messages.format_enter_id(),
-        getter       = getter,
-        setter       = setter,
-        nuller       = nuller,
+        everything=everything,
+        main_message=messages.format_enter_id(
+            do_markup=everything.is_from_tg_generally
+        ),
+        getter=getter,
+        setter=setter,
+        nuller=nuller,
     )
 
 @router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.ID))
@@ -469,11 +481,13 @@ async def url(everything: CommonEverything):
         storage.focused.selected.url = DataField(value=None)
 
     return await set_attribute(
-        everything   = everything,
-        main_message = messages.format_enter_url(),
-        getter       = getter,
-        setter       = setter,
-        nuller       = nuller,
+        everything=everything,
+        main_message=messages.format_enter_url(
+            do_markup=everything.is_from_tg_generally
+        ),
+        getter=getter,
+        setter=setter,
+        nuller=nuller,
     )
 
 @router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.URL))
@@ -486,14 +500,17 @@ async def to_url(everything: CommonEverything):
 async def name(everything: CommonEverything):
     if everything.ctx.settings.mode == Mode.GROUP:
         storage = everything.ctx.settings.zoom
-        main_message = messages.format_enter_name()
+        main_message = messages.format_enter_name(
+            do_markup=everything.is_from_tg_generally
+        )
     elif everything.ctx.settings.mode == Mode.TEACHER:
         storage = everything.ctx.settings.tchr_zoom
-        main_message = messages.format_tchr_enter_name()
+        main_message = messages.format_tchr_enter_name(
+            do_markup=everything.is_from_tg_generally
+        )
 
     def getter():
         focused = storage.focused
-
         if focused.selected is None:
             return None
 
@@ -519,11 +536,11 @@ async def name(everything: CommonEverything):
         storage.focused.selected.check(storage.mode)
 
     return await set_attribute(
-        everything   = everything,
-        main_message = main_message,
-        getter       = getter,
-        setter       = setter,
-        limit        = zoom.NAME_LIMIT
+        everything=everything,
+        main_message=main_message,
+        getter=getter,
+        setter=setter,
+        limit=zoom.NAME_LIMIT
     )
 
 @router.on_callback(StateFilter(ZOOM.III_ENTRY), PayloadFilter(kb.Payload.NAME))
@@ -546,7 +563,11 @@ async def entry(everything: CommonEverything):
 
     answer_text = (
         messages.Builder()
-            .add(selected.format(everything.ctx.settings.mode, field_filter, do_tg_markup=everything.is_from_tg_generally))
+            .add(selected.format(
+                mode=everything.ctx.settings.mode,
+                field_filter=field_filter,
+                do_tg_markup=everything.is_from_tg_generally
+            ))
             .add(messages.format_press_buttons_to_change())
     )
     answer_keyboard = kb.Keyboard.from_dataclass(
@@ -556,8 +577,8 @@ async def entry(everything: CommonEverything):
     )
 
     await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard
+        text=answer_text.make(),
+        keyboard=answer_keyboard
     )
 
 async def to_entry(everything: CommonEverything):
@@ -644,15 +665,15 @@ async def browse(
 
     if storage.is_focused_on_new_entries and not is_jump_call:
         # user came here from adding mass zoom data
-
+        
         if everything.is_from_message and is_first_call:
             return await mass(everything)
         
         ctx.pages.list = pagination.from_zoom(
-            data = storage.new_entries.list,
-            mode = ctx.settings.mode,
-            text_footer = text_footer,
-            keyboard_footer = [
+            data=storage.new_entries.list,
+            mode=ctx.settings.mode,
+            text_footer=text_footer,
+            keyboard_footer=[
                 [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
                 [kb.BACK_BUTTON],
             ],
@@ -660,25 +681,26 @@ async def browse(
         )
     elif storage.is_focused_on_entries and not is_jump_call:
         # user came here to view current active entries
+        
         ctx.pages.list = pagination.from_zoom(
-            data = storage.entries.list,
-            mode = ctx.settings.mode,
-            text_footer = text_footer,
-            keyboard_footer = [
+            data=storage.entries.list,
+            mode=ctx.settings.mode,
+            text_footer=text_footer,
+            keyboard_footer=[
                 [
                     kb.ADD_INIT_BUTTON.only_if(is_init_space),
                     kb.ADD_HUB_BUTTON.only_if(is_hub_space),
                     kb.REMOVE_ALL_BUTTON.only_if(has_entries)
                 ], 
-                [kb.DUMP_BUTTON.only_if(has_entries)],
+                [kb.DUMP_BUTTON.only_if(has_entries and not is_init_space)],
                 [kb.BACK_BUTTON],
             ],
             do_tg_markup=everything.is_from_tg_generally
         )
 
     return await everything.edit_or_answer(
-        text     = ctx.pages.current.text,
-        keyboard = ctx.pages.current.keyboard,
+        text=ctx.pages.current.text,
+        keyboard=ctx.pages.current.keyboard,
     )
 
 async def to_browse(
@@ -720,8 +742,12 @@ async def mass(everything: CommonEverything):
             answer_text = (
                 messages.Builder()
                     .add(messages.format_send_zoom_data())
-                    .add(messages.format_zoom_data_format(do_escape=everything.is_from_tg_generally))
-                    .add(messages.format_zoom_example())
+                    .add(messages.format_zoom_data_format(
+                        do_escape=everything.is_from_tg_generally
+                    ))
+                    .add(messages.format_zoom_example(
+                        do_markup=everything.is_from_tg_generally
+                    ))
                     .add(messages.format_mass_zoom_data_explain())
                     .add(footer_addition)
             )
@@ -729,8 +755,12 @@ async def mass(everything: CommonEverything):
             answer_text = (
                 messages.Builder()
                     .add(messages.format_send_zoom_data())
-                    .add(messages.format_tchr_zoom_data_format(do_escape=everything.is_from_tg_generally))
-                    .add(messages.format_tchr_zoom_example())
+                    .add(messages.format_tchr_zoom_data_format(
+                        do_escape=everything.is_from_tg_generally
+                    ))
+                    .add(messages.format_tchr_zoom_example(
+                        do_markup=everything.is_from_tg_generally
+                    ))
                     .add(messages.format_mass_zoom_data_explain())
                     .add(footer_addition)
             )
@@ -740,8 +770,8 @@ async def mass(everything: CommonEverything):
         )
 
         await event.edit_message(
-            text        = answer_text.make(),
-            keyboard    = answer_keyboard,
+            text=answer_text.make(),
+            keyboard=answer_keyboard,
         )
 
     elif everything.is_from_message:
@@ -788,8 +818,8 @@ async def mass(everything: CommonEverything):
             answer_keyboard = kb.Keyboard()
 
             return await message.answer(
-                text     = answer_text.make(),
-                keyboard = answer_keyboard
+                text=answer_text.make(),
+                keyboard=answer_keyboard
             )
         # elif no data found in text
         # but user already added something
@@ -809,6 +839,7 @@ async def mass(everything: CommonEverything):
 async def to_mass(everything: CommonEverything):
     everything.navigator.append(ZOOM.I_MASS)
     return await mass(everything)
+
 
 STATE_MAP = {
     ZOOM.I_MASS: mass,
