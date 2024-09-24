@@ -11,14 +11,16 @@ from src.data.range import Range
 class Format:
     FULLTIME = "fulltime"
     REMOTE = "remote"
+    UNKNOWN = "unknown"
 
-FORMAT_LITERAL = Literal["fulltime", "remote"]
+FORMAT_LITERAL = Literal["fulltime", "remote", "unknown"]
 
 class AttenderKind:
     TEACHER = "teacher"
     GROUP = "group"
+    VACANCY = "vacancy"
 
-ATTENDER_KIND_LITERAL = Literal["teacher", "group"]
+ATTENDER_KIND_LITERAL = Literal["teacher", "group", "vacancy"]
 
 
 class Schedule(BaseModel):

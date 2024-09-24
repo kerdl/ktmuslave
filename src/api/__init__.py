@@ -16,8 +16,8 @@ class Error(BaseModel):
 
 class Notify(BaseModel):
     random: str
-    groups: Optional[PageCompare]
-    teachers: Optional[PageCompare]
+    groups: Optional[PageCompare] = None
+    teachers: Optional[PageCompare] = None
     
     def has_updates_for_group(self, name: str) -> bool:
         if self.groups is None:
@@ -50,17 +50,17 @@ class Notify(BaseModel):
         return False
 
 class Updates(BaseModel):
-    last: Optional[datetime.datetime]
-    period: Optional[Duration]
+    last: Optional[datetime.datetime] = None
+    period: Optional[Duration] = None
 
 class Data(BaseModel):
-    page: Optional[Page]
-    updates: Optional[Updates]
+    page: Optional[Page] = None
+    updates: Optional[Updates] = None
 
 class Response(BaseModel):
     is_ok: bool
-    data: Optional[Data]
-    error: Optional[Error]
+    data: Optional[Data] = None
+    error: Optional[Error] = None
 
 async def request(
     url: str,
@@ -71,7 +71,7 @@ async def request(
     resp_text = await resp.text()
 
     if return_result:
-        response = Response.parse_raw(resp_text)
+        response = Response.model_validate_json(resp_text)
         return response
 
 async def get(url: str, return_result: bool = True):

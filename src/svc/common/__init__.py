@@ -626,7 +626,7 @@ class Ctx:
             # in executor
             db_ctx = await defs.loop.run_in_executor(
                 None,
-                DbBaseCtx.parse_raw,
+                DbBaseCtx.model_validate_json,
                 value
             )
             # convert [DbBaseCtx -> BaseCtx]
@@ -916,7 +916,7 @@ class CommonMessage(BaseCommonEvent):
     """ ## Info about an edited Telegram channel post """
 
     @classmethod
-    def from_vk(cls: type[CommonMessage], message: VkMessage):
+    def from_vk(cls, message: VkMessage):
         self = cls(
             src=Source.VK,
             chat_id=message.peer_id,

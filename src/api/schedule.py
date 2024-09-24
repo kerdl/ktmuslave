@@ -38,10 +38,11 @@ class LastNotify(BaseModel):
     
     @classmethod
     def load(cls, path: Path):
-        self = cls.parse_file(path)
-        self.path = path
+        with open(path, mode="r", encoding="utf8") as f:
+            self = cls.model_validate_json(f.read())
+            self.path = path
 
-        return self
+            return self
 
     @classmethod
     def load_or_init(cls: type[LastNotify], path: Path) -> LastNotify:
@@ -69,16 +70,10 @@ class ScheduleApi:
     _cached_last_update: Optional[datetime.datetime] = None
     _cached_update_period: Optional[Duration] = None
 
-    async def group_names(
-        self,
-        force: bool = False
-    ) -> list[str]:
+    async def group_names(self, force: bool = False) -> list[str]:
         return (await self.get_groups(force=force)).names()
     
-    async def teacher_names(
-        self,
-        force: bool = False
-    ) -> list[str]:
+    async def teacher_names(self, force: bool = False) -> list[str]:
         return (await self.get_teachers(force=force)).names()
 
     async def await_server(self):
@@ -113,7 +108,7 @@ class ScheduleApi:
         name: Optional[str] = None,
         force: bool = False
     ) -> Page:
-        if not force:
+        if not force and self._cached_groups:
             return self._cached_groups
 
         url = "http://" + self.url + "/schedule/groups"
@@ -127,13 +122,13 @@ class ScheduleApi:
         name: Optional[str] = None,
         force: bool = False
     ) -> Page:
-        if not force:
-            return self._cached_groups
+        if not force and self._cached_teachers:
+            return self._cached_teachers
         
         url = "http://" + self.url + "/schedule/teachers"
         if name is not None: url += f"?name={name}"
 
-        self._cached_teachers = self.schedule_from_url(url)
+        self._cached_teachers = await self.schedule_from_url(url)
         return self._cached_teachers
 
     async def get_last_update(

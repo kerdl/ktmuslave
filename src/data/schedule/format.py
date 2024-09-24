@@ -301,8 +301,7 @@ def subject(
 def days(
     days: list[Day],
     entries: set[zoom.Data],
-    do_tg_markup: bool = False,
-    override_time: bool = True,
+    do_tg_markup: bool = False
 ) -> list[str]:
     fmt_days: list[str] = []
 
@@ -442,8 +441,7 @@ async def formation(
     form: Optional[Formation],
     entries: list[zoom.Data],
     mode: "MODE_LITERAL",
-    do_tg_markup: bool = False,
-    override_time: bool = False,
+    do_tg_markup: bool = False
 ) -> str:
     from src.api.schedule import SCHEDULE_API
     from src.data.settings import Mode
@@ -475,8 +473,7 @@ async def formation(
     days_str = "\n\n".join(days(
         form.days,
         entries,
-        do_tg_markup,
-        override_time
+        do_tg_markup
     ))
 
     if mode == Mode.GROUP:

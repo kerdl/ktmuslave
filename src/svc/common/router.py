@@ -92,6 +92,17 @@ class TgUpdateCatcher:
         else:
             logger.warning(f"unsupported tg event type: {event.event_type}")
             return
+    
+        # we're not using this
+        # and it fails to serialize 🖕🖕🖕
+        if everything.message:
+            if everything.message.tg:
+                everything.message.tg.__dict__["link_preview_options"] = None
+            if everything.message.tg_channel_post:
+                everything.message.tg_channel_post.__dict__["link_preview_options"] = None
+        if everything.event:
+            if everything.event.tg and everything.event.tg.message:
+                everything.event.tg.message.__dict__["link_preview_options"] = None
 
         # these need support for logging but not for bot's functionality
         # my_chat_member

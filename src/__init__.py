@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import re
 import aiofiles
+import warnings
 from redis.asyncio import Redis
 from redis import exceptions as rexeptions
 from aiofiles.threadpool.text import AsyncTextIOWrapper
@@ -260,21 +261,16 @@ class Defs:
         """
         Abandoned logging service
         """
-        return None
-    
         from src.svc.common.logsvc import Logger
 
         logger_addr = "127.0.0.1:7215"
-        if not logger_addr.startswith("https://"):
-            logger_addr = "https://" + logger_addr
+        if not logger_addr.startswith("http://"):
+            logger_addr = "http://" + logger_addr
 
         try:
             await self.http.get(logger_addr)
         except aiohttp_exc.ClientConnectorError:
-            logger.warning(
-                f"logging service at {logger_addr} is not running, "
-                "logging may be inconsistent"
-            )
+            ...
 
         self.logger = Logger(addr=logger_addr)
 
@@ -337,7 +333,6 @@ class Defs:
         """
         ## Init `loguru` with custom sink and format
         """
-
         logger.remove()
 
         fmt = ("<g>{time:YYYY-MM-DD HH:mm:ss}</> "
@@ -355,7 +350,28 @@ class Defs:
             catch=True,
             level="INFO"
         )
-    
+        
+        def fuckwarning(*args, **kwargs):
+            # WHO ASKED????????
+            # WHO FUCKING ASKED ABOUT YOUR FUCKING DEPRECATIONS????
+            #
+            # vkbottle's like "ugh we gettin' rid of blueprints"
+            # YES BITCH YOU ARE! AND I'M NOT EVEN USING THEM!!!
+            # IT'S YOUR FUCKING SHITTY IMPORT SOMEWHERE AND YOU
+            # STILL WARN **ME**, WHEN IT'S NOT EVEN MY FAULT!!!!
+            #
+            # pydantic's like "oi mate u using parse_raw... use model_shittify_json instead"
+            # OH YEAH? ARE YOU SURE THIS IS ME?
+            # NOT THE FUCKING AIOGRAM OR VKBOTTLE? I HAVE NO "parse_raw"
+            # OCCURRENCES IN MY CODE WHATSOEVER!
+            #
+            # FUCK YOU, NEXT TIME I'M NOT USING THESE
+            # AND WRITING MY OWN IMPLEMENTATIONS FROM SCRATCH
+            # SIT ON YOUR vkBOTTLES FUCKING AioTISTIC BITCHES
+            ...
+        
+        warnings.showwarning = fuckwarning
+            
     def create_task(self, coro, *, name=None):
         task = self.loop.create_task(coro, name=name)
         task.add_done_callback(self._handle_task)
@@ -377,3 +393,4 @@ class Defs:
 
 
 defs = Defs()
+

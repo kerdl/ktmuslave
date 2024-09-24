@@ -1,16 +1,11 @@
-from loguru import logger
-import re
-
 from src import defs
 from src.parse import pattern
 from src.svc.common import CommonEverything, messages
 from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data
-from src.data.schedule import format as sc_format
-from src.data.weekday import Weekday
 from src.data.settings import Mode
-from src.svc.common.states import formatter as states_fmt, Space
-from src.svc.common.states.tree import INIT, ZOOM, SETTINGS, RESET, HUB
+from src.svc.common.states import Space
+from src.svc.common.states.tree import INIT, ZOOM, SETTINGS, HUB
 from src.svc.common.router import router
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import Keyboard, Payload
@@ -59,55 +54,6 @@ async def auto_route(everything: CommonEverything):
     if current_state in [SETTINGS.II_ZOOM]:
         from src.svc.common.bps import init
         return await init.to_finish(everything)
-
-
-""" TIME OVERRIDE ACTIONS """
-
-@router.on_callback(
-    StateFilter(SETTINGS.II_TIME_OVERRIDE),
-    PayloadFilter(Payload.FALSE)
-)
-async def deny_time_override(everything: CommonEverything):
-    ctx = everything.ctx
-    ctx.settings.time_mode = TimeMode.ORIGINAL
-    return await auto_route(everything)
-
-@router.on_callback(
-    StateFilter(SETTINGS.II_TIME_OVERRIDE),
-    PayloadFilter(Payload.TRUE)
-)
-async def approve_time_override(everything: CommonEverything):
-    ctx = everything.ctx
-    ctx.settings.time_mode = TimeMode.OVERRIDE
-    return await auto_route(everything)
-
-
-""" TIME OVERRIDE STATE """
-
-@router.on_everything(StateFilter(SETTINGS.II_TIME_OVERRIDE))
-async def time_override(everything: CommonEverything):
-    ctx = everything.ctx
-
-    answer_text = (
-        messages.Builder()
-            .add(messages.format_time_override(sc_format.time_overrides_table(ignored=Weekday.SUNDAY)))
-    )
-    answer_keyboard = Keyboard([
-        [kb.FALSE_BUTTON, kb.TRUE_BUTTON],
-    ])
-
-    await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard,
-    )
-
-@router.on_callback(
-    PayloadFilter(Payload.TIME),
-    StateFilter(SETTINGS.I_MAIN)
-)
-async def to_time_override(everything: CommonEverything):
-    everything.navigator.append(SETTINGS.II_TIME_OVERRIDE)
-    return await time_override(everything)
 
 
 """ ZOOM ACTIONS """
@@ -179,7 +125,7 @@ async def add_zoom(everything: CommonEverything):
     ctx = everything.ctx
 
     is_from_init = Space.INIT in ctx.navigator.spaces
-    is_from_hub  = Space.HUB in ctx.navigator.spaces
+    is_from_hub = Space.HUB in ctx.navigator.spaces
 
     adding_types = ""
 
@@ -222,10 +168,10 @@ async def add_zoom(everything: CommonEverything):
         )
 
     await everything.edit_or_answer(
-        text        = answer_text.make(),
-        keyboard    = answer_keyboard,
-        add_tree    = not is_from_hub,
-        tree_values = ctx.settings
+        text=answer_text.make(),
+        keyboard=answer_keyboard,
+        add_tree=not is_from_hub,
+        tree_values=ctx.settings
     )
 
 @router.on_callback(
@@ -257,7 +203,6 @@ async def check_do_pin(everything: CommonEverything):
 
     if not await everything.can_pin():
         answer_text = messages.format_cant_pin(everything.src)
-
         if everything.is_from_event:
             event = everything.event
             await event.show_notification(answer_text)
@@ -279,9 +224,7 @@ async def skip_pin(everything: CommonEverything):
 )
 async def deny_pin(everything: CommonEverything):
     ctx = everything.ctx
-
     ctx.settings.should_pin = False
-
     return await auto_route(everything)
 
 @router.on_callback(
@@ -290,9 +233,7 @@ async def deny_pin(everything: CommonEverything):
 )
 async def approve_pin(everything: CommonEverything):
     ctx = everything.ctx
-
     ctx.settings.should_pin = True
-
     return await auto_route(everything)
 
 
@@ -350,10 +291,10 @@ async def should_pin(everything: CommonEverything):
 
 
     await everything.edit_or_answer(
-        text        = answer_text.make(),
-        keyboard    = answer_keyboard,
-        add_tree    = not is_from_hub,
-        tree_values = ctx.settings
+        text=answer_text.make(),
+        keyboard=answer_keyboard,
+        add_tree=not is_from_hub,
+        tree_values=ctx.settings
     )
 
 @router.on_callback(
@@ -390,9 +331,7 @@ async def deny_broadcast(everything: CommonEverything):
 )
 async def approve_broadcast(everything: CommonEverything):
     ctx = everything.ctx
-
     ctx.settings.broadcast = True
-
     return await auto_route(everything)
 
 
@@ -418,10 +357,10 @@ async def broadcast(everything: CommonEverything):
 
 
     await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard,
-        add_tree    = not is_from_hub,
-        tree_values = ctx.settings
+        text=answer_text.make(),
+        keyboard=answer_keyboard,
+        add_tree=not is_from_hub,
+        tree_values=ctx.settings
     )
 
 @router.on_callback(
@@ -468,17 +407,17 @@ async def unknown_teacher(everything: CommonEverything):
 
         answer_text = (
             messages.Builder()
-                    .add(messages.format_unknown_identifier(teacher))
+                .add(messages.format_unknown_identifier(teacher))
         )
         answer_keyboard = Keyboard([
             [kb.TRUE_BUTTON],
         ])
 
         await message.answer(
-            text        = answer_text.make(),
-            keyboard    = answer_keyboard,
-            add_tree    = not is_from_hub,
-            tree_values = ctx.settings
+            text=answer_text.make(),
+            keyboard=answer_keyboard,
+            add_tree=not is_from_hub,
+            tree_values=ctx.settings
         )
 
 async def to_unknown_teacher(everything: CommonEverything):
@@ -531,8 +470,8 @@ async def teacher(everything: CommonEverything):
 
     teachers_fmt = None
 
-    if SCHEDULE_API.is_online and is_show_names_payload:
-        teachers_fmt = messages.format_teachers(await SCHEDULE_API.teachers())
+    if defs.schedule.is_online and is_show_names_payload:
+        teachers_fmt = messages.format_teachers(await defs.schedule.teacher_names())
     elif is_show_names_payload:
         teachers_fmt = messages.format_cant_connect_to_schedule_server()
 
@@ -569,14 +508,14 @@ async def teacher(everything: CommonEverything):
                     .add(footer_addition)
             )
             return await message.answer(
-                text        = answer_text.make(),
-                keyboard    = answer_keyboard,
-                add_tree    = not is_from_hub,
-                tree_values = ctx.settings
+                text=answer_text.make(),
+                keyboard=answer_keyboard,
+                add_tree=not is_from_hub,
+                tree_values=ctx.settings
             )
 
-        if SCHEDULE_API.is_online:
-            teachers = await SCHEDULE_API.teachers()
+        if defs.schedule.is_online:
+            teachers = await defs.schedule.teacher_names()
         else:
             teachers = []
 
@@ -584,7 +523,10 @@ async def teacher(everything: CommonEverything):
         ctx.settings.teacher.typed = teacher_match.group()
         is_validation_ok = ctx.settings.teacher.generate_valid(reference=teachers)
 
-        if ctx.settings.teacher.valid == original_valid and matched_regex == "teacher_last_name_case_ignored":
+        if (
+            ctx.settings.teacher.valid == original_valid and
+            matched_regex == "teacher_last_name_case_ignored"
+        ):
             answer_text = (
                 messages.Builder()
                     .add(teachers_fmt)
@@ -592,27 +534,30 @@ async def teacher(everything: CommonEverything):
                     .add(footer_addition)
             )
             return await message.answer(
-                text        = answer_text.make(),
-                keyboard    = answer_keyboard,
-                add_tree    = not is_from_hub,
-                tree_values = ctx.settings
+                text=answer_text.make(),
+                keyboard=answer_keyboard,
+                add_tree=not is_from_hub,
+                tree_values=ctx.settings
             )
-        elif ctx.settings.teacher.valid == original_valid or not is_validation_ok:
+        elif (
+            ctx.settings.teacher.valid == original_valid or
+            not is_validation_ok
+        ):
             answer_text = (
                 messages.Builder()
-                        .add(teachers_fmt)
-                        .add(messages.format_invalid_teacher())
-                        .add(footer_addition)
+                    .add(teachers_fmt)
+                    .add(messages.format_invalid_teacher())
+                    .add(footer_addition)
             )
             return await message.answer(
-                text        = answer_text.make(),
-                keyboard    = answer_keyboard,
-                add_tree    = not is_from_hub,
-                tree_values = ctx.settings
+                text=answer_text.make(),
+                keyboard=answer_keyboard,
+                add_tree=not is_from_hub,
+                tree_values=ctx.settings
             )
 
         # if this teacher not in list of all available teachers
-        if ctx.settings.teacher.valid not in teachers and SCHEDULE_API.is_online:
+        if ctx.settings.teacher.valid not in teachers and defs.schedule.is_online:
             # ask if we should still set this unknown teacher
             return await to_unknown_teacher(everything)
 
@@ -636,10 +581,10 @@ async def teacher(everything: CommonEverything):
                 .add(footer_addition)
         )
         await event.edit_message(
-            text        = answer_text.make(),
-            keyboard    = answer_keyboard,
-            add_tree    = not is_from_hub,
-            tree_values = ctx.settings
+            text=answer_text.make(),
+            keyboard=answer_keyboard,
+            add_tree=not is_from_hub,
+            tree_values=ctx.settings
         )
 
 @router.on_callback(
@@ -696,10 +641,10 @@ async def unknown_group(everything: CommonEverything):
         ])
 
         await message.answer(
-            text        = answer_text.make(),
-            keyboard    = answer_keyboard,
-            add_tree    = not is_from_hub,
-            tree_values = ctx.settings
+            text=answer_text.make(),
+            keyboard=answer_keyboard,
+            add_tree=not is_from_hub,
+            tree_values=ctx.settings
         )
 
 async def to_unknown_group(everything: CommonEverything):
@@ -760,38 +705,37 @@ async def group(everything: CommonEverything):
         if group_match is None:
             groups_fmt = None
 
-            if SCHEDULE_API.is_online and is_show_names_payload:
-                groups_fmt = messages.format_groups(await SCHEDULE_API.groups())
+            if defs.schedule.is_online and is_show_names_payload:
+                groups_fmt = messages.format_groups(await defs.schedule.group_names())
             elif is_show_names_payload:
                 groups_fmt = messages.format_cant_connect_to_schedule_server()
 
             # send a message saying "your input is invalid"
             answer_text = (
                 messages.Builder()
-                        .add(groups_fmt)
-                        .add(messages.format_invalid_group())
-                        .add(footer_addition)
+                    .add(groups_fmt)
+                    .add(messages.format_invalid_group())
+                    .add(footer_addition)
             )
             return await message.answer(
-                text        = answer_text.make(),
-                keyboard    = answer_keyboard,
-                add_tree    = not is_from_hub,
-                tree_values = ctx.settings
+                text=answer_text.make(),
+                keyboard=answer_keyboard,
+                add_tree=not is_from_hub,
+                tree_values=ctx.settings
             )
-
 
         # add user's group to context as typed group
         ctx.settings.group.typed = group_match.group()
         ctx.settings.group.generate_valid()
 
 
-        if SCHEDULE_API.is_online:
-            groups = await SCHEDULE_API.groups()
+        if defs.schedule.is_online:
+            groups = await defs.schedule.group_names()
         else:
             groups = []
 
         # if this group not in list of all available groups
-        if ctx.settings.group.valid not in groups and SCHEDULE_API.is_online:
+        if ctx.settings.group.valid not in groups and defs.schedule.is_online:
             # ask if we should still set this unknown group
             return await to_unknown_group(everything)
 
@@ -809,8 +753,8 @@ async def group(everything: CommonEverything):
         event = everything.event
         groups_fmt = None
 
-        if SCHEDULE_API.is_online and is_show_names_payload:
-            groups_fmt = messages.format_groups(await SCHEDULE_API.groups())
+        if defs.schedule.is_online and is_show_names_payload:
+            groups_fmt = messages.format_groups(await defs.schedule.group_names())
         elif is_show_names_payload:
             groups_fmt = messages.format_cant_connect_to_schedule_server()
 
@@ -821,10 +765,10 @@ async def group(everything: CommonEverything):
                 .add(footer_addition)
         )
         await event.edit_message(
-            text        = answer_text.make(),
-            keyboard    = answer_keyboard,
-            add_tree    = not is_from_hub,
-            tree_values = ctx.settings
+            text=answer_text.make(),
+            keyboard=answer_keyboard,
+            add_tree=not is_from_hub,
+            tree_values=ctx.settings
         )
 
 @router.on_callback(
@@ -890,10 +834,10 @@ async def mode(everything: CommonEverything):
 
 
     await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard,
-        add_tree    = not is_from_hub,
-        tree_values = ctx.settings
+        text=answer_text.make(),
+        keyboard=answer_keyboard,
+        add_tree=not is_from_hub,
+        tree_values=ctx.settings
     )
 
 @router.on_callback(
@@ -931,25 +875,27 @@ async def main(everything: CommonEverything):
     answer_text = (
         messages.Builder()
             .add_if(messages.format_settings_main(
-                everything.is_group_chat,
-                ctx.settings.group.confirmed,
-                ctx.settings.broadcast,
-                ctx.settings.should_pin,
-                len(ctx.settings.zoom.entries),
-                ctx.settings.time_mode
+                is_group_chat=everything.is_group_chat,
+                group=ctx.settings.group.confirmed,
+                broadcast=ctx.settings.broadcast,
+                do_pin=ctx.settings.should_pin,
+                zoom=len(ctx.settings.zoom.entries)
             ), ctx.settings.mode == Mode.GROUP)
             .add_if(messages.format_tchr_settings_main(
-                everything.is_group_chat,
-                ctx.settings.teacher.confirmed,
-                ctx.settings.broadcast,
-                ctx.settings.should_pin,
-                len(ctx.settings.tchr_zoom.entries),
-                ctx.settings.time_mode
+                is_group_chat=everything.is_group_chat,
+                teacher=ctx.settings.teacher.confirmed,
+                broadcast=ctx.settings.broadcast,
+                do_pin=ctx.settings.should_pin,
+                zoom=len(ctx.settings.tchr_zoom.entries),
             ), ctx.settings.mode == Mode.TEACHER)
     )
     answer_keyboard = Keyboard([
-        [kb.GROUP_BUTTON.with_value(ctx.settings.group.confirmed).only_if(ctx.settings.mode == Mode.GROUP)],
-        [kb.TEACHER_BUTTON.with_value(ctx.settings.teacher.confirmed).only_if(ctx.settings.mode == Mode.TEACHER)],
+        [kb.GROUP_BUTTON.with_value(
+            ctx.settings.group.confirmed
+        ).only_if(ctx.settings.mode == Mode.GROUP)],
+        [kb.TEACHER_BUTTON.with_value(
+            ctx.settings.teacher.confirmed
+        ).only_if(ctx.settings.mode == Mode.TEACHER)],
         [
             kb.BROADCAST_BUTTON.with_value(ctx.settings.broadcast),
             kb.PIN_BUTTON.with_value(ctx.settings.should_pin).only_if(
@@ -957,13 +903,12 @@ async def main(everything: CommonEverything):
             )
         ],
         [kb.ZOOM_BUTTON.with_value(entries_len)],
-        [kb.TIME_BUTTON.with_value(ctx.settings.time_mode)],
         [kb.RESET_BUTTON, kb.EXECUTE_CODE_BUTTON.only_if(everything.ctx.is_admin)],
     ])
 
     return await everything.edit_or_answer(
-        text     = answer_text.make(),
-        keyboard = answer_keyboard
+        text=answer_text.make(),
+        keyboard=answer_keyboard
     )
 
 @router.on_callback(
@@ -975,7 +920,6 @@ async def to_main(everything: CommonEverything):
     return await main(everything)
 
 
-
 STATE_MAP = {
     SETTINGS.I_MAIN: main,
     SETTINGS.II_MODE: mode,
@@ -985,6 +929,5 @@ STATE_MAP = {
     SETTINGS.III_UNKNOWN_TEACHER: unknown_teacher,
     SETTINGS.II_BROADCAST: broadcast,
     SETTINGS.III_SHOULD_PIN: should_pin,
-    SETTINGS.II_ZOOM: add_zoom,
-    SETTINGS.II_TIME_OVERRIDE: time_override,
+    SETTINGS.II_ZOOM: add_zoom
 }

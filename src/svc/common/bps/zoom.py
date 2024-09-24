@@ -10,7 +10,7 @@ from src.svc.common.states.tree import ZOOM, Space
 from src.svc.common.router import router
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common import keyboard as kb, template
-from src.data import zoom, Field, error
+from src.data import zoom, DataField, error
 
 
 @router.on_callback(StateFilter(ZOOM.IIII_CONFIRM_REMOVE_ALL), PayloadFilter(kb.Payload.DUMP_AND_REMOVE_ALL))
@@ -334,11 +334,11 @@ async def notes(everything: CommonEverything):
         return storage.focused.selected.notes.value
 
     def setter(value: Any):
-        storage.focused.selected.notes = Field(value=value)
+        storage.focused.selected.notes = DataField(value=value)
         storage.focused.selected.check(storage.mode)
 
     def nuller():
-        storage.focused.selected.notes = Field(value=None)
+        storage.focused.selected.notes = DataField(value=None)
 
     main_message = None
     if everything.ctx.settings.mode == Mode.GROUP:
@@ -370,11 +370,11 @@ async def host_key(everything: CommonEverything):
         return storage.focused.selected.host_key.value
 
     def setter(value: Any):
-        storage.focused.selected.host_key = Field(value=value)
+        storage.focused.selected.host_key = DataField(value=value)
         storage.focused.selected.check(storage.mode)
 
     def nuller():
-        storage.focused.selected.host_key = Field(value=None)
+        storage.focused.selected.host_key = DataField(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -400,11 +400,11 @@ async def pwd(everything: CommonEverything):
         return storage.focused.selected.pwd.value
 
     def setter(value: Any):
-        storage.focused.selected.pwd = Field(value=value)
+        storage.focused.selected.pwd = DataField(value=value)
         storage.focused.selected.check(storage.mode)
 
     def nuller():
-        storage.focused.selected.pwd = Field(value=None)
+        storage.focused.selected.pwd = DataField(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -431,11 +431,11 @@ async def id_(everything: CommonEverything):
         return storage.focused.selected.id.value
 
     def setter(value: Any):
-        storage.focused.selected.id = Field(value=value)
+        storage.focused.selected.id = DataField(value=value)
         storage.focused.selected.check(storage.mode)
 
     def nuller():
-        storage.focused.selected.id = Field(value=None)
+        storage.focused.selected.id = DataField(value=None)
 
     return await set_attribute(
         everything   = everything,
@@ -462,11 +462,11 @@ async def url(everything: CommonEverything):
         return storage.focused.selected.url.value
 
     def setter(value: Any):
-        storage.focused.selected.url = Field(value=value)
+        storage.focused.selected.url = DataField(value=value)
         storage.focused.selected.check(storage.mode)
 
     def nuller():
-        storage.focused.selected.url = Field(value=None)
+        storage.focused.selected.url = DataField(value=None)
 
     return await set_attribute(
         everything   = everything,

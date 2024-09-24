@@ -202,11 +202,18 @@ def format_cant_connect_to_schedule_server() -> str:
     return MSG_CANT_CONNECT_TO_SCHEDULE_SERVER
 
 
+MSG_SCHEDULE_UNAVAILABLE = (
+    "🤔 | Расписание недоступно"
+)
+def format_schedule_unavailable() -> str:
+    return MSG_SCHEDULE_UNAVAILABLE
+
+
 #### Full messages for specific states ####
 
 MSG_WELCOME =  (
     "👨🏿 Буду пиздить расписание "
-    "с 🌐 ktmu-sutd.ru 🌐 "
+    "с ktmu-sutd.ru "
     "и делиться с {noun}"
 )
 def format_welcome(is_group_chat: bool):
@@ -422,14 +429,16 @@ def format_tchr_zoom_data_format(do_escape: bool = False):
 
 MSG_ZOOM_EXAMPLE = (
     "🔖 | Например:\n"
+    "<code>\n"
     "имя: Говновоз Ж.Д.\n"
-    "ссылка: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4ingWithMyW00d\n"
+    "ссылка: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d\n"
     "Ид: 22813376969\n"
     "Код: 0oChK0\n"
     "\n"
     "имя: Говновоз Ж.\n"
     "Ид: 22813376969\n"
-    "заметки: https://www.nsopw.gov"
+    "заметки: говновоз жидкий дрист https://www.nsopw.gov\n"
+    "</code>"
 )
 def format_zoom_example():
     return MSG_ZOOM_EXAMPLE
@@ -437,15 +446,17 @@ def format_zoom_example():
 
 MSG_TCHR_ZOOM_EXAMPLE = (
     "🔖 | Например:\n"
+    "<code>\n"
     "имя: Для 1КДД69\n"
-    "ссылка: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4ingWithMyW00d\n"
+    "ссылка: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d\n"
     "Ид: 22813376969\n"
     "Код: 0oChK0\n"
     "ключ: mRp3ni5\n"
     "\n"
     "Имя: Доп. занятия\n"
     "Ид: 22813376969\n"
-    "заметки: только 2КДД69"
+    "заметки: только 2КДД69\n"
+    "</code>"
 )
 def format_tchr_zoom_example():
     return MSG_TCHR_ZOOM_EXAMPLE
@@ -494,7 +505,7 @@ def format_value_too_big(limit: int):
 
 MSG_ENTER_NAME = (
     "🐷 | Отправь новое имя этой записи\n"
-    "  └ 👉 Например: Говновоз Ж.Д., Говновоз Ж."
+    "  └ 👉 Например: <code>Говновоз Ж.Д.</code>, <code>Говновоз Ж.</code>"
 )
 def format_enter_name():
     return MSG_ENTER_NAME
@@ -502,7 +513,7 @@ def format_enter_name():
 
 MSG_TCHR_ENTER_NAME = (
     "🐷 | Отправь новое имя этой записи\n"
-    "  └ 👉 Например: Для 1КДД69, Доп. занятия"
+    "  └ 👉 Например: <code>Для 1КДД69</code>, <code>Доп. занятия</code>"
 )
 def format_tchr_enter_name():
     return MSG_TCHR_ENTER_NAME
@@ -517,7 +528,7 @@ def format_name_in_database():
 
 MSG_ENTER_URL = (
     "🌐 | Отправь новую ссылку для этой записи\n"
-    "  └ 👉 Например: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4ingWithMyW00d"
+    "  └ 👉 Например: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d"
 )
 def format_enter_url():
     return MSG_ENTER_URL
@@ -525,7 +536,7 @@ def format_enter_url():
 
 MSG_ENTER_ID = (
     "📍 | Отправь новый ID для этой записи\n"
-    "  └ 👉 Например: 2281337300"
+    "  └ 👉 Например: <code>2281337300</code>"
 )
 def format_enter_id():
     return MSG_ENTER_ID
@@ -635,7 +646,7 @@ def format_you_can_dump_entries_before_removal():
 
 MSG_FINISH = (
     "👍 | Готово, можешь перепроверить "
-    "или нажать {Text.FINISH}"
+    f"или нажать {Text.FINISH}"
 )
 def format_finish():
     return MSG_FINISH

@@ -53,8 +53,8 @@ class PrimitiveChange(BaseModel, Generic[T]):
 
 
 class CabinetCompare(TranslatedBaseModel):
-    primary: Optional[PrimitiveChange[str]]
-    opposite: Optional[PrimitiveChange[str]]
+    primary: Optional[PrimitiveChange[str]] = None
+    opposite: Optional[PrimitiveChange[str]] = None
 
     __translation__: ClassVar[dict[str, str]] = {
         "primary": "Первичный",
@@ -62,7 +62,7 @@ class CabinetCompare(TranslatedBaseModel):
     }
 
 class AttenderCompate(RepredBaseModel):
-    name: Optional[str]
+    name: Optional[str] = None
     cabinet: CabinetCompare
 
     @property
@@ -70,9 +70,9 @@ class AttenderCompate(RepredBaseModel):
         return self.name or ""
 
 class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
-    name: Optional[str]
-    num: Optional[PrimitiveChange[int]]
-    attenders: Optional[DetailedChanges[AttenderCompate, Attender]]
+    name: Optional[str] = None
+    num: Optional[PrimitiveChange[int]] = None
+    attenders: Optional[DetailedChanges[AttenderCompate, Attender]] = None
 
     __translation__: ClassVar[dict[str, str]] = {
         "name": "Пара",
@@ -85,7 +85,7 @@ class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
         return self.name or ""
 
 class DayCompare(RepredBaseModel):
-    date: Optional[datetime.date]
+    date: Optional[datetime.date] = None
     subjects: DetailedChanges[SubjectCompare, Subject]
 
     @property
@@ -93,7 +93,7 @@ class DayCompare(RepredBaseModel):
         return WEEKDAYS[self.date.weekday()]
 
 class FormationCompare(RepredBaseModel):
-    name: Optional[str]
+    name: Optional[str] = None
     days: DetailedChanges[DayCompare, Day]
 
     @property

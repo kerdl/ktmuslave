@@ -1,5 +1,5 @@
 from typing import Optional, Callable
-from vkbottle import Bot, VKAPIError, GroupEventType, API
+from vkbottle import Bot, VKAPIError, GroupEventType, API, LoopWrapper
 from vkbottle.http import SingleAiohttpClient
 from vkbottle.bot import Message, MessageEvent
 from vkbottle.tools.mini_types.bot.foreign_message import ForeignMessageMin
@@ -146,16 +146,18 @@ def load(token: Optional[str] = None, loop: asyncio.AbstractEventLoop = None) ->
     # because VK uses self-signed shit
     connector = TCPConnector(ssl=False, loop=loop)
     http_client = SingleAiohttpClient(connector=connector)
-    api = API(token=token,http_client=http_client)
-    bot = Bot(token=token, api=api)
+    api = API(token=token, http_client=http_client)
+    loop_wrapper = LoopWrapper()
+    loop_wrapper.loop = loop
+    bot = Bot(token=token, api=api, loop_wrapper=loop_wrapper)
 
     # vkbottle does not call raw event middlewares
     # if there's no raw event handlers
     @bot.on.raw_event(GroupEventType.MESSAGE_EVENT, MessageEvent)
-    async def _event_dummy(*_): ...
+    async def event_dummy(*_): ...
 
     @bot.on.message()
-    async def _message_dummy(*_): ...
+    async def message_dummy(*_): ...
 
     bot.labeler.message_view.replace_mention = True
 

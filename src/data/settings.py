@@ -106,7 +106,7 @@ class Teacher(BaseModel):
         self.confirmed = self.valid
 
 class Settings(Values):
-    mode: Optional[MODE_LITERAL]
+    mode: Optional[MODE_LITERAL] = None
     group: Group = PydField(default_factory=Group)
     teacher: Teacher = PydField(default_factory=Teacher)
     zoom: zoom_mod.Container = PydField(default_factory=zoom_mod.Container.as_group)
