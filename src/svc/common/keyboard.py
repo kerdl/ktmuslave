@@ -26,7 +26,7 @@ from src.data import (
 from src.svc.vk.keyboard import CMD
 
 
-UNSET_EMOJI = "🔳"
+UNSET_EMOJI = "⚪"
 
 
 class Payload:

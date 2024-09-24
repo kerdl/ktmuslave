@@ -161,9 +161,9 @@ def from_zoom(
             )
 
             button = Button(
-                text     = f"{name_emoji} {section.name.__repr_name__()}", 
-                callback = section.name.__repr_name__(),
-                color    = Color.BLUE
+                text=f"{name_emoji} {section.name.__repr_name__()}", 
+                callback=section.name.__repr_name__(),
+                color=Color.BLUE
             )
 
             cur_row.append(button)
@@ -183,9 +183,9 @@ def from_zoom(
             kb_schema.append(row)
 
         message = CommonBotTemplate(
-            text     = text,
-            keyboard = Keyboard(kb_schema, add_back=False),
-            metadata = {MetadataKeys.PAGE_NUM_NAMES_MAP: page_num_names_map}
+            text=text,
+            keyboard=Keyboard(kb_schema, add_back=False),
+            metadata={MetadataKeys.PAGE_NUM_NAMES_MAP: page_num_names_map}
         )
         msgs.append(message)
 

@@ -71,7 +71,7 @@ class HiddenVars(BaseModel):
 class Emoji:
     COMPLETE = "🔹"
     INCOMPLETE = "🔸"
-    NONE = "❓"
+    NONE = "⚪"
     WARN = "❗"
 
 @dataclass
