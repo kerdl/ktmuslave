@@ -150,13 +150,13 @@ def attender_cabinet(att: Attender) -> str:
     ):
         if att.kind == AttenderKind.TEACHER:
             return (
-                f"{att.name} (у группы - {att.cabinet.primary}, "
-                f"у препода - {att.cabinet.opposite})"
+                f"{att.name} (у группы - \"{att.cabinet.primary}\", "
+                f"у препода - \"{att.cabinet.opposite}\")"
             )
         if att.kind == AttenderKind.GROUP:
             return (
-                f"{att.name} (у препода - {att.cabinet.primary}, "
-                f"у группы - {att.cabinet.opposite})"
+                f"{att.name} (у препода - \"{att.cabinet.primary}\", "
+                f"у группы - \"{att.cabinet.opposite}\")"
             )
     elif att.cabinet.primary:
         return f"{att.name} {att.cabinet.primary}"
