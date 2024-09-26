@@ -370,8 +370,11 @@ class BaseCtx:
     def shift_week_backward(self) -> bool:
         try:
             form = self.get_schedule()
-            target = form.prev_week_self(self.schedule.temp_week)
-            self.schedule.temp_week = target.week
+            target = form.prev_week_self(self.schedule.get_week_or_current())
+            if week.current_active() == target.week:
+                self.schedule.reset_temp_week()
+            else:
+                self.schedule.temp_week = target.week
             return True
         except:
             return False
@@ -379,8 +382,11 @@ class BaseCtx:
     def shift_week_forward(self) -> bool:
         try:
             form = self.get_schedule()
-            target = form.next_week_self(self.schedule.temp_week)
-            self.schedule.temp_week = target.week
+            target = form.next_week_self(self.schedule.get_week_or_current())
+            if week.current_active() == target.week:
+                self.schedule.reset_temp_week()
+            else:
+                self.schedule.temp_week = target.week
             return True
         except AttributeError:
             return False
