@@ -127,10 +127,6 @@ def week_bullets_from_bitmap(bitmap: list[bool]) -> str:
     return output
 
 def week_bullets_from_formation(form: Formation, pos: Range[datetime.date]) -> str:
-    first_week = form.first_week()
-    current_week = form.get_week(week.current_active())
-    last_week = form.last_week()
-    
     bitmap = map(lambda dww: dww.week == pos, form.days_weekly_chunked)
     return week_bullets_from_bitmap(bitmap)
 
