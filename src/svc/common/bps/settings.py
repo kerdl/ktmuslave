@@ -260,7 +260,7 @@ async def should_pin(everything: CommonEverything):
 
         if not is_from_hub:
             answer_keyboard.assign_next(
-                kb.NEXT_BUTTON.only_if(is_should_pin_set)
+                kb.FORWARD_BUTTON.only_if(is_should_pin_set)
             )
 
         # simply ask if user wants to pin
@@ -351,7 +351,7 @@ async def broadcast(everything: CommonEverything):
     )
     answer_keyboard = Keyboard([
         [kb.FALSE_BUTTON, kb.TRUE_BUTTON],
-    ]).assign_next(kb.NEXT_BUTTON.only_if(
+    ]).assign_next(kb.FORWARD_BUTTON.only_if(
         is_broadcast_set and not is_from_hub
     ))
 
@@ -465,13 +465,13 @@ async def teacher(everything: CommonEverything):
         [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload and defs.schedule.is_online)],
         [kb.GROUP_MODE_BUTTON.only_if(is_from_hub and not ctx.is_switching_modes)],
     ]).assign_next(
-        kb.NEXT_BUTTON.only_if(is_teacher_set and not is_from_hub)
+        kb.FORWARD_BUTTON.only_if(is_teacher_set and not is_from_hub)
     )
 
     teachers_fmt = None
 
     if defs.schedule.is_online and is_show_names_payload:
-        teachers_fmt = messages.format_teachers(await defs.schedule.teacher_names())
+        teachers_fmt = messages.format_teachers(defs.schedule.teacher_names())
     elif is_show_names_payload:
         teachers_fmt = messages.format_cant_connect_to_schedule_server()
 
@@ -515,7 +515,7 @@ async def teacher(everything: CommonEverything):
             )
 
         if defs.schedule.is_online:
-            teachers = await defs.schedule.teacher_names()
+            teachers = defs.schedule.teacher_names()
         else:
             teachers = []
 
@@ -691,7 +691,7 @@ async def group(everything: CommonEverything):
         [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload and defs.schedule.is_online)],
         [kb.TEACHER_MODE_BUTTON.only_if(is_from_hub and not ctx.is_switching_modes)],
     ]).assign_next(
-        kb.NEXT_BUTTON.only_if(is_group_set and not is_from_hub)
+        kb.FORWARD_BUTTON.only_if(is_group_set and not is_from_hub)
     )
 
     if everything.is_from_message:
@@ -706,7 +706,7 @@ async def group(everything: CommonEverything):
             groups_fmt = None
 
             if defs.schedule.is_online and is_show_names_payload:
-                groups_fmt = messages.format_groups(await defs.schedule.group_names())
+                groups_fmt = messages.format_groups(defs.schedule.group_names())
             elif is_show_names_payload:
                 groups_fmt = messages.format_cant_connect_to_schedule_server()
 
@@ -730,7 +730,7 @@ async def group(everything: CommonEverything):
 
 
         if defs.schedule.is_online:
-            groups = await defs.schedule.group_names()
+            groups = defs.schedule.group_names()
         else:
             groups = []
 
@@ -754,7 +754,7 @@ async def group(everything: CommonEverything):
         groups_fmt = None
 
         if defs.schedule.is_online and is_show_names_payload:
-            groups_fmt = messages.format_groups(await defs.schedule.group_names())
+            groups_fmt = messages.format_groups(defs.schedule.group_names())
         elif is_show_names_payload:
             groups_fmt = messages.format_cant_connect_to_schedule_server()
 
@@ -828,7 +828,7 @@ async def mode(everything: CommonEverything):
     )
     answer_keyboard = Keyboard([
         [kb.ME_STUDENT_BUTTON, kb.ME_TEACHER_BUTTON],
-    ]).assign_next(kb.NEXT_BUTTON.only_if(
+    ]).assign_next(kb.FORWARD_BUTTON.only_if(
         is_mode_set and not is_from_hub
     ))
 

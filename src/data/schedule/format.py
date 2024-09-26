@@ -69,6 +69,9 @@ CIRCLE_KEYCAPS = {
     9: "➒",
 }
 
+BIG_EMPTY_BULLET = "○"
+BIG_BLACK_BULLET = "●"
+
 CIRCLE_KEYCAPS_RANGE_DASH = "-"
 
 FORMAT_EMOJIS = {
@@ -134,6 +137,15 @@ def circle_keycap_num_range(range: Range[int]) -> str:
     end = circle_keycap_num(range.end)
     
     return f"{start}{CIRCLE_KEYCAPS_RANGE_DASH}{end}"
+
+def navigation_bullets(count: int, idx: int) -> str:
+    output = ""
+    
+    for i in range(count):
+        if i == idx: output += BIG_BLACK_BULLET
+        else: output += BIG_EMPTY_BULLET
+    
+    return output
 
 def date(dt: datetime.date) -> str:
     str_day = fmt.zero_at_start(dt.day)
@@ -422,15 +434,17 @@ def days(
     
     return fmt_days
 
-async def formation(
+def formation(
     form: Optional[Formation],
     entries: list[zoom.Data],
     mode: "MODE_LITERAL",
-    do_tg_markup: bool = False
+    do_tg_markup: bool = False,
+    bullet_count: int = 5,
+    bullet_pos: int = 0,
 ) -> str:
     from src.data.settings import Mode
 
-    last_update = await defs.schedule.get_last_update()
+    last_update = defs.schedule.get_last_update()
     utc3_last_update = (
         last_update + datetime.timedelta(hours=3)
     ) if last_update else None
@@ -438,11 +452,16 @@ async def formation(
         utc3_last_update.strftime("%H:%M:%S, %d.%m.%Y")
     ) if utc3_last_update else None
 
-    update_period = await defs.schedule.get_update_period()
+    update_period = defs.schedule.get_update_period()
 
     update_params = messages.format_schedule_footer(
         last_update=fmt_utc3_last_update,
         update_period=update_period
+    )
+    
+    nav_bullets = navigation_bullets(
+        count=bullet_count,
+        idx=bullet_pos
     )
 
     if form is None or not form.days:

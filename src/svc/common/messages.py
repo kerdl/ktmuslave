@@ -113,13 +113,6 @@ def format_empty_page():
     return MSG_EMPTY_PAGE
 
 
-MSG_NO_MORE_PAGES = (
-    "■ Дальше ничего нет"
-)
-def format_no_more_pages() -> str:
-    return MSG_NO_MORE_PAGES
-
-
 MSG_PRESS_BEGIN = (
     f"👇 Нажимай {Text.BEGIN}"
 )
@@ -858,7 +851,7 @@ def format_no_rights() -> str:
 
 
 MSG_NO_SCHEDULE = (
-    "🤔 Твоей группы нет в этом расписании"
+    "🤔 Группы нет в этом расписании"
 )
 def format_no_schedule() -> str:
     return MSG_NO_SCHEDULE

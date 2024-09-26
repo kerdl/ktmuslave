@@ -69,32 +69,6 @@ class ScheduleApi:
     _cached_last_update: Optional[datetime.datetime] = None
     _cached_update_period: Optional[Duration] = None
 
-    async def group_names(self, force: bool = False) -> list[str]:
-        return (await self.get_groups(force=force)).names()
-    
-    async def teacher_names(self, force: bool = False) -> list[str]:
-        return (await self.get_teachers(force=force)).names()
-
-    async def await_server(self):
-        retry_period = 5
-        is_connect_error_logged = False
-        url = "http://" + self.url
-
-        while True:
-            try:
-                await get(url=url, return_result=False)
-            except ClientConnectorError:
-                if not is_connect_error_logged:
-                    logger.error(
-                        "unable to reach ktmuscrap instance "
-                        f"at {url}, awaiting..."
-                    )
-                    is_connect_error_logged = True
-                await asyncio.sleep(retry_period)
-                continue
-
-            break
-
     async def schedule_from_url(self, url: str) -> Optional[Page]:
         response = await get(url)
         if response.data is None:
@@ -102,64 +76,53 @@ class ScheduleApi:
 
         return response.data.page
 
-    async def get_groups(
-        self,
-        name: Optional[str] = None,
-        force: bool = False
-    ) -> Page:
-        if not force and self._cached_groups:
-            return self._cached_groups
-
+    async def request_groups(self) -> Page:
         url = "http://" + self.url + "/schedule/groups"
-        if name is not None: url += f"?name={name}"
-        
-        schedule = await self.schedule_from_url(url)
-
-        if name is not None:
-            return schedule
-        
-        self._cached_groups = schedule
+        self._cached_groups = await self.schedule_from_url(url)
         return self._cached_groups
-
-    async def get_teachers(
-        self,
-        name: Optional[str] = None,
-        force: bool = False
-    ) -> Page:
-        if not force and self._cached_teachers:
-            return self._cached_teachers
         
+    async def request_teachers(self) -> Page:
         url = "http://" + self.url + "/schedule/teachers"
-        if name is not None: url += f"?name={name}"
-
-        schedule = await self.schedule_from_url(url)
-        
-        if name is not None:
-            return schedule
-        
-        self._cached_teachers = schedule
+        self._cached_teachers = await self.schedule_from_url(url)
         return self._cached_teachers
 
-    async def get_last_update(
-        self,
-        force: bool = False
-    ) -> datetime.datetime:
-        if not force and self._cached_last_update:
-            return self._cached_last_update
-        
+    async def request_last_update(self) -> datetime.datetime:
         url = "http://" + self.url + "/schedule/updates/last"
-
         self._cached_last_update = (await get(url)).data.updates.last
         return self._cached_last_update
 
-    async def get_update_period(self, force: bool = True) -> Duration:
-        if not force and self._cached_update_period:
-            return self._cached_update_period
-        
+    async def request_update_period(self) -> Page:
         url = "http://" + self.url + "/schedule/updates/period"
-        
         self._cached_update_period = (await get(url)).data.updates.period
         return self._cached_update_period
+    
+    async def request_all(self):
+        await self.request_groups()
+        await self.request_teachers()
+        await self.request_last_update()
+        await self.request_update_period()
+    
+    def get_groups(self) -> Optional[Page]:
+        return self._cached_groups
+
+    def get_teachers(self) -> Optional[Page]:
+        return self._cached_teachers
+
+    def get_last_update(self) -> Optional[datetime.datetime]:
+        return self._cached_last_update
+
+    def get_update_period(self) -> Optional[Duration]:
+        return self._cached_update_period
+
+    def group_names(self) -> list[str]:
+        page = self.get_groups()
+        if page is None: return []
+        return page.names()
+    
+    def teacher_names(self) -> list[str]:
+        page = self.get_teachers()
+        if page is None: return []
+        return page.names()
 
     async def updates(self):
         from src import defs
@@ -187,16 +150,13 @@ class ScheduleApi:
                     create_protocol=protocol_factory
                 ) as socket:
                     try:
-                        await self.get_groups(force=True)
-                        await self.get_teachers(force=True)
-                        await self.get_last_update(force=True)
-                        await self.get_update_period(force=True)
+                        await self.request_all()
 
                         self.is_online = True
                         is_connect_error_logged = False
                         is_connection_attempt_logged = False
 
-                        logger.info(f"awaiting updates...")
+                        logger.info(f"awaiting schedule updates...")
                         async for message in socket:
                             notify = Notify.model_validate_json(message)
 
@@ -208,14 +168,13 @@ class ScheduleApi:
                             
                             self.last_notify.set_random(notify.random)
 
-                            await self.get_groups(force=True)
-                            await self.get_teachers(force=True)
+                            await self.request_all()
 
                             await defs.check_redisearch_index()
                             await defs.ctx.broadcast(notify)
                     except exceptions.ConnectionClosedError as e:
                         logger.info(e)
-                        logger.info("reconnecting...")
+                        logger.info("reconnecting to ktmuscrap...")
                         continue
 
             except (

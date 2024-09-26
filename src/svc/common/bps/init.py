@@ -11,7 +11,7 @@ from src.svc.common.states.tree import INIT, ZOOM, SETTINGS
 from src.svc.common.router import router
 from src.svc.common.filters import PayloadFilter, StateFilter, UnionFilter
 from src.svc.common.keyboard import (
-    NEXT_BUTTON,
+    FORWARD_BUTTON,
     Keyboard,
     Payload,
     TRUE_BUTTON,

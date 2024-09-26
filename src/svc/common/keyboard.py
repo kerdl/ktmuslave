@@ -26,19 +26,18 @@ from src.data import (
 from src.svc.vk.keyboard import CMD
 
 
-UNSET_EMOJI = "⚪"
-
-
 class Payload:
     # common buttons
     TRUE = "true"
     FALSE = "false"
     BACK = "back"
-    NEXT = "next"
+    FORWARD = "forward"
+    PAGE_PREVIOUS = "page_previous"
+    PAGE_NEXT = "page_next"
+    PAGE_PREVIOUS_JUMP = "page_previous_jump"
+    PAGE_NEXT_JUMP = "page_next_jump"
     SKIP = "skip"
     CONTINUE = "continue"
-    PAGE_BACK = "page_back"
-    PAGE_NEXT = "page_next"
 
     # Init buttons
     BEGIN = "begin"
@@ -100,9 +99,19 @@ class Text:
     TRUE = "✓ ПизДА!"
     FALSE = "✕ МиНЕТ..."
     BACK = "← Назад"
-    NEXT = "→ Далее"
+    FORWARD = "→ Далее"
+    PREVIOUS = "←"
+    NEXT = "→"
+    #PREVIOUS_JUMP = "⇤"
+    #NEXT_JUMP = "⇥"
+    #PREVIOUS_JUMP = "│ ←"
+    #NEXT_JUMP = "→ │"
+    PREVIOUS_JUMP = "⇇"
+    NEXT_JUMP = "⇉"
+    DEAD_END = " "
     SKIP = "→ Пропустить"
     CONTINUE = "→ Продолжить"
+    UNSET = "⚪"
 
     # Init buttons
     BEGIN = "→ Начать"
@@ -150,7 +159,7 @@ class Text:
 COLOR_LITERAL = Literal["gray", "blue", "green", "red"]
 
 class Color:
-    """ ## ONLY WORKS IN VK """
+    """ # Button colors only for VK """
     GRAY = "gray"
     BLUE = "blue"
     GREEN = "green"
@@ -182,15 +191,16 @@ class Color:
 class Button(BaseModel):
     """ # Represents a common button """
     text: str
-    """ ## Button text """
+    """ # Button text """
     callback: Optional[str] = None
-    """ ## Payload that will be sent on press """
+    """ # Payload that will be sent to us on press """
     url: Optional[str] = None
+    """ # Button url """
     color: Optional[COLOR_LITERAL] = None
-    """ ## Controls tilt angle on `Messerschmitt Me 262` """
+    """ # Controls tilt angle on `Messerschmitt Me 262` """
 
     def only_if(self, condition: bool) -> Optional[Button]:
-        """ ## Return `Button` if `condition` is `True`, else return `None` """
+        """ # Return `Button` if `condition` is `True`, else return `None` """
         if condition is True:
             return self
         else:
@@ -206,14 +216,14 @@ class Button(BaseModel):
 
 class Keyboard(BaseModel):
     """
-    ## Inline-only cross-platform keyboard
+    # Inline-only cross-platform keyboard
     """
     schematic: list[list[Optional[Button]]] = PydField(default_factory=list)
-    """ ## Keyboard itself, the 2D array of buttons """
+    """ # Keyboard itself, the 2D array of buttons """
     add_back: bool = True
-    """ ## If we should automatically add back to the bottom """
+    """ # If we should automatically add back to the bottom """
     next_button: Optional[Button] = None
-    """ ## `Next` button, will be placed to the right of `Back` """
+    """ # `Next` button, will be placed next to `Back` """
     
     def __init__(
         __pydantic_self__,
@@ -256,8 +266,53 @@ class Keyboard(BaseModel):
         return parsed_schematic
 
     @classmethod
-    def hub_default(cls: Keyboard) -> Keyboard:
+    def hub_default(
+        cls: Keyboard,
+        is_previous_dead_end: bool = False,
+        is_previous_jump_dead_end: bool = False,
+        is_next_dead_end: bool = False,
+        is_next_jump_dead_end: bool = False
+    ) -> Keyboard:
+        is_all_dead_end = all([
+            is_previous_dead_end,
+            is_previous_jump_dead_end,
+            is_next_dead_end,
+            is_next_jump_dead_end
+        ])
         return cls([
+            [
+                # previous
+                PAGE_PREVIOUS_BUTTON.only_if(
+                    not is_previous_dead_end
+                ),
+                PAGE_PREVIOUS_DEAD_END_BUTTON.only_if(
+                    is_previous_dead_end and not is_all_dead_end
+                ),
+                
+                # previous jump
+                PAGE_PREVIOUS_JUMP_BUTTON.only_if(
+                    not is_previous_jump_dead_end
+                ),
+                PAGE_PREVIOUS_JUMP_DEAD_END_BUTTON.only_if(
+                    is_previous_jump_dead_end and not is_all_dead_end
+                ),
+               
+                # next jump
+                PAGE_NEXT_JUMP_BUTTON.only_if(
+                    not is_next_jump_dead_end
+                ),
+                PAGE_NEXT_JUMP_DEAD_END_BUTTON.only_if(
+                    is_next_jump_dead_end and not is_all_dead_end
+                ),
+               
+                # next
+                PAGE_NEXT_BUTTON.only_if(
+                    not is_next_dead_end
+                ),
+                PAGE_NEXT_DEAD_END_BUTTON.only_if(
+                    is_next_dead_end and not is_all_dead_end
+                )
+            ],
             [RESEND_BUTTON],
             [SETTINGS_BUTTON],
             [SCHEDULES_BUTTON],
@@ -265,16 +320,106 @@ class Keyboard(BaseModel):
         ], add_back=False)
 
     @classmethod
-    def temp_identifier_hub(cls: Keyboard) -> Keyboard:
+    def temp_identifier_hub(
+        cls: Keyboard,
+        is_previous_dead_end: bool = False,
+        is_previous_jump_dead_end: bool = False,
+        is_next_dead_end: bool = False,
+        is_next_jump_dead_end: bool = False
+    ) -> Keyboard:
+        is_all_dead_end = all([
+            is_previous_dead_end,
+            is_previous_jump_dead_end,
+            is_next_dead_end,
+            is_next_jump_dead_end
+        ])
         return cls([
+            [
+                # previous
+                PAGE_PREVIOUS_BUTTON.only_if(
+                    not is_previous_dead_end
+                ),
+                PAGE_PREVIOUS_DEAD_END_BUTTON.only_if(
+                    is_previous_dead_end and not is_all_dead_end
+                ),
+                
+                # previous jump
+                PAGE_PREVIOUS_JUMP_BUTTON.only_if(
+                    not is_previous_jump_dead_end
+                ),
+                PAGE_PREVIOUS_JUMP_DEAD_END_BUTTON.only_if(
+                    is_previous_jump_dead_end and not is_all_dead_end
+                ),
+               
+                # next jump
+                PAGE_NEXT_JUMP_BUTTON.only_if(
+                    not is_next_jump_dead_end
+                ),
+                PAGE_NEXT_JUMP_DEAD_END_BUTTON.only_if(
+                    is_next_jump_dead_end and not is_all_dead_end
+                ),
+               
+                # next
+                PAGE_NEXT_BUTTON.only_if(
+                    not is_next_dead_end
+                ),
+                PAGE_NEXT_DEAD_END_BUTTON.only_if(
+                    is_next_dead_end and not is_all_dead_end
+                )
+            ],
             [GO_HOME_BUTTON],
             [SCHEDULES_BUTTON],
             [MATERIALS_BUTTON, JOURNALS_BUTTON],
         ], add_back=False)
 
     @classmethod
-    async def hub_broadcast_default(cls: Keyboard) -> Keyboard:
+    def hub_broadcast_default(
+        cls: Keyboard,
+        is_previous_dead_end: bool = False,
+        is_previous_jump_dead_end: bool = False,
+        is_next_dead_end: bool = False,
+        is_next_jump_dead_end: bool = False
+    ) -> Keyboard:
+        is_all_dead_end = all([
+            is_previous_dead_end,
+            is_previous_jump_dead_end,
+            is_next_dead_end,
+            is_next_jump_dead_end
+        ])
         return cls([
+            [
+                # previous
+                PAGE_PREVIOUS_BUTTON.only_if(
+                    not is_previous_dead_end
+                ),
+                PAGE_PREVIOUS_DEAD_END_BUTTON.only_if(
+                    is_previous_dead_end and not is_all_dead_end
+                ),
+                
+                # previous jump
+                PAGE_PREVIOUS_JUMP_BUTTON.only_if(
+                    not is_previous_jump_dead_end
+                ),
+                PAGE_PREVIOUS_JUMP_DEAD_END_BUTTON.only_if(
+                    is_previous_jump_dead_end and not is_all_dead_end
+                ),
+               
+                # next jump
+                PAGE_NEXT_JUMP_BUTTON.only_if(
+                    not is_next_jump_dead_end
+                ),
+                PAGE_NEXT_JUMP_DEAD_END_BUTTON.only_if(
+                    is_next_jump_dead_end and not is_all_dead_end
+                ),
+               
+                # next
+                PAGE_NEXT_BUTTON.only_if(
+                    not is_next_dead_end
+                ),
+                PAGE_NEXT_DEAD_END_BUTTON.only_if(
+                    is_next_dead_end and not is_all_dead_end
+                )
+            ],
             [RESEND_BUTTON],
             [SETTINGS_BUTTON],
             [SCHEDULES_BUTTON],
@@ -314,7 +459,7 @@ class Keyboard(BaseModel):
                 value = value.__repr_name__()
 
             if emoji is None:
-                emoji = dataclass.__emojis__.get(key) if value is not None else UNSET_EMOJI
+                emoji = dataclass.__emojis__.get(key) if value is not None else Text.UNSET
 
             translated = dataclass.__translation__.get(key) or key
 
@@ -351,16 +496,16 @@ class Keyboard(BaseModel):
 
     @classmethod
     def without_back(cls: type[Keyboard]):
-        """ ## Shortcut to create `Keyboard` without `Back` button """
+        """ # Shortcut to create `Keyboard` without `Back` button """
         return cls(schematic=[], add_back=False)
 
     def assign_next(self, button: Optional[Button]):
-        """ ## Add `Next` button and return `self` """
+        """ # Add `Next` button and return `self` """
         self.next_button = button
         return self
 
     def _add_footer(self) -> list[list[Optional[Button]]]:
-        """ ## Make a copy of `self.schema` and add a footer to it """
+        """ # Make a copy of `self.schema` and add a footer to it """
         footer = [
             BACK_BUTTON.only_if(self.add_back),
             self.next_button
@@ -374,7 +519,7 @@ class Keyboard(BaseModel):
     @staticmethod
     def filter_schema(schema: list[Button]) -> list[list[Button]]:
         """
-        ## Filter out rows that don't contain any buttons
+        # Filter out rows that don't contain any buttons
         - `[Button, None, None]` - not filtered out, remains
         - `[None, None, None]` - filtered out, removed
         """
@@ -387,7 +532,7 @@ class Keyboard(BaseModel):
 
     def to_vk(self) -> VkKeyboard:
         """
-        ## Convert this keyboard to VK keyboard
+        # Convert this keyboard to VK keyboard
         """
 
         schema = self._add_footer()
@@ -421,7 +566,7 @@ class Keyboard(BaseModel):
     
     def to_tg(self) -> TgKeyboard:
         """
-        ## Convert this keyboard to Telegram keyboard
+        # Convert this keyboard to Telegram keyboard
         """
 
         schema = self._add_footer()
@@ -472,9 +617,41 @@ BACK_BUTTON = Button(
     text=Text.BACK,
     callback=Payload.BACK
 )
-NEXT_BUTTON = Button(
+FORWARD_BUTTON = Button(
+    text=Text.FORWARD,
+    callback=Payload.FORWARD
+)
+PAGE_PREVIOUS_BUTTON = Button(
+    text=Text.PREVIOUS,
+    callback=Payload.PAGE_PREVIOUS
+)
+PAGE_NEXT_BUTTON = Button(
     text=Text.NEXT,
-    callback=Payload.NEXT
+    callback=Payload.PAGE_NEXT
+)
+PAGE_PREVIOUS_JUMP_BUTTON = Button(
+    text=Text.PREVIOUS_JUMP,
+    callback=Payload.PAGE_PREVIOUS_JUMP
+)
+PAGE_NEXT_JUMP_BUTTON = Button(
+    text=Text.NEXT_JUMP,
+    callback=Payload.PAGE_NEXT_JUMP
+)
+PAGE_PREVIOUS_DEAD_END_BUTTON = Button(
+    text=Text.DEAD_END,
+    callback=Payload.PAGE_PREVIOUS
+)
+PAGE_NEXT_DEAD_END_BUTTON = Button(
+    text=Text.DEAD_END,
+    callback=Payload.PAGE_NEXT
+)
+PAGE_PREVIOUS_JUMP_DEAD_END_BUTTON = Button(
+    text=Text.DEAD_END,
+    callback=Payload.PAGE_PREVIOUS_JUMP
+)
+PAGE_NEXT_JUMP_DEAD_END_BUTTON = Button(
+    text=Text.DEAD_END,
+    callback=Payload.PAGE_NEXT_JUMP
 )
 SKIP_BUTTON = Button(
     text=Text.SKIP,
@@ -562,7 +739,7 @@ MANUALLY_HUB_BUTTON = Button(
     color=Color.BLUE
 )
 NEXT_ZOOM_BUTTON = Button(
-    text=Text.NEXT,
+    text=Text.FORWARD,
     callback=Payload.NEXT_ZOOM
 )
 FINISH_BUTTON = Button(

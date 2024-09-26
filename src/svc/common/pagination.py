@@ -14,7 +14,13 @@ from src.svc.common.keyboard import (
     Keyboard,
     Button,
     Color,
-    Payload
+    Payload,
+    PAGE_PREVIOUS_BUTTON,
+    PAGE_PREVIOUS_JUMP_BUTTON,
+    PAGE_NEXT_BUTTON,
+    PAGE_NEXT_JUMP_BUTTON,
+    PAGE_PREVIOUS_DEAD_END_BUTTON,
+    PAGE_NEXT_DEAD_END_BUTTON,
 )
 from src.svc.common.template import (
     CommonBotTemplate,
@@ -27,9 +33,6 @@ if TYPE_CHECKING:
     from src.data.settings import MODE_LITERAL
 
 T = TypeVar("T")
-
-
-BULLET = "■"
 
 
 def chunks(lst: list[T], n: int) -> Generator[list[T], None, None]:
@@ -67,7 +70,7 @@ class Container(BaseModel):
 def from_zoom(
     data: Union[list[zoom.Data], set[zoom.Data]], 
     mode: "MODE_LITERAL",
-    per_page: int = 4, 
+    per_page: int = 2, 
     text_footer: Optional[str] = None,
     keyboard_width: int = 2,
     keyboard_header: list[list[Button]] = [[]],
@@ -78,7 +81,7 @@ def from_zoom(
 
     if isinstance(data, set):
         data = list(data)
-    
+
     if mode == Mode.GROUP:
         field_filter = lambda field: field[0] not in ["name", "host_key"]
     elif mode == Mode.TEACHER:
@@ -132,17 +135,24 @@ def from_zoom(
             kb_schema.append(row)
 
         if not is_single_page:
-            back_symbol = "←" if not is_first_page else BULLET
-            next_symbol = "→" if not is_last_page else BULLET
-
-            back_button = Button(text=back_symbol, callback=Payload.PAGE_BACK)
-            next_button = Button(text=next_symbol, callback=Payload.PAGE_NEXT)
+            back_button = PAGE_PREVIOUS_BUTTON
+            back_jump_button = PAGE_PREVIOUS_JUMP_BUTTON
+            next_button = PAGE_NEXT_BUTTON
+            next_jump_button = PAGE_NEXT_JUMP_BUTTON
+            
+            if is_first_page:
+                back_button = PAGE_PREVIOUS_DEAD_END_BUTTON
+                back_jump_button = PAGE_PREVIOUS_DEAD_END_BUTTON
+            if is_last_page:
+                next_button = PAGE_NEXT_DEAD_END_BUTTON
+                next_jump_button = PAGE_NEXT_DEAD_END_BUTTON
 
             # make a row with navigation
             kb_schema.append([
                 back_button, 
-                #page_button, 
-                next_button
+                back_jump_button,
+                next_jump_button,
+                next_button,
             ])
 
         # iterate for each section in current page (2D array)

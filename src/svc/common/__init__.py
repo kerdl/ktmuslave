@@ -6,7 +6,7 @@ import json
 import datetime
 from copy import deepcopy
 from json.encoder import JSONEncoder
-from typing import Literal, Optional, Callable, Any, TypeVar
+from typing import Literal, Optional, Callable, Any, TypeVar, TYPE_CHECKING
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pydantic import BaseModel
@@ -17,21 +17,25 @@ from aiogram.types import Message as TgMessage, CallbackQuery, ChatMemberUpdated
 from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError, TelegramBadRequest
 from redis.commands.json.path import Path
 from src import defs, RedisName, text
+from src.api.schedule import Notify
+from src.data import RepredBaseModel, HiddenVars, week
+from src.data.schedule import Schedule, format as sc_format, Page, Formation
+from src.data.schedule.raw import Kind, KIND_LITERAL
+from src.data.schedule.compare import PageCompare
+from src.data.settings import Settings, Mode
+from src.data.range import Range
 from src.svc import vk, telegram as tg
-from src.svc.vk.types_ import MessageV2 as VkMessage
+from src.svc.vk.types_ import MessageV2 as VkMessage, RawEvent
 from src.svc.common.states import formatter as states_fmt, Values
 from src.svc.common.states.tree import HUB
 from src.svc.common.navigator import Navigator, DbNavigator
 from src.svc.common import pagination, messages
-from src.svc.vk.types_ import RawEvent
 from src.svc.common import keyboard as kb, error
-from src.data import RepredBaseModel, HiddenVars
-from src.data.schedule import Schedule, format as sc_format, Page
-from src.data.schedule.raw import Kind, KIND_LITERAL
-from src.data.schedule.compare import PageCompare
-from src.data.settings import Settings
-from src.api.schedule import Notify
-from .states.tree import Space
+from src.svc.common.states.tree import Space
+
+
+if TYPE_CHECKING:
+    from src.data.settings import MODE_LITERAL
 
 
 class Source:
@@ -169,42 +173,42 @@ class BaseCtx:
     """ # Storage for settings and zoom data """
     schedule: Schedule = field(default_factory=Schedule)
     """ # Schedule data """
-
-    last_call: float = field(default_factory=lambda: .0)
-    """
-    # Last UNIX time when user interacted with bot
-    Used to throttle users who
-    click buttons too fast
-    """
-
+    
     pages: pagination.Container = field(default_factory=pagination.Container)
     """
     # Page storage for big data
     Used to store generated pages
     for massive data that can't
-    fit in one message (like zoom entries)
+    fit in one message (like zoom entries).
+    """
+
+    last_call: float = field(default_factory=lambda: .0)
+    """
+    # Last UNIX time when user interacted with bot
+    Used to throttle users who
+    click buttons too fast.
     """
     last_everything: Optional[CommonEverything] = None
     """
     # Last received event
     Used for `navigator`, that passes `everything`
-    to `on_enter`, `on_exit` methods of states
+    to `on_enter`, `on_exit` methods of states.
     """
     last_bot_message: Optional[CommonBotMessage] = None
     """
     # Last message sent by the bot
     Used to resend it when for some reason
-    user interacts with OLD messages
+    user interacts with OLD messages.
     """
     last_groups_schedule: Optional[CommonBotMessage] = None
     """
     # Last groups schedule message sent by the bot
-    Used to reply to it when sending an updated one
+    Used to reply to it when sending an updated one.
     """
     last_teachers_schedule: Optional[CommonBotMessage] = None
     """
     # Last teachers schedule message sent by the bot
-    Used to reply to it when sending an updated one
+    Used to reply to it when sending an updated one.
     """
 
     @property
@@ -221,8 +225,8 @@ class BaseCtx:
             navigator=db.navigator.to_runtime(db.last_everything),
             settings=db.settings,
             schedule=db.schedule,
-            last_call=db.last_call,
             pages=db.pages,
+            last_call=db.last_call,
             last_everything=db.last_everything,
             last_bot_message=db.last_bot_message,
             last_groups_schedule=db.last_groups_schedule,
@@ -264,11 +268,23 @@ class BaseCtx:
             self_db_dict,
             decode_keys=True
         )
+        
+    @property
+    def is_temp_mode(self) -> bool:
+        return not not self.schedule.temp_mode
 
     @property
-    def formation(self) -> str:
+    def mode(self) -> "MODE_LITERAL":
+        if self.is_temp_mode: return self.schedule.temp_mode
+        else: return self.settings.mode
+
+    @property
+    def identifier(self) -> str:
         from src.data.settings import Mode
-        
+        if self.schedule.temp_mode == Mode.GROUP:
+            return self.schedule.temp_group
+        if self.schedule.temp_mode == Mode.TEACHER:
+            return self.schedule.temp_teacher
         if self.settings.mode == Mode.GROUP:
             return self.settings.group.confirmed
         if self.settings.mode == Mode.TEACHER:
@@ -295,41 +311,165 @@ class BaseCtx:
         self.last_everything = everything
         self.navigator.set_everything(everything)
 
-    async def schedule_for_confirmed_group(self) -> Page:
-        return await defs.schedule.get_groups(
-            name=self.settings.group.confirmed
-        )
+    def get_schedule_as_group(self) -> Optional[Formation]:
+        page = defs.schedule.get_groups()
+        return page.get_by_name(self.identifier)
 
-    async def schedule_for_confirmed_teacher(self) -> Page:
-        return await defs.schedule.get_teachers(
-            name=self.settings.teacher.confirmed
-        )
+    def get_schedule_as_teacher(self) -> Optional[Formation]:
+        page = defs.schedule.get_teachers()
+        return page.get_by_name(self.identifier)
 
-    async def fmt_schedule_for_confirmed_group(self) -> Optional[str]:
-        page = await self.schedule_for_confirmed_group()
-
-        try: form = page.formations[0]
-        except IndexError: form = None
-
-        return await sc_format.formation(
+    def get_schedule(self) -> Optional[Formation]:
+        if self.mode == Mode.GROUP:
+            return self.get_schedule_as_group()
+        if self.mode == Mode.TEACHER:
+            return self.get_schedule_as_teacher()
+        
+    def fmt_schedule_as_group(self) -> Optional[str]:
+        form = self.schedule.temp_week_cached_formation
+        if form is None:
+            form = self.get_schedule_as_group().retain_days_new(
+                self.schedule.get_week_or_current()
+            )
+        
+        return sc_format.formation(
             form=form,
             entries=self.settings.zoom.entries.list,
             mode=self.settings.mode,
             do_tg_markup=self.last_everything.is_from_tg_generally
         )
 
-    async def fmt_schedule_for_confirmed_teacher(self) -> Optional[str]:
-        page = await self.schedule_for_confirmed_teacher()
-
-        try: form = page.formations[0]
-        except IndexError: form = None
-
-        return await sc_format.formation(
+    def fmt_schedule_as_teacher(self) -> Optional[str]:
+        form = self.schedule.temp_week_cached_formation
+        if form is None:
+            form = self.get_schedule_as_teacher().retain_days_new(
+                self.schedule.get_week_or_current()
+            )
+        
+        return sc_format.formation(
             form=form,
             entries=self.settings.tchr_zoom.entries.list,
             mode=self.settings.mode,
             do_tg_markup=self.last_everything.is_from_tg_generally
         )
+    
+    def fmt_schedule(self) -> Optional[str]:
+        if self.mode == Mode.GROUP:
+            return self.fmt_schedule_as_group()
+        if self.mode == Mode.TEACHER:
+            return self.fmt_schedule_as_teacher()
+    
+    def is_backward_week_shift_allowed(self) -> bool:
+        """ # Is it allowed to view the previous week """
+        form = self.get_schedule()
+        if form is None: return False
+        rng, new_form = form.prev_week_new_rng(
+            self.schedule.get_week_or_current()
+        )
+        return rng is not None
+        
+    def is_forward_week_shift_allowed(self) -> bool:
+        """ # Is it allowed to view the next week """
+        form = self.get_schedule()
+        if form is None: return False
+        rng, new_form = form.next_week_new_rng(
+            self.schedule.get_week_or_current()
+        )
+        return rng is not None
+    
+    def week_shifted_backward(self) -> Optional[tuple[Range[datetime.date], Formation]]:
+        form = self.get_schedule()
+        if form is None: return None
+        if len(form.days) < 0: return None
+        return form.prev_week_new_rng(self.schedule.get_week_or_current())
+    
+    def week_shifted_forward(self) -> Optional[tuple[Range[datetime.date], Formation]]:
+        form = self.get_schedule()
+        if form is None: return None
+        if len(form.days) < 0: return None
+        return form.next_week_new_rng(self.schedule.get_week_or_current())
+    
+    def week_jumped_backward(self) -> Optional[tuple[Range[datetime.date], Formation]]:
+        form = self.get_schedule()
+        if form is None: return None
+        
+        if self.schedule.is_week_greater_than_now():
+            # jump to today
+            rng = week.current_active()
+            retained_form = form.retain_days_new(rng)
+            return (rng, retained_form)
+        else:
+            # jump to the beginning
+            return form.first_week_new_rng()
+    
+    def week_jumped_forward(self) -> Optional[tuple[Range[datetime.date], Formation]]:
+        form = self.get_schedule()
+        if form is None: return None
+        
+        if self.schedule.is_week_less_than_now():
+            # jump to today
+            rng = week.current_active()
+            retained_form = form.retain_days_new(rng)
+            return (rng, retained_form)
+        else:
+            # jump to the end
+            return form.last_week_new_rng()
+    
+    def shift_week_backward(self) -> bool:
+        result = self.week_shifted_backward()
+        if result is None: return False
+        rng, form = result
+        if rng is None: return False
+        
+        if not week.eq_with_now(rng):
+            self.schedule.temp_week = rng
+            self.schedule.temp_week_cached_formation = form
+        else:
+            self.schedule.reset_temp_week()
+        
+        return True
+        
+    def shift_week_forward(self) -> bool:
+        result = self.week_shifted_forward()
+        if result is None: return False
+        rng, form = result
+        if rng is None: return False
+        
+        if not week.eq_with_now(rng):
+            self.schedule.temp_week = rng
+            self.schedule.temp_week_cached_formation = form
+        else:
+            self.schedule.reset_temp_week()
+        
+        return True
+        
+    def jump_week_backward(self):
+        result = self.week_jumped_backward()
+        if result is None: return False
+        rng, form = result
+        if rng is None: return False
+        
+        if not week.eq_with_now(rng):
+            self.schedule.temp_week = rng
+            self.schedule.temp_week_cached_formation = form
+        else:
+            self.schedule.reset_temp_week()
+        
+        return True
+    
+    def jump_week_forward(self):
+        result = self.week_jumped_forward()
+        if result is None: return False
+        rng, form = result
+        if rng is None: return False
+        
+        if not week.eq_with_now(rng):
+            self.schedule.temp_week = rng
+            self.schedule.temp_week_cached_formation = form
+        else:
+            self.schedule.reset_temp_week()
+        
+        return True
 
     async def send_custom_broadcast(self, message: CommonBotMessage):
         from src.data.settings import Mode
@@ -337,12 +477,10 @@ class BaseCtx:
         new_message = await message.send()
 
         if new_message.id is not None:
-            # we jump back after sending and not before 
-            # 'cause of the sending delay,
-            # and going back to hub state before the message
-            # is sent causes bugs if user was actively
-            # interacting with the bot
+            # we do these after sending and not before 
+            # 'cause of the sending delay
             self.navigator.jump_back_to_or_append(HUB.I_MAIN)
+            self.week_shift = 0
 
             if self.settings.mode == Mode.GROUP:
                 self.last_groups_schedule = new_message
@@ -382,12 +520,12 @@ class BaseCtx:
 
         if successful:
             logger.opt(colors=True).success(
-                f"<G><k><d>BROADCASTING TO {self.db_key} {self.formation}</></></> "
+                f"<G><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                 f"succeeded after {tries} times"
             )
         else:
             logger.opt(colors=True).error(
-                f"<R><k><d>BROADCASTING TO {self.db_key} {self.formation}</></></> "
+                f"<R><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                 f"failed all {max_tries} times with errors: {' | '.join(errors)}"
             )
 
@@ -406,9 +544,9 @@ class BaseCtx:
 
             fmt_schedule = None
             if self.settings.mode == Mode.GROUP:
-                fmt_schedule = await self.fmt_schedule_for_confirmed_group()
+                fmt_schedule = self.fmt_schedule_as_group()
             elif self.settings.mode == Mode.TEACHER:
-                fmt_schedule = await self.fmt_schedule_for_confirmed_teacher()
+                fmt_schedule = self.fmt_schedule_as_teacher()
             
             bcast_text = None
             raw_bcast_text = mapping.add_header_to(fmt_schedule)
@@ -424,7 +562,12 @@ class BaseCtx:
             
             bcast_message = CommonBotMessage(
                 text=bcast_text,
-                keyboard=await kb.Keyboard.hub_broadcast_default(self.settings.mode),
+                keyboard=kb.Keyboard.hub_broadcast_default(
+                    is_previous_dead_end=not self.is_backward_week_shift_allowed(),
+                    is_previous_jump_dead_end=not self.is_backward_week_shift_allowed(),
+                    is_next_dead_end=not self.is_forward_week_shift_allowed(),
+                    is_next_jump_dead_end=not self.is_forward_week_shift_allowed()
+                ),
                 can_edit=False,
                 src=self.last_everything.src,
                 chat_id=self.chat_id,
@@ -437,7 +580,7 @@ class BaseCtx:
                 mapping: BroadcastFormation
             ):
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.formation}</></></> "
+                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"failed with {type(e).__name__}({e}), trying without replying"
                 )
 
@@ -445,7 +588,7 @@ class BaseCtx:
 
                 try:
                     logger.opt(colors=True).info(
-                        f"<W><k><d>BROADCASTING TO {self.db_key} {self.formation}</></></> "
+                        f"<W><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                         f"{mapping.header}"
                     )
                     await self.send_custom_broadcast(
@@ -453,7 +596,7 @@ class BaseCtx:
                     )
                 except Exception as e:
                     logger.opt(colors=True).warning(
-                        f"<Y><k><d>BROADCASTING TO {self.db_key} {self.formation}</></></> "
+                        f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                         f"unknown exception: {type(e).__name__}({e})"
                     )
                 except error.BroadcastSendFail:
@@ -461,7 +604,7 @@ class BaseCtx:
 
             try:
                 logger.opt(colors=True).info(
-                    f"<W><k><d>BROADCASTING TO {self.db_key} {self.formation}</></></> "
+                    f"<W><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"{mapping.header}"
                 )
                 await self.send_custom_broadcast(
@@ -474,7 +617,7 @@ class BaseCtx:
                     await try_without_reply(e, bcast_message, mapping)
             except TelegramBadRequest as e:
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.formation}</></></> "
+                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"{type(e).__name__}({e})"
                 )
 
@@ -486,17 +629,17 @@ class BaseCtx:
 
             except TelegramForbiddenError:
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.formation}</></></> "
+                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"user had blocked the bot"
                 )
             except error.BroadcastSendFail as e:
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.formation}</></></> "
+                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"sending the broadcast message had failed: {type(e).__name__}({e})"
                 )
             except Exception as e:
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.formation}</></></> "
+                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"unknown exception: {type(e).__name__}({e})"
                 )
 
@@ -668,7 +811,7 @@ class Ctx:
             # in executor
             db_ctx = await defs.loop.run_in_executor(
                 None,
-                DbBaseCtx.parse_obj,
+                DbBaseCtx.model_validate,
                 raw_ctx[0]
             )
             # convert [DbBaseCtx -> BaseCtx]
@@ -1570,6 +1713,16 @@ class CommonEvent(BaseCommonEvent):
                 show_alert=True
             )
 
+    async def pong(self):
+        if self.is_from_vk:
+            await defs.vk_bot.api.messages.send_message_event_answer(
+                event_id=self.vk["object"]["event_id"],
+                user_id=self.vk["object"]["user_id"],
+                peer_id=self.vk["object"]["peer_id"]
+            )
+        if self.is_from_tg:
+            await self.tg.answer()
+
     async def edit_message(
         self,
         text: str,
@@ -1659,16 +1812,21 @@ class CommonEvent(BaseCommonEvent):
                 message_id = result[-1].message_id
                 was_split = len(result) > 1
             else:
-                result = await tg.chunked_edit(
-                    chat_id=chat_id,
-                    message_id=message_id,
-                    text=text,
-                    reply_markup=keyboard.to_tg() if keyboard else None,
-                )
-
-                if len(result[1]) > 0:
-                    message_id = result[1][-1].message_id
-                    was_split = True
+                try:
+                    result = await tg.chunked_edit(
+                        chat_id=chat_id,
+                        message_id=message_id,
+                        text=text,
+                        reply_markup=keyboard.to_tg() if keyboard else None,
+                    )
+                    
+                    if len(result[1]) > 0:
+                        message_id = result[1][-1].message_id
+                        was_split = True
+                except TelegramBadRequest as e:
+                    if "exactly the same" in e.message:
+                        await self.tg.answer()
+                    else: raise e
 
         if was_sent_instead:
             await self.show_notification(
@@ -1949,8 +2107,9 @@ class CommonEverything(BaseCommonEvent):
         tree_values: Optional[Values] = None
     ):
         """
-        - if we received a `message`, we SEND our response `(answer)`
-        - if we received an `event`, we EDIT the message with response
+        If we have received a `message`, we SEND our response (answer).
+        
+        If we have received an `event`, we EDIT the message with our response.
         """
         event = self.event
         if event is not None:
