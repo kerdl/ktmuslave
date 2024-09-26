@@ -312,12 +312,18 @@ class BaseCtx:
         self.navigator.set_everything(everything)
 
     def get_schedule_as_group(self) -> Optional[Formation]:
-        page = defs.schedule.get_groups()
-        return page.get_by_name(self.identifier)
+        try:
+            page = defs.schedule.get_groups()
+            return page.get_by_name(self.identifier)
+        except AttributeError:
+            return None
 
     def get_schedule_as_teacher(self) -> Optional[Formation]:
-        page = defs.schedule.get_teachers()
-        return page.get_by_name(self.identifier)
+        try:
+            page = defs.schedule.get_teachers()
+            return page.get_by_name(self.identifier)
+        except AttributeError:
+            return None
 
     def get_schedule(self) -> Optional[Formation]:
         if self.mode == Mode.GROUP:
@@ -326,28 +332,30 @@ class BaseCtx:
             return self.get_schedule_as_teacher()
         
     def fmt_schedule_as_group(self) -> Optional[str]:
-        fww = self.get_schedule_as_group().get_week_self(
-            self.schedule.get_week_or_current()
-        )
-        if fww is None: return None
-        return sc_format.formation(
-            form=fww.formation,
-            entries=self.settings.zoom.entries.list,
-            mode=self.settings.mode,
-            do_tg_markup=self.last_everything.is_from_tg_generally
-        )
+        try:
+            form = self.get_schedule_as_group()
+            return sc_format.formation(
+                form=form,
+                week_pos=self.schedule.get_week_or_current(),
+                entries=self.settings.zoom.entries.list,
+                mode=self.settings.mode,
+                do_tg_markup=self.last_everything.is_from_tg_generally
+            )
+        except AttributeError:
+            return None
 
     def fmt_schedule_as_teacher(self) -> Optional[str]:
-        fww = self.get_schedule_as_teacher().get_week_self(
-            self.schedule.get_week_or_current()
-        )
-        if fww is None: return None
-        return sc_format.formation(
-            form=fww.formation,
-            entries=self.settings.tchr_zoom.entries.list,
-            mode=self.settings.mode,
-            do_tg_markup=self.last_everything.is_from_tg_generally
-        )
+        try:
+            form = self.get_schedule_as_teacher()
+            return sc_format.formation(
+                form=form,
+                week_pos=self.schedule.get_week_or_current(),
+                entries=self.settings.tchr_zoom.entries.list,
+                mode=self.settings.mode,
+                do_tg_markup=self.last_everything.is_from_tg_generally
+            )
+        except AttributeError:
+            return None
     
     def fmt_schedule(self) -> Optional[str]:
         if self.mode == Mode.GROUP:
@@ -357,14 +365,16 @@ class BaseCtx:
     
     def is_backward_week_shift_allowed(self) -> bool:
         """ # Is it allowed to view the previous week """
-        form = self.get_schedule()
-        try: return form.first_week().week < self.schedule.get_week_or_current()
+        try:
+            form = self.get_schedule()
+            return form.first_week().week < self.schedule.get_week_or_current()
         except (AttributeError, IndexError, TypeError): return False
         
     def is_forward_week_shift_allowed(self) -> bool:
         """ # Is it allowed to view the next week """
-        form = self.get_schedule()
-        try: return self.schedule.get_week_or_current() < form.last_week().week
+        try:
+            form = self.get_schedule()
+            return self.schedule.get_week_or_current() < form.last_week().week
         except (AttributeError, IndexError, TypeError): return False
     
     def shift_week_backward(self) -> bool:
@@ -511,10 +521,18 @@ class BaseCtx:
             bcast_message = CommonBotMessage(
                 text=bcast_text,
                 keyboard=kb.Keyboard.hub_broadcast_default(
-                    is_previous_dead_end=not self.is_backward_week_shift_allowed(),
-                    is_previous_jump_dead_end=not self.is_backward_week_shift_allowed(),
-                    is_next_dead_end=not self.is_forward_week_shift_allowed(),
-                    is_next_jump_dead_end=not self.is_forward_week_shift_allowed()
+                    is_previous_dead_end=(
+                        not self.is_backward_week_shift_allowed()
+                    ),
+                    is_previous_jump_dead_end=(
+                        not self.is_backward_week_shift_allowed()
+                    ),
+                    is_next_dead_end=(
+                        not self.is_forward_week_shift_allowed()
+                    ),
+                    is_next_jump_dead_end=(
+                        not self.is_forward_week_shift_allowed()
+                    )
                 ),
                 can_edit=False,
                 src=self.last_everything.src,
@@ -1647,19 +1665,21 @@ class CommonEvent(BaseCommonEvent):
         self,
         text: str
     ):
-        if self.is_from_vk:
-            await defs.vk_bot.api.messages.send_message_event_answer(
-                event_id=self.vk["object"]["event_id"],
-                user_id=self.vk["object"]["user_id"],
-                peer_id=self.vk["object"]["peer_id"],
-                event_data=ShowSnackbarEvent(text=text)
-            )
-
-        elif self.is_from_tg:
-            await self.tg.answer(
-                text=text,
-                show_alert=True
-            )
+        try:
+            if self.is_from_vk:
+                await defs.vk_bot.api.messages.send_message_event_answer(
+                    event_id=self.vk["object"]["event_id"],
+                    user_id=self.vk["object"]["user_id"],
+                    peer_id=self.vk["object"]["peer_id"],
+                    event_data=ShowSnackbarEvent(text=text)
+                )
+            elif self.is_from_tg:
+                await self.tg.answer(
+                    text=text,
+                    show_alert=True
+                )
+        except:
+            ...
 
     async def pong(self):
         if self.is_from_vk:

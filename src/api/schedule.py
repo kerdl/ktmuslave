@@ -61,6 +61,7 @@ class LastNotify(BaseModel):
 class ScheduleApi:
     url: str
     is_online: bool = False
+    is_cached_available: bool = False
     last_notify: Optional[LastNotify] = None
 
     _cached_groups: Optional[Page] = None
@@ -155,6 +156,7 @@ class ScheduleApi:
                         await self.request_all()
 
                         self.is_online = True
+                        self.is_cached_available = True
                         is_connect_error_logged = False
                         is_connection_attempt_logged = False
 

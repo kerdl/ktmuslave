@@ -463,7 +463,7 @@ async def teacher(everything: CommonEverything):
         ctx.navigator.jump_back_to_or_append(SETTINGS.II_TEACHER)
 
     answer_keyboard = Keyboard([
-        [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload and defs.schedule.is_online)],
+        [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload and defs.schedule.is_cached_available)],
         [kb.GROUP_MODE_BUTTON.only_if(is_from_hub and not ctx.is_switching_modes)],
     ]).assign_next(
         kb.FORWARD_BUTTON.only_if(is_teacher_set and not is_from_hub)
@@ -471,7 +471,7 @@ async def teacher(everything: CommonEverything):
 
     teachers_fmt = None
 
-    if defs.schedule.is_online and is_show_names_payload:
+    if defs.schedule.is_cached_available and is_show_names_payload:
         teachers_fmt = messages.format_teachers(defs.schedule.teacher_names())
     elif is_show_names_payload:
         teachers_fmt = messages.format_cant_connect_to_schedule_server()
@@ -515,7 +515,7 @@ async def teacher(everything: CommonEverything):
                 tree_values=ctx.settings
             )
 
-        if defs.schedule.is_online:
+        if defs.schedule.is_cached_available:
             teachers = defs.schedule.teacher_names()
         else:
             teachers = []
@@ -558,7 +558,7 @@ async def teacher(everything: CommonEverything):
             )
 
         # if this teacher not in list of all available teachers
-        if ctx.settings.teacher.valid not in teachers and defs.schedule.is_online:
+        if ctx.settings.teacher.valid not in teachers and defs.schedule.is_cached_available:
             # ask if we should still set this unknown teacher
             return await to_unknown_teacher(everything)
 
@@ -691,7 +691,7 @@ async def group(everything: CommonEverything):
         ctx.navigator.jump_back_to_or_append(SETTINGS.II_GROUP)
 
     answer_keyboard = Keyboard([
-        [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload and defs.schedule.is_online)],
+        [kb.SHOW_NAMES_BUTTON.only_if(not is_show_names_payload and defs.schedule.is_cached_available)],
         [kb.TEACHER_MODE_BUTTON.only_if(is_from_hub and not ctx.is_switching_modes)],
     ]).assign_next(
         kb.FORWARD_BUTTON.only_if(is_group_set and not is_from_hub)
@@ -708,7 +708,7 @@ async def group(everything: CommonEverything):
         if group_match is None:
             groups_fmt = None
 
-            if defs.schedule.is_online and is_show_names_payload:
+            if defs.schedule.is_cached_available and is_show_names_payload:
                 groups_fmt = messages.format_groups(defs.schedule.group_names())
             elif is_show_names_payload:
                 groups_fmt = messages.format_cant_connect_to_schedule_server()
@@ -731,13 +731,13 @@ async def group(everything: CommonEverything):
         ctx.settings.group.typed = group_match.group()
         ctx.settings.group.generate_valid()
 
-        if defs.schedule.is_online:
+        if defs.schedule.is_cached_available:
             groups = defs.schedule.group_names()
         else:
             groups = []
 
         # if this group not in list of all available groups
-        if ctx.settings.group.valid not in groups and defs.schedule.is_online:
+        if ctx.settings.group.valid not in groups and defs.schedule.is_cached_available:
             # ask if we should still set this unknown group
             return await to_unknown_group(everything)
 
@@ -756,7 +756,7 @@ async def group(everything: CommonEverything):
         event = everything.event
         groups_fmt = None
 
-        if defs.schedule.is_online and is_show_names_payload:
+        if defs.schedule.is_cached_available and is_show_names_payload:
             groups_fmt = messages.format_groups(defs.schedule.group_names())
         elif is_show_names_payload:
             groups_fmt = messages.format_cant_connect_to_schedule_server()

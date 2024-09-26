@@ -69,7 +69,7 @@ async def hub(
 
     schedule_text = messages.format_schedule_unavailable()
 
-    if defs.schedule.is_online:
+    if defs.schedule.is_cached_available:
         schedule_text = ctx.fmt_schedule()
     else:
         schedule_text = messages.format_cant_connect_to_schedule_server()
@@ -80,17 +80,33 @@ async def hub(
     )
     if ctx.is_temp_mode:
         answer_keyboard = kb.Keyboard.temp_identifier_hub(
-            is_previous_dead_end=not ctx.is_backward_week_shift_allowed(),
-            is_previous_jump_dead_end=not ctx.is_backward_week_shift_allowed(),
-            is_next_dead_end=not ctx.is_forward_week_shift_allowed(),
-            is_next_jump_dead_end=not ctx.is_forward_week_shift_allowed()
+            is_previous_dead_end=(
+                not ctx.is_backward_week_shift_allowed()
+            ),
+            is_previous_jump_dead_end=(
+                not ctx.is_backward_week_shift_allowed()
+            ),
+            is_next_dead_end=(
+                not ctx.is_forward_week_shift_allowed()
+            ),
+            is_next_jump_dead_end=(
+                not ctx.is_forward_week_shift_allowed()
+            )
         )
     else:
         answer_keyboard = kb.Keyboard.hub_default(
-            is_previous_dead_end=not ctx.is_backward_week_shift_allowed(),
-            is_previous_jump_dead_end=not ctx.is_backward_week_shift_allowed(),
-            is_next_dead_end=not ctx.is_forward_week_shift_allowed(),
-            is_next_jump_dead_end=not ctx.is_forward_week_shift_allowed()
+            is_previous_dead_end=(
+                not ctx.is_backward_week_shift_allowed()
+            ),
+            is_previous_jump_dead_end=(
+                not ctx.is_backward_week_shift_allowed()
+            ),
+            is_next_dead_end=(
+                not ctx.is_forward_week_shift_allowed()
+            ),
+            is_next_jump_dead_end=(
+                not ctx.is_forward_week_shift_allowed()
+            )
         )
 
     if (

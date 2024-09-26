@@ -32,6 +32,7 @@ from src.data.weekday import (
 )
 from src.data import (
     zoom,
+    week,
     TranslatedBaseModel,
     RepredBaseModel,
     format as fmt,
@@ -105,6 +106,33 @@ PRIMITIVE = "{} → {}"
 # ⠀⠀⠀⠀⢸⣿⣀⣀⣀⣼⡿⢿⣿⣿⣿⣿⣿⡿⣿⣿⡿
 
 ZOOM_NAME_PREFIX = Emoji.COMPLETE
+
+
+def week_bullets_from_bitmap(bitmap: list[bool]) -> str:
+    """
+    # Format bullet indicator from a bitmap
+    ## Example
+    ```
+    assert week_bullet_from_map([false, false, false]) == "○○○"
+    assert week_bullet_from_map([false, true, false]) == "○●○"
+    ```
+    """
+    output = ""
+    for bit in bitmap:
+        if bit is False:
+            output += "○"
+        else:
+            output += "●"
+    
+    return output
+
+def week_bullets_from_formation(form: Formation, pos: Range[datetime.date]) -> str:
+    first_week = form.first_week()
+    current_week = form.get_week(week.current_active())
+    last_week = form.last_week()
+    
+    bitmap = map(lambda dww: dww.week == pos, form.days_weekly_chunked)
+    return week_bullets_from_bitmap(bitmap)
 
 
 def keycap_num(num: int) -> str:
@@ -436,11 +464,10 @@ def days(
 
 def formation(
     form: Optional[Formation],
+    week_pos: Range[datetime.date],
     entries: list[zoom.Data],
     mode: "MODE_LITERAL",
-    do_tg_markup: bool = False,
-    bullet_count: int = 5,
-    bullet_pos: int = 0,
+    do_tg_markup: bool = False
 ) -> str:
     from src.data.settings import Mode
 
@@ -459,10 +486,7 @@ def formation(
         update_period=update_period
     )
     
-    nav_bullets = navigation_bullets(
-        count=bullet_count,
-        idx=bullet_pos
-    )
+    week_bullets = week_bullets_from_formation(form=form, pos=week_pos)
 
     if form is None or not form.days:
         if mode == Mode.GROUP:
@@ -477,17 +501,19 @@ def formation(
             )
 
     label = form.raw
+    filtered_days = form.get_week(week_pos)
     days_str = "\n\n".join(days(
-        form.days,
-        entries,
-        do_tg_markup
+        days=filtered_days.days,
+        entries=entries,
+        do_tg_markup=do_tg_markup
     ))
 
     if mode == Mode.GROUP:
         return (
             f"📜 {label}\n\n"
             f"{days_str}\n\n"
-            f"{update_params}"
+            f"{update_params}\n\n"
+            f"{week_bullets}"
         )
     elif mode == Mode.TEACHER:
         fmt_entries = "\n".join([
@@ -504,7 +530,8 @@ def formation(
         msg += f"{days_str}\n\n"
         if fmt_entries:
             msg += f"{fmt_entries}\n\n"
-        msg += f"{update_params}"
+        msg += f"{update_params}\n\n"
+        msg += f"{week_bullets}"
 
         return msg
 
