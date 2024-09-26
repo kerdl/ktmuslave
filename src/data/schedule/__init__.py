@@ -1,7 +1,8 @@
 from __future__ import annotations
 import datetime
 from typing import Literal, Optional
-from pydantic import BaseModel
+from dataclasses import dataclass
+from pydantic import BaseModel, Field
 from src.parse import pattern
 from src.data import RepredBaseModel, week
 from src.data.weekday import WEEKDAYS
@@ -65,22 +66,17 @@ class Schedule(BaseModel):
     This value stores currently selected
     week date range.
     """
-    temp_week_cached_formation: Optional[Formation] = None
-    """
-    # Filtered formation within the `temp_week` boundaries
-    """
-    
-    def reset_temp_week_cache(self):
-        self.temp_week_cached_formation = None
-    
-    def reset_temp_week(self):
-        self.temp_week = None
-        self.reset_temp_week_cache()
-    
-    def reset_temps(self):
+
+    def reset_temp_mode(self):
         self.temp_group = None
         self.temp_teacher = None
         self.temp_mode = None
+    
+    def reset_temp_week(self):
+        self.temp_week = None
+    
+    def reset_temps(self):
+        self.reset_temp_mode()
         self.reset_temp_week()
     
     def get_week_or_current(self) -> Range[datetime.date]:
@@ -90,52 +86,11 @@ class Schedule(BaseModel):
         if self.temp_week is not None: return self.temp_week
         else: return week.current_active()
     
-    ### REMOVAL CANDIDATES START
-    
-    def week_shifted_backward(self) -> Range[datetime.date]:
-        """ # Get `temp_week` shifted backward """
-        return week.shift_backwards(self.get_week_or_current())
-    
-    def week_shifted_forward(self) -> Range[datetime.date]:
-        """ # Get `temp_week` shifted forward """
-        return week.shift_forward(self.get_week_or_current())
-    
-    def week_shifted_backward_until(self, fn) -> Range[datetime.date]:
-        ...
-    
-    def week_shifted_forward_until(self, fn) -> Range[datetime.date]:
-        ...
-    
-    def shift_week_backward(self):
-        """ # Shift `temp_week` backward """
-        shifted = self.week_shifted_backward()
-        if shifted == week.current_active(): shifted = None
-        self.temp_week = shifted
-        
-    def shift_week_forward(self):
-        """ # Shift `temp_week` forward """
-        shifted = self.week_shifted_forward()
-        if shifted == week.current_active(): shifted = None
-        self.temp_week = shifted
-        
-    
-    ### REMOVAL CANDIDATES END
-    
-    def is_week_greater_than(self, rng: Range[datetime.date]) -> bool:
-        return self.get_week_or_current().start > rng.start
-    
-    def is_week_less_than(self, rng: Range[datetime.date]) -> bool:
-        return self.get_week_or_current().start < rng.start 
-    
-    def is_week_equal_to(self, rng: Range[datetime.date]) -> bool:
-        cur = self.get_week_or_current()
-        return rng.start == cur.start and rng.end == cur.end
-    
     def is_week_greater_than_now(self) -> bool:
-        return self.is_week_greater_than(week.current_active())
+        return self.get_week_or_current() > week.current_active()
     
     def is_week_less_than_now(self) -> bool:
-        return self.is_week_less_than(week.current_active())
+        return self.get_week_or_current() < week.current_active()
     
     def is_week_equal_to_now(self) -> bool:
         return self.temp_week is None
@@ -216,226 +171,130 @@ class Day(RepredBaseModel):
     def repr_name(self) -> str:
         return WEEKDAYS[self.date.weekday()]
 
+@dataclass
+class DaysWithWeek:
+    """
+    Shorthand for `dww`
+    """
+    week: Range[datetime.date]
+    days: list[Day]
+
+@dataclass
+class FormationWithWeek:
+    """
+    Shorthand for `fww`
+    """
+    week: Range[datetime.date]
+    formation: Formation
 
 class Formation(RepredBaseModel):
     raw: str
     name: str
     days: list[Day]
+    days_weekly_chunked: list[DaysWithWeek] = Field(default_factory=list)
 
     @property
     def repr_name(self) -> str:
         return self.name
     
-    def is_week_within_boundaries(self, rng: Range[datetime.date]) -> bool:
-        """
-        # Is `rng` within present `days`
-        """
-        if len(self.days) < 1:
-            return False
+    def _chunk_by_weeks(self):
+        chunks: list[DaysWithWeek] = []
         
-        # schedule parser is guaranteed
-        # to sort the days
-        minimum = self.days[0].date
-        maximum = self.days[-1].date
-        
-        return rng.start <= maximum and rng.end > minimum
-    
-    def retain_days_indexed(self, rng: Range[datetime.date]) -> list[tuple[int, Day]]:
-        """
-        # Only keep days in date range
-        Returns a list of days with position indexes.
-        """
-        kept_days = []
+        current_week: Optional[Range[datetime.date]] = None
+        hold: list[Day] = []
         
         for idx, day in enumerate(self.days):
-            if day.date in rng:
-                kept_days.append((idx, day))
-        
-        return kept_days
-    
-    def retain_days(self, rng: Range[datetime.date]) -> list[Day]:
-        """
-        # Only keep days in date range
-        Returns a list of days.
-        """
-        return [day for day in map(
-            lambda day: day[1], self.retain_days_indexed(rng)
-        )]
-    
-    def retain_days_new(self, rng: Range[datetime.date]) -> Formation:
-        """
-        # Only keep days in date range
-        Returns a copy of self with days filtered.
-        """
-        return Formation(
-            raw=self.raw,
-            name=self.name,
-            days=self.retain_days(rng)
-        )
-    
-    #################
-    # PREVIOUS WEEK #
-    #################
-    
-    def prev_week_indexed(
-        self,
-        current: Range[datetime.date]
-    ) -> tuple[Optional[Range[datetime.date]], list[tuple[int, Day]]]:
-        retained_for_current = self.retain_days_indexed(current)
-        if len(retained_for_current) < 1: return (None, [])
-        current_week_first_day_idx = retained_for_current[0][0]
-        prev_week_last_day_idx = current_week_first_day_idx - 1
-        if prev_week_last_day_idx < 0: return (None, [])
-        
-        last_prev = self.days[prev_week_last_day_idx]
-        new_week_rng = week.from_day(last_prev.date)
-        
-        return (new_week_rng, self.retain_days_indexed(new_week_rng))
-    
-    def prev_week(
-        self,
-        current: Range[datetime.date]
-    ) -> tuple[Optional[Range[datetime.date]], list[Day]]:
-        date_range, days = self.prev_week_indexed(current)
-        days_no_idx = [day for day in map(
-            lambda day: day[1], days
-        )]
-        return (date_range, days_no_idx)
-    
-    def prev_week_new_rng(
-        self,
-        current: Range[datetime.date]
-    ) -> tuple[Optional[Range[datetime.date]], Formation]:
-        rng, days = self.prev_week(current)
-        form = Formation(
-            raw=self.raw,
-            name=self.name,
-            days=days
-        )
-        return (rng, form)
-    
-    def prev_week_new(self, current: Range[datetime.date]) -> Formation:
-        return self.prev_week_new_rng(current)[1]
-    
-    #############
-    # NEXT WEEK #
-    #############
-    
-    def next_week_indexed(
-        self,
-        current: Range[datetime.date]
-    ) -> tuple[Optional[Range[datetime.date]], list[tuple[int, Day]]]:
-        retained_for_current = self.retain_days_indexed(current)
-        if len(retained_for_current) < 1: return (None, [])
-        current_week_last_day_idx = retained_for_current[-1][0]
-        next_week_first_day_idx = current_week_last_day_idx + 1
-        if next_week_first_day_idx > len(self.days) - 1: return (None, [])
+            try:
+                next_day = self.days[idx+1]
+                next_day_week = week.from_day(next_day.date)
+                is_last = False
+            except IndexError:
+                next_day = None
+                next_day_week = None
+                is_last = True
             
-        next_first = self.days[next_week_first_day_idx]
-        new_week_rng = week.from_day(next_first.date)
+            day_week = week.from_day(day.date)
+            
+            if current_week is None:
+                current_week = day_week
+            
+            hold.append(day)
+            
+            if next_day_week != current_week or is_last:
+                dww = DaysWithWeek(week=day_week, days=hold)
+                chunks.append(dww)
+                hold = []
+                current_week = next_day_week
         
-        return (new_week_rng, self.retain_days_indexed(new_week_rng))
+        self.days_weekly_chunked = chunks
     
-    
-    def next_week(
-        self,
-        current: Range[datetime.date]
-    ) -> tuple[Optional[Range[datetime.date]], list[Day]]:
-        date_range, days = self.next_week_indexed(current)
-        days_no_idx = [day for day in map(
-            lambda day: day[1], days
-        )]
-        return (date_range, days_no_idx)
-    
-    def next_week_new_rng(
-        self,
-        current: Range[datetime.date]
-    ) -> tuple[Optional[Range[datetime.date]], Formation]:
-        rng, days = self.next_week(current)
+    def _copy_as_fww(self, dww: DaysWithWeek) -> FormationWithWeek:
         form = Formation(
             raw=self.raw,
             name=self.name,
-            days=days
+            days=dww.days,
+            days_weekly_chunked=[dww]
         )
-        return (rng, form)
+        return FormationWithWeek(week=dww.week, formation=form)
     
-    def next_week_new(self, current: Range[datetime.date]) -> Formation:
-        return self.next_week_new_rng(current)[1]
+    def get_week(self, rng: Range[datetime.date]) -> Optional[DaysWithWeek]:
+        for dww in self.days_weekly_chunked:
+            if dww.week == rng:
+                return dww
     
-    ##############
-    # FIRST WEEK #
-    ##############
+    def get_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
+        w = self.get_week(rng)
+        if w is None: return None
+        return self._copy_as_fww(w)
     
-    def first_week_indexed(
-        self
-    ) -> tuple[Optional[Range[datetime.date]], list[tuple[int, Day]]]:
-        if len(self.days) < 0: return (None, [])
-        first_day = self.days[0]
-        first_week = week.from_day(first_day.date)
-        return (first_week, self.retain_days_indexed(first_week))
+    def prev_week(self, rng: Range[datetime.date]) -> Optional[DaysWithWeek]:
+        for idx, dww in enumerate(self.days_weekly_chunked):
+            if dww.week != rng: continue
+            try: return self.days_weekly_chunked[idx-1]
+            except IndexError: return None
     
-    def first_week(
-        self
-    ) -> tuple[Optional[Range[datetime.date]], list[Day]]:
-        date_range, days = self.first_week_indexed()
-        days_no_idx = [day for day in map(
-            lambda day: day[1], days
-        )]
-        return (date_range, days_no_idx)
+    def prev_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
+        w = self.prev_week(rng)
+        if w is None: return None
+        return self._copy_as_fww(w)
     
-    def first_week_new_rng(
-        self
-    ) -> tuple[Optional[Range[datetime.date]], Formation]:
-        rng, days = self.first_week()
-        form = Formation(
-            raw=self.raw,
-            name=self.name,
-            days=days
-        )
-        return (rng, form)
+    def next_week(self, rng: Range[datetime.date]) -> Optional[DaysWithWeek]:
+        for idx, dww in enumerate(self.days_weekly_chunked):
+            if dww.week != rng: continue
+            try: return self.days_weekly_chunked[idx+1]
+            except IndexError: return None
     
-    def first_week_new(self) -> Formation:
-        return self.first_week_new_rng()[1]
+    def next_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
+        w = self.next_week(rng)
+        if w is None: return None
+        return self._copy_as_fww(w)
     
-    #############
-    # LAST WEEK #
-    #############
+    def first_week(self) -> Optional[DaysWithWeek]:
+        try: return self.days_weekly_chunked[0]
+        except: return None
+    
+    def first_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
+        w = self.first_week(rng)
+        if w is None: return None
+        return self._copy_as_fww(w)
+    
+    def last_week(self) -> Optional[DaysWithWeek]:
+        try: return self.days_weekly_chunked[-1]
+        except: return None
 
-    def last_week_indexed(
-        self
-    ) -> tuple[Optional[Range[datetime.date]], list[tuple[int, Day]]]:
-        if len(self.days) < 0: return (None, [])
-        last_day = self.days[-1]
-        last_week = week.from_day(last_day.date)
-        return (last_week, self.retain_days_indexed(last_week))
-    
-    def last_week(
-        self
-    ) -> tuple[Optional[Range[datetime.date]], list[Day]]:
-        date_range, days = self.last_week_indexed()
-        days_no_idx = [day for day in map(
-            lambda day: day[1], days
-        )]
-        return (date_range, days_no_idx)
-    
-    def last_week_new_rng(
-        self
-    ) -> tuple[Optional[Range[datetime.date]], Formation]:
-        rng, days = self.last_week()
-        form = Formation(
-            raw=self.raw,
-            name=self.name,
-            days=days
-        )
-        return (rng, form)
-    
-    def last_week_new(self) -> Formation:
-        return self.last_week_new_rng()[1]
+    def last_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
+        w = self.last_week(rng)
+        if w is None: return None
+        return self._copy_as_fww(w)
 
 class Page(BaseModel):
     kind: raw.KIND_LITERAL
     date: Range[datetime.date]
     formations: list[Formation]
+
+    def _chunk_formations_by_week(self):
+        for form in self.formations:
+            form._chunk_by_weeks()
 
     def names(self) -> list[str]:
         return [formation.name for formation in self.formations]

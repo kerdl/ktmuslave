@@ -2,12 +2,9 @@ import datetime
 from src.data.range import Range
 
 
-def eq(a: Range[datetime.date], b: Range[datetime.date]) -> bool:
-    return a.start == b.start and a.end == b.end
-
 def eq_with_now(other: Range[datetime.date]) -> bool:
     now = current_active()
-    return now.start == other.start and now.end == other.end
+    return now == other
     
 def current_active() -> Range[datetime.date]:
     """

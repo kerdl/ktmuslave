@@ -27,6 +27,22 @@ class Range(BaseModel, Generic[T]):
 
         return f"{self.start} - {self.end}"
     
+    def __gt__(self, value: object) -> bool:
+        if not isinstance(value, Range):
+            raise TypeError(
+                f"'>' not supported between instances of 'Range' and '{type(value)}'"
+            )
+        
+        return self.start > value.start
+    
+    def __lt__(self, value: object) -> bool:
+        if not isinstance(value, Range):
+            raise TypeError(
+                f"'<' not supported between instances of 'Range' and '{type(value)}'"
+            )
+        
+        return self.start < value.start
+    
     def __eq__(self, value: object) -> bool:
         if isinstance(value, Range):
             return self.start == value.start and self.end == value.end

@@ -326,28 +326,24 @@ class BaseCtx:
             return self.get_schedule_as_teacher()
         
     def fmt_schedule_as_group(self) -> Optional[str]:
-        form = self.schedule.temp_week_cached_formation
-        if form is None:
-            form = self.get_schedule_as_group().retain_days_new(
-                self.schedule.get_week_or_current()
-            )
-        
+        fww = self.get_schedule_as_group().get_week_self(
+            self.schedule.get_week_or_current()
+        )
+        if fww is None: return None
         return sc_format.formation(
-            form=form,
+            form=fww.formation,
             entries=self.settings.zoom.entries.list,
             mode=self.settings.mode,
             do_tg_markup=self.last_everything.is_from_tg_generally
         )
 
     def fmt_schedule_as_teacher(self) -> Optional[str]:
-        form = self.schedule.temp_week_cached_formation
-        if form is None:
-            form = self.get_schedule_as_teacher().retain_days_new(
-                self.schedule.get_week_or_current()
-            )
-        
+        fww = self.get_schedule_as_teacher().get_week_self(
+            self.schedule.get_week_or_current()
+        )
+        if fww is None: return None
         return sc_format.formation(
-            form=form,
+            form=fww.formation,
             entries=self.settings.tchr_zoom.entries.list,
             mode=self.settings.mode,
             do_tg_markup=self.last_everything.is_from_tg_generally
@@ -362,114 +358,60 @@ class BaseCtx:
     def is_backward_week_shift_allowed(self) -> bool:
         """ # Is it allowed to view the previous week """
         form = self.get_schedule()
-        if form is None: return False
-        rng, new_form = form.prev_week_new_rng(
-            self.schedule.get_week_or_current()
-        )
-        return rng is not None
+        try: return form.first_week().week < self.schedule.get_week_or_current()
+        except (AttributeError, IndexError, TypeError): return False
         
     def is_forward_week_shift_allowed(self) -> bool:
         """ # Is it allowed to view the next week """
         form = self.get_schedule()
-        if form is None: return False
-        rng, new_form = form.next_week_new_rng(
-            self.schedule.get_week_or_current()
-        )
-        return rng is not None
-    
-    def week_shifted_backward(self) -> Optional[tuple[Range[datetime.date], Formation]]:
-        form = self.get_schedule()
-        if form is None: return None
-        if len(form.days) < 0: return None
-        return form.prev_week_new_rng(self.schedule.get_week_or_current())
-    
-    def week_shifted_forward(self) -> Optional[tuple[Range[datetime.date], Formation]]:
-        form = self.get_schedule()
-        if form is None: return None
-        if len(form.days) < 0: return None
-        return form.next_week_new_rng(self.schedule.get_week_or_current())
-    
-    def week_jumped_backward(self) -> Optional[tuple[Range[datetime.date], Formation]]:
-        form = self.get_schedule()
-        if form is None: return None
-        
-        if self.schedule.is_week_greater_than_now():
-            # jump to today
-            rng = week.current_active()
-            retained_form = form.retain_days_new(rng)
-            return (rng, retained_form)
-        else:
-            # jump to the beginning
-            return form.first_week_new_rng()
-    
-    def week_jumped_forward(self) -> Optional[tuple[Range[datetime.date], Formation]]:
-        form = self.get_schedule()
-        if form is None: return None
-        
-        if self.schedule.is_week_less_than_now():
-            # jump to today
-            rng = week.current_active()
-            retained_form = form.retain_days_new(rng)
-            return (rng, retained_form)
-        else:
-            # jump to the end
-            return form.last_week_new_rng()
+        try: return self.schedule.get_week_or_current() < form.last_week().week
+        except (AttributeError, IndexError, TypeError): return False
     
     def shift_week_backward(self) -> bool:
-        result = self.week_shifted_backward()
-        if result is None: return False
-        rng, form = result
-        if rng is None: return False
-        
-        if not week.eq_with_now(rng):
-            self.schedule.temp_week = rng
-            self.schedule.temp_week_cached_formation = form
-        else:
-            self.schedule.reset_temp_week()
-        
-        return True
+        try:
+            form = self.get_schedule()
+            target = form.prev_week_self(self.schedule.temp_week)
+            self.schedule.temp_week = target.week
+            return True
+        except:
+            return False
         
     def shift_week_forward(self) -> bool:
-        result = self.week_shifted_forward()
-        if result is None: return False
-        rng, form = result
-        if rng is None: return False
+        try:
+            form = self.get_schedule()
+            target = form.next_week_self(self.schedule.temp_week)
+            self.schedule.temp_week = target.week
+            return True
+        except AttributeError:
+            return False
         
-        if not week.eq_with_now(rng):
-            self.schedule.temp_week = rng
-            self.schedule.temp_week_cached_formation = form
-        else:
-            self.schedule.reset_temp_week()
-        
-        return True
-        
-    def jump_week_backward(self):
-        result = self.week_jumped_backward()
-        if result is None: return False
-        rng, form = result
-        if rng is None: return False
-        
-        if not week.eq_with_now(rng):
-            self.schedule.temp_week = rng
-            self.schedule.temp_week_cached_formation = form
-        else:
-            self.schedule.reset_temp_week()
-        
-        return True
+    def jump_week_backward(self) -> bool:
+        try:
+            form = self.get_schedule()
+            if self.schedule.get_week_or_current() > week.current_active():
+                # jump to the current week
+                self.schedule.reset_temp_week()
+            else:
+                # jump to the beginning
+                dww = form.first_week()
+                self.schedule.temp_week = dww.week
+            return True
+        except AttributeError:
+            return False
     
-    def jump_week_forward(self):
-        result = self.week_jumped_forward()
-        if result is None: return False
-        rng, form = result
-        if rng is None: return False
-        
-        if not week.eq_with_now(rng):
-            self.schedule.temp_week = rng
-            self.schedule.temp_week_cached_formation = form
-        else:
-            self.schedule.reset_temp_week()
-        
-        return True
+    def jump_week_forward(self) -> bool:
+        try:
+            form = self.get_schedule()
+            if self.schedule.get_week_or_current() < week.current_active():
+                # jump to the current week
+                self.schedule.reset_temp_week()
+            else:
+                # jump to the end
+                dww = form.last_week()
+                self.schedule.temp_week = dww.week
+            return True
+        except AttributeError:
+            return False
 
     async def send_custom_broadcast(self, message: CommonBotMessage):
         from src.data.settings import Mode

@@ -98,7 +98,9 @@ class ScheduleApi:
     
     async def request_all(self):
         await self.request_groups()
+        self._cached_groups._chunk_formations_by_week()
         await self.request_teachers()
+        self._cached_teachers._chunk_formations_by_week()
         await self.request_last_update()
         await self.request_update_period()
     
