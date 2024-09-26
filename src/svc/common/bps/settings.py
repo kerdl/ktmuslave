@@ -441,6 +441,7 @@ async def switch_to_group_mode(everything: CommonEverything):
 
     ctx.settings.mode = Mode.GROUP
 
+    ctx.schedule.reset_temp_week()
     return await main(everything)
 
 @router.on_everything(UnionFilter([
@@ -568,6 +569,7 @@ async def teacher(everything: CommonEverything):
             ctx.settings.mode = Mode.TEACHER
             ctx.is_switching_modes = False
 
+        ctx.schedule.reset_temp_week()
         return await auto_route(everything)
 
     elif everything.is_from_event:
@@ -668,6 +670,7 @@ async def switch_to_teacher_mode(everything: CommonEverything):
 
     ctx.settings.mode = Mode.TEACHER
 
+    ctx.schedule.reset_temp_week()
     return await main(everything)
 
 @router.on_everything(UnionFilter([
@@ -728,7 +731,6 @@ async def group(everything: CommonEverything):
         ctx.settings.group.typed = group_match.group()
         ctx.settings.group.generate_valid()
 
-
         if defs.schedule.is_online:
             groups = defs.schedule.group_names()
         else:
@@ -746,6 +748,7 @@ async def group(everything: CommonEverything):
             ctx.settings.mode = Mode.GROUP
             ctx.is_switching_modes = False
 
+        ctx.schedule.reset_temp_week()
         return await auto_route(everything)
 
     elif everything.is_from_event:

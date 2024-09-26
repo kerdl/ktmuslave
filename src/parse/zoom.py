@@ -6,6 +6,7 @@ import re
 
 from src import data
 from src.data import zoom
+from . import WHITESPACE_CHARS
 from .pattern import (
     SPACE_NEWLINE,
     NAME,
@@ -127,6 +128,7 @@ class Parser:
 
         for (index, line) in enumerate(newline_split):
             is_last = (index + 1) == len(newline_split)
+            line = line.strip(WHITESPACE_CHARS)
 
             if mode == Mode.GROUP:
                 this_line_key = Key.group_find(line)
@@ -216,7 +218,7 @@ class Parser:
         prev_key: Optional[KEY_LITERAL] = None
 
         for line in lines:
-            line = line.strip()
+            line = line.strip(WHITESPACE_CHARS)
 
             if line == "":
                 continue
