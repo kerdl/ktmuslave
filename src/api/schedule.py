@@ -1,57 +1,50 @@
 from __future__ import annotations
+
 import asyncio
 import datetime
-import aiofiles
 from loguru import logger
-from typing import Optional
+from typing import Optional, Never
+from typing_extensions import Self
+from pathlib import Path
 from dataclasses import dataclass
-from pydantic import BaseModel
 from websockets import client, exceptions
 from websockets.legacy import client
 from aiohttp.client_exceptions import (
     ClientConnectorError,
     ServerDisconnectedError
 )
-from pathlib import Path
-from src.api import request, get, post, Notify
+from src.api import get, Notify
+from src.data import week
 from src.data.schedule import Page
 from src.data.duration import Duration
+from src.persistence import Persistence
 
 
-class LastNotify(BaseModel):
-    path: Optional[Path] = None
+class LastNotify(Persistence):
+    """
+    # Info abould last `Notify` received
+    """
     random: Optional[str] = None
-
-    async def save(self):
-        path: Path = self.path
-        async with aiofiles.open(path, mode="w") as f:
-            ser = self.model_dump_json(
-                indent=2,
-                exclude={"path"}
-            )
-            await f.write(ser)
+    """
+    # Last received `random`
     
-    def poll_save(self):
-        from src import defs
-        defs.create_task(self.save())
+    When the bot is restarted,
+    ktmuscrap always sends last `Notify`
+    it had generated.
     
-    @classmethod
-    def load(cls, path: Path):
-        with open(path, mode="r", encoding="utf8") as f:
-            self = cls.model_validate_json(f.read())
-            self.path = path
-
-            return self
+    If that `Notify` had changes,
+    a duplicate broadcast will occur,
+    which is undesirable.
+    
+    To avoid that, we store the last
+    `random` value to then ignore
+    any incoming `Notify` with that value.
+    """
 
     @classmethod
-    def load_or_init(cls: type[LastNotify], path: Path) -> LastNotify:
-        if path.exists():
-            return cls.load(path)
-        else:
-            self = cls(path=path, random=None)
-            self.poll_save()
-
-            return self
+    def load_or_init(cls, path: Path) -> Self:
+        init_fn = lambda: cls(random=None)
+        return super().load_or_init(path=path, init_fn=init_fn)
     
     def set_random(self, random: str):
         self.random = random
@@ -59,11 +52,30 @@ class LastNotify(BaseModel):
 
 @dataclass
 class ScheduleApi:
-    url: str
+    addr: str
+    """
+    # Address of a running ktmuscrap instance
+    """
     is_online: bool = False
+    """
+    # Is the server online
+    Updated in real-time.
+    """
     is_cached_available: bool = False
+    """
+    # Are schedules and data ready
+    This is set to `True` at startup,
+    once all data is transferred from the server.
+    """
     last_notify: Optional[LastNotify] = None
+    """
+    # Info about last `Notify` received
+    """
     ready_channel: Optional[asyncio.Queue] = None
+    """
+    # A "ready" event channel
+    Firing once all data is ready.
+    """
 
     _cached_groups: Optional[Page] = None
     _cached_teachers: Optional[Page] = None
@@ -79,30 +91,49 @@ class ScheduleApi:
         return response.data.page
 
     async def request_groups(self) -> Page:
-        url = "http://" + self.url + "/schedule/groups"
+        """
+        # Request groups schedule and cache it
+        """
+        url = "http://" + self.addr + "/schedule/groups"
         self._cached_groups = await self.schedule_from_url(url)
         return self._cached_groups
         
     async def request_teachers(self) -> Page:
-        url = "http://" + self.url + "/schedule/teachers"
+        """
+        # Request teachers schedule and cache it
+        """
+        url = "http://" + self.addr + "/schedule/teachers"
         self._cached_teachers = await self.schedule_from_url(url)
         return self._cached_teachers
 
     async def request_last_update(self) -> datetime.datetime:
-        url = "http://" + self.url + "/schedule/updates/last"
+        """
+        # Request last update time and cache it
+        """
+        url = "http://" + self.addr + "/schedule/updates/last"
         self._cached_last_update = (await get(url)).data.updates.last
         return self._cached_last_update
 
     async def request_update_period(self) -> Page:
-        url = "http://" + self.url + "/schedule/updates/period"
+        """
+        # Request update period and cache it
+        """
+        url = "http://" + self.addr + "/schedule/updates/period"
         self._cached_update_period = (await get(url)).data.updates.period
         return self._cached_update_period
     
     async def request_all(self):
+        """
+        # Request all data and cache it
+        """
         await self.request_groups()
-        self._cached_groups._chunk_formations_by_week()
+        try: self._cached_groups._chunk_formations_by_week()
+        except AttributeError: ...
+        
         await self.request_teachers()
-        self._cached_teachers._chunk_formations_by_week()
+        try: self._cached_teachers._chunk_formations_by_week()
+        except AttributeError: ...
+        
         await self.request_last_update()
         await self.request_update_period()
     
@@ -119,26 +150,38 @@ class ScheduleApi:
         return self._cached_update_period
 
     def group_names(self) -> list[str]:
+        """
+        # Group names present in the schedule
+        """
         page = self.get_groups()
         if page is None: return []
         return page.names()
     
     def teacher_names(self) -> list[str]:
+        """
+        # Teacher names present in the schedule
+        """
         page = self.get_teachers()
         if page is None: return []
         return page.names()
 
-    async def updates(self):
+    async def updates(self) -> Never:
+        """
+        # Listen to updates
+        """
         from src import defs
 
         retry_period = 5
         is_connection_attempt_logged = False
         is_connect_error_logged = False
-        url = "ws://" + self.url + f"/schedule/updates"
+        url = "ws://" + self.addr + f"/schedule/updates"
     
         while True:
             try:
-                def protocol_factory(*args, **kwargs) -> client.WebSocketClientProtocol:
+                def protocol_factory(
+                    *args,
+                    **kwargs
+                ) -> client.WebSocketClientProtocol:
                     protocol = client.WebSocketClientProtocol()
                     protocol.max_size = 2**48
                     protocol.read_limit = 2**48
@@ -172,8 +215,12 @@ class ScheduleApi:
                                 )
                                 continue
                             
+                            notify._chunk_formations_by_week()
+                            current_active_week = week.current_active()
+                            notify = notify.get_week_self(current_active_week)
                             self.last_notify.set_random(notify.random)
 
+                            # update data cache
                             await self.request_all()
 
                             await defs.check_redisearch_index()
@@ -182,13 +229,18 @@ class ScheduleApi:
                         logger.info(e)
                         logger.info("reconnecting to ktmuscrap...")
                         continue
-            except:
+            except (
+                ConnectionRefusedError,
+                ClientConnectorError,
+                ServerDisconnectedError,
+                TimeoutError
+            ) as e:
                 if not is_connect_error_logged:
                     self.is_online = False
 
                     logger.error(
-                        "unable to reach ktmuscrap instance "
-                        f"at {url}, awaiting..."
+                        f"error occured in a schedule update loop: "
+                        f"{type(e).__name__}({e}), reconnecting..."
                     )
 
                     is_connect_error_logged = True

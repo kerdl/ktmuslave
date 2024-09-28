@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 from typing import (
     TypeVar,
@@ -5,7 +7,8 @@ from typing import (
     Optional,
     ClassVar
 )
-from pydantic import BaseModel
+from typing_extensions import Self
+from pydantic import BaseModel, Field
 from src.data import (
     TranslatedBaseModel,
     RepredBaseModel
@@ -13,6 +16,8 @@ from src.data import (
 from src.data.weekday import WEEKDAYS
 from src.data.range import Range
 from src.data.schedule import (
+    Weeked,
+    GetDate,
     Formation,
     Day,
     Subject,
@@ -32,18 +37,20 @@ class ChangeType:
 
 
 class DetailedChanges(BaseModel, Generic[CMP_T, ORIGNAL_T]):
-    appeared: list[ORIGNAL_T]
-    disappeared: list[ORIGNAL_T]
-    changed: list[CMP_T]
+    appeared: list[ORIGNAL_T] = Field(default_factory=list)
+    disappeared: list[ORIGNAL_T] = Field(default_factory=list)
+    changed: list[CMP_T] = Field(default_factory=list)
+
 
 class Changes(BaseModel, Generic[T]):
-    appeared: list[T]
-    disappeared: list[T]
-    changed: list[T]
+    appeared: list[T] = Field(default_factory=list)
+    disappeared: list[T] = Field(default_factory=list)
+    changed: list[T] = Field(default_factory=list)
+
 
 class PrimitiveChange(BaseModel, Generic[T]):
-    old: Optional[T]
-    new: Optional[T]
+    old: Optional[T] = None
+    new: Optional[T] = None
 
     def is_same(self) -> bool:
         return self.old == self.new
@@ -61,18 +68,20 @@ class CabinetCompare(TranslatedBaseModel):
         "opposite": "Противоположный"
     }
 
-class AttenderCompate(RepredBaseModel):
+
+class AttenderCompare(RepredBaseModel):
     name: Optional[str] = None
-    cabinet: CabinetCompare
+    cabinet: CabinetCompare = Field(default_factory=CabinetCompare)
 
     @property
     def repr_name(self) -> str:
         return self.name or ""
 
+
 class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
     name: Optional[str] = None
     num: Optional[PrimitiveChange[int]] = None
-    attenders: Optional[DetailedChanges[AttenderCompate, Attender]] = None
+    attenders: Optional[DetailedChanges[AttenderCompare, Attender]] = None
 
     __translation__: ClassVar[dict[str, str]] = {
         "name": "Пара",
@@ -84,25 +93,141 @@ class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
     def repr_name(self) -> str:
         return self.name or ""
 
-class DayCompare(RepredBaseModel):
+
+class DayCompare(RepredBaseModel, GetDate):
     date: Optional[datetime.date] = None
-    subjects: DetailedChanges[SubjectCompare, Subject]
+    subjects: DetailedChanges[SubjectCompare, Subject] = Field(
+        default_factory=DetailedChanges
+    )
 
     @property
     def repr_name(self) -> str:
         return WEEKDAYS[self.date.weekday()]
+    
+    def get_date(self) -> datetime.date:
+        return self.date
+
 
 class FormationCompare(RepredBaseModel):
     name: Optional[str] = None
-    days: DetailedChanges[DayCompare, Day]
+    days: DetailedChanges[DayCompare, Day] = Field(
+        default_factory=DetailedChanges
+    )
+    days_weekly_chunked: DetailedChanges[Weeked[list[DayCompare]], Weeked[list[Day]]] = Field(
+        default_factory=list
+    )
 
     @property
     def repr_name(self) -> str:
         return self.name or ""
+    
+    def _chunk_by_weeks(self) -> None:
+        appeared = Weeked[list[Day]].chunk_by_weeks(pack=self.days.appeared)
+        disappeared = Weeked[list[Day]].chunk_by_weeks(pack=self.days.disappeared)
+        changed = Weeked[list[DayCompare]].chunk_by_weeks(pack=self.days.changed)
+        
+        self.days_weekly_chunked = (
+            DetailedChanges[Weeked[list[DayCompare]], Weeked[list[Day]]](
+                appeared=appeared,
+                disappeared=disappeared,
+                changed=changed
+            )
+        )
+    
+    def get_week_range(self) -> Optional[Range[datetime.date]]:
+        try:
+            if self.days_weekly_chunked.appeared:
+                return self.days_weekly_chunked.appeared[0].week
+            if self.days_weekly_chunked.disappeared:
+                return self.days_weekly_chunked.disappeared[0].week
+            if self.days_weekly_chunked.changed:
+                return self.days_weekly_chunked.changed[0].week
+        except (AttributeError, IndexError):
+            return None
+    
+    def get_week_self(
+        self,
+        rng: Range[datetime.date]
+    ) -> Self:
+        appeared = None
+        disappeared = None
+        changed = None
+        
+        try: appeared = next(
+            day for day in self.days_weekly_chunked.appeared if day.week == rng
+        )
+        except StopIteration: ...
+        try: disappeared = next(
+            day for day in self.days_weekly_chunked.disappeared if day.week == rng
+        )
+        except StopIteration: ...
+        try: changed = next(
+            day for day in self.days_weekly_chunked.changed if day.week == rng
+        )
+        except StopIteration: ...
+        
+        return FormationCompare(
+            name=self.name,
+            days=DetailedChanges[DayCompare, Day](
+                appeared=appeared.data if appeared else [],
+                disappeared=disappeared.data if disappeared else [],
+                changed=changed.data if changed else []
+            ),
+            days_weekly_chunked=DetailedChanges[Weeked[list[DayCompare]], Weeked[list[Day]]](
+                appeared=[appeared] if appeared else [],
+                disappeared=[disappeared] if disappeared else [],
+                changed=[changed] if changed else []
+            )
+        )
+
 
 class PageCompare(BaseModel):
-    date: PrimitiveChange[Range[datetime.date]]
-    formations: DetailedChanges[FormationCompare, Formation]
+    date: PrimitiveChange[Range[datetime.date]] = Field(
+        default_factory=PrimitiveChange
+    )
+    formations: DetailedChanges[FormationCompare, Formation] = Field(
+        default_factory=DetailedChanges
+    )
+    
+    def _chunk_formations_by_week(self) -> None:
+        for form in self.formations.appeared:
+            form._chunk_by_weeks()
+            
+        for form in self.formations.disappeared:
+            form._chunk_by_weeks()
+            
+        for form in self.formations.changed:
+            form._chunk_by_weeks()
+        
+    def get_week_self(self, rng: Range[datetime.date]) -> Self:
+        appeared = []
+        disappeared = []
+        changed = []
+        
+        for form in self.formations.appeared:
+            weeked = form.get_week_self(rng)
+            if weeked is None: continue
+            appeared.append(weeked)
+            
+        for form in self.formations.disappeared:
+            weeked = form.get_week_self(rng)
+            if weeked is None: continue
+            disappeared.append(weeked)
+            
+        for form in self.formations.changed:
+            weeked = form.get_week_self(rng)
+            if weeked is None: continue
+            changed.append(weeked)
+        
+        return PageCompare(
+            date=self.date,
+            formations=DetailedChanges[FormationCompare, Formation](
+                appeared=appeared,
+                disappeared=disappeared,
+                changed=changed
+            )
+        )
+            
 
 
 def cmp_subject(

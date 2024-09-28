@@ -1,13 +1,15 @@
 from __future__ import annotations
+
+import datetime
 import html
 from typing import Any, Optional, TYPE_CHECKING
 from src import defs
-from src.svc import common
-from src.data.settings import Settings
 from src.data import zoom, format as fmt
+from src.data.settings import Settings
 from src.data.schedule import compare
+from src.data.range import Range
 from src.parse.zoom import Key
-from src.svc import telegram as tg
+from src.svc import telegram as tg, common
 from src.svc.common.states import State
 from src.svc.common.keyboard import Text
 
@@ -892,29 +894,43 @@ def format_not_implemented_error() -> str:
 MSG_GROUP_CHANGED_IN_SCHEDULE = (
     "🧭 Группа {change} в расписании"
 )
-def format_group_changed_in_schedule(change: compare.ChangeType):
+def format_group_changed_in_schedule(
+    change: compare.ChangeType,
+    date_range: Optional[Range[datetime.date]] = None
+):
     if change == compare.ChangeType.APPEARED:
         repr_change = "появилась"
     elif change == compare.ChangeType.CHANGED:
         repr_change = "изменилась"
 
-    return MSG_GROUP_CHANGED_IN_SCHEDULE.format(
+    base = MSG_GROUP_CHANGED_IN_SCHEDULE.format(
         change=repr_change
     )
+    if date_range:
+        base += f" ({date_range})"
+    
+    return base
 
 
 MSG_TEACHER_CHANGED_IN_SCHEDULE = (
     "🧭 Препод {change} в расписании"
 )
-def format_teacher_changed_in_schedule(change: compare.ChangeType):
+def format_teacher_changed_in_schedule(
+    change: compare.ChangeType,
+    date_range: Optional[Range[datetime.date]] = None
+):
     if change == compare.ChangeType.APPEARED:
         repr_change = "появился"
     elif change == compare.ChangeType.CHANGED:
         repr_change = "изменился"
 
-    return MSG_TEACHER_CHANGED_IN_SCHEDULE.format(
+    base = MSG_TEACHER_CHANGED_IN_SCHEDULE.format(
         change=repr_change
     )
+    if date_range:
+        base += f" ({date_range})"
+        
+    return base
 
 
 NEXT_WEEK = (

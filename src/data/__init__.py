@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import (
     ClassVar,
     Iterable,
@@ -10,7 +11,6 @@ from typing import (
 )
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
-
 from . import format as fmt
 
 
@@ -27,6 +27,7 @@ VALUE_FIELD_FMT = (
 class Translated:
     __translation__: ClassVar[dict[str, str]]
 
+
 class TranslatedBaseModel(BaseModel):
     __translation__: ClassVar[dict[str, str]]
 
@@ -36,15 +37,19 @@ class TranslatedBaseModel(BaseModel):
     def __iter__(self) -> Generator[tuple[str, Any], None, None]:
         return super().__iter__()
 
+
 class Emojized:
     __emojis__: ClassVar[dict[str, str]]
+
 
 class Repred:
     def __repr_name__(self) -> str: ...
 
+
 class RepredBaseModel(BaseModel):
     @property
     def repr_name(self) -> str: ...
+
 
 class HiddenVars(BaseModel):
     def __init__(self, hidden_vars: bool = True, **data):

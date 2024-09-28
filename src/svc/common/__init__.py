@@ -21,7 +21,7 @@ from src.api.schedule import Notify
 from src.data import RepredBaseModel, HiddenVars, week
 from src.data.schedule import Schedule, format as sc_format, Page, Formation
 from src.data.schedule.raw import Kind, KIND_LITERAL
-from src.data.schedule.compare import PageCompare
+from src.data.schedule.compare import PageCompare, FormationCompare
 from src.data.settings import Settings, Mode
 from src.data.range import Range
 from src.svc import vk, telegram as tg
@@ -346,13 +346,24 @@ class BaseCtx:
             return self.get_schedule_as_group()
         if self.mode == Mode.TEACHER:
             return self.get_schedule_as_teacher()
-        
+    
+    def get_week_or_current(self) -> Range[datetime.date]:
+        try:
+            unchecked_rng = self.schedule.get_week_or_current()
+            for_unchecked = self.get_schedule().get_week(unchecked_rng)
+            
+            if for_unchecked is None:
+                return self.get_schedule().nearest_next_week(unchecked_rng).week
+            else:
+                return unchecked_rng
+        except AttributeError:
+            return week.current_active()
+    
     def fmt_schedule_as_group(self) -> Optional[str]:
         try:
-            form = self.get_schedule_as_group()
             return sc_format.formation(
-                form=form,
-                week_pos=self.schedule.get_week_or_current(),
+                form=self.get_schedule_as_group(),
+                week_pos=self.get_week_or_current(),
                 entries=self.settings.zoom.entries.list,
                 mode=self.settings.mode,
                 do_tg_markup=self.last_everything.is_from_tg_generally
@@ -362,10 +373,9 @@ class BaseCtx:
 
     def fmt_schedule_as_teacher(self) -> Optional[str]:
         try:
-            form = self.get_schedule_as_teacher()
             return sc_format.formation(
-                form=form,
-                week_pos=self.schedule.get_week_or_current(),
+                form=self.get_schedule_as_teacher(),
+                week_pos=self.get_week_or_current().week,
                 entries=self.settings.tchr_zoom.entries.list,
                 mode=self.settings.mode,
                 do_tg_markup=self.last_everything.is_from_tg_generally
@@ -383,20 +393,20 @@ class BaseCtx:
         """ # Is it allowed to view the previous week """
         try:
             form = self.get_schedule()
-            return form.first_week().week < self.schedule.get_week_or_current()
+            return form.first_week().week < self.get_week_or_current()
         except (AttributeError, IndexError, TypeError): return False
         
     def is_forward_week_shift_allowed(self) -> bool:
         """ # Is it allowed to view the next week """
         try:
             form = self.get_schedule()
-            return self.schedule.get_week_or_current() < form.last_week().week
+            return self.get_week_or_current() < form.last_week().week
         except (AttributeError, IndexError, TypeError): return False
     
     def shift_week_backward(self) -> bool:
         try:
             form = self.get_schedule()
-            target = form.prev_week_self(self.schedule.get_week_or_current())
+            target = form.prev_week_self(self.get_week_or_current())
             if week.current_active() == target.week:
                 self.schedule.reset_temp_week()
             else:
@@ -408,7 +418,7 @@ class BaseCtx:
     def shift_week_forward(self) -> bool:
         try:
             form = self.get_schedule()
-            target = form.next_week_self(self.schedule.get_week_or_current())
+            target = form.next_week_self(self.get_week_or_current())
             if week.current_active() == target.week:
                 self.schedule.reset_temp_week()
             else:
@@ -419,14 +429,19 @@ class BaseCtx:
         
     def jump_week_backward(self) -> bool:
         try:
+            current_active_week = week.current_active()
             form = self.get_schedule()
-            dww = form.first_week()
-            if self.schedule.get_week_or_current() > week.current_active():
+            weeked_first = form.first_week()
+            weeked_current = form.get_week(current_active_week)
+            if (
+                self.get_week_or_current() > current_active_week and
+                weeked_current is not None
+            ):
                 # jump to the current week
                 self.schedule.reset_temp_week()
-            elif dww.week != self.schedule.get_week_or_current():
+            elif weeked_first.week != self.get_week_or_current():
                 # jump to the beginning
-                self.schedule.temp_week = dww.week
+                self.schedule.temp_week = weeked_first.week
             else:
                 return False
             
@@ -436,14 +451,19 @@ class BaseCtx:
     
     def jump_week_forward(self) -> bool:
         try:
+            current_active_week = week.current_active()
             form = self.get_schedule()
-            dww = form.last_week()
-            if self.schedule.get_week_or_current() < week.current_active():
+            weeked_last = form.last_week()
+            weeked_current = form.get_week(current_active_week)
+            if (
+                self.get_week_or_current() < current_active_week and
+                weeked_current is not None
+            ):
                 # jump to the current week
                 self.schedule.reset_temp_week()
-            elif dww.week != self.schedule.get_week_or_current():
+            elif weeked_last.week != self.get_week_or_current():
                 # jump to the end
-                self.schedule.temp_week = dww.week
+                self.schedule.temp_week = weeked_last.week
             else:
                 return False
             
@@ -907,30 +927,39 @@ class Ctx:
             }
             
             for (change, formations) in change_types.items():
-                formations: list[RepredBaseModel]
+                formations: list[Formation | FormationCompare]
                 if formations is None: continue
                 
                 for formation in formations:
                     name = formation.repr_name
-                    header = None
-                    if mode == Mode.GROUP:
-                        header = messages.format_group_changed_in_schedule(
-                            change=change
-                        )
-                    elif mode == Mode.TEACHER:
-                        header = messages.format_teacher_changed_in_schedule(
-                            change=change
-                        )
+                    week = None
                     
                     if change == ChangeType.APPEARED:
+                        formation: Formation
+                        week = formation.get_week_range()
                         fmt_changes = sc_format.CompareFormatted(
                             text=None,
                             has_detailed=False
                         )
                     elif change == ChangeType.CHANGED:
+                        formation: FormationCompare
+                        week = formation.get_week_range()
                         fmt_changes = sc_format.cmp(
                             model=formation,
-                            do_detailed=do_detailed_compare
+                            do_detailed=do_detailed_compare,
+                            ignored_fields=["days_weekly_chunked"]
+                        )
+                    
+                    header = None
+                    if mode == Mode.GROUP:
+                        header = messages.format_group_changed_in_schedule(
+                            change=change,
+                            date_range=week
+                        )
+                    elif mode == Mode.TEACHER:
+                        header = messages.format_teacher_changed_in_schedule(
+                            change=change,
+                            date_range=week
                         )
             
                     if fmt_changes.text is not None:

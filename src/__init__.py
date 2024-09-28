@@ -375,7 +375,7 @@ class Defs:
         self.settings = Settings.load_or_init(path=settings_path)
         self.weekcast = WeekCast.load_or_init(path=weekcast_path)
         self.schedule = ScheduleApi(
-            url=self.settings.server.addr,
+            addr=self.settings.server.addr,
             last_notify=LastNotify.load_or_init(path=last_notify_path),
             ready_channel=asyncio.Queue()
         )

@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import datetime
-from typing import Literal, Optional
+from typing import Literal, Optional, Generic, TypeVar
+from typing_extensions import Self
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
 from src.parse import pattern
@@ -10,48 +12,115 @@ from src.data.schedule import raw
 from src.data.range import Range
 
 
+T = TypeVar("T")
+
+
 class Format:
     FULLTIME = "fulltime"
     REMOTE = "remote"
     UNKNOWN = "unknown"
 
-FORMAT_LITERAL = Literal["fulltime", "remote", "unknown"]
+FORMAT_LITERAL = Literal[
+    "fulltime",
+    "remote",
+    "unknown"
+]
+
 
 class AttenderKind:
     TEACHER = "teacher"
     GROUP = "group"
     VACANCY = "vacancy"
 
-ATTENDER_KIND_LITERAL = Literal["teacher", "group", "vacancy"]
+ATTENDER_KIND_LITERAL = Literal[
+    "teacher",
+    "group",
+    "vacancy"
+]
+
+
+class GetDate:
+    def get_date(self) -> datetime.date: ...
+
+
+@dataclass
+class Weeked(Generic[T]):
+    week: Range[datetime.date]
+    data: T
+
+    @classmethod
+    def chunk_by_weeks(cls, pack: list[GetDate]) -> list[Self]:
+        """
+        # Chunk a days container by weeks
+        """
+        chunks: list[Weeked] = []
+        
+        current_week: Optional[Range[datetime.date]] = None
+        hold: list[Day] = []
+        
+        for idx, day in enumerate(pack):
+            try:
+                next_day = pack[idx+1]
+                next_day_week = week.from_day(next_day.get_date())
+                is_last = False
+            except IndexError:
+                next_day = None
+                next_day_week = None
+                is_last = True
+            
+            day_week = week.from_day(day.get_date())
+            
+            if current_week is None:
+                current_week = day_week
+            
+            hold.append(day)
+            
+            if next_day_week != current_week or is_last:
+                weeked = Weeked(week=day_week, data=hold)
+                chunks.append(weeked)
+                hold = []
+                current_week = next_day_week
+        
+        return chunks
 
 
 class Schedule(BaseModel):
+    """
+    # User's schedule flags
+    
+    This is a part of database structure
+    holding temporary formation identifiers
+    and week navigation.
+    
+    Everytime the user
+        **uses fast lookup of another groups or teachers**,
+        these temporary identifiers are stored here.
+        **browses past or future weeks**,
+        current week range is stored here.
+    """
     temp_group: Optional[str] = None
     """
     # Temporary group
     
-    This value has higher priority:
-    overrides the group specified in settings.
+    This value overrides the group specified in settings.
     
-    If this is not `None`, user had typed this group
-    while being in a hub to quickly view their schedule.
+    Holds a group identifier that the user had typed
+    in hub to quickly view ther schedule.
     """
     temp_teacher: Optional[str] = None
     """
     # Temporary teacher
     
-    This value has higher priority:
-    overrides the teacher specified in settings.
+    This value overrides the teacher specified in settings.
     
-    If this is not `None`, user had typed this teacher
-    while being in a hub to quickly view their schedule.
+    Holds a teacher identifier that the user had typed
+    in hub to quickly view ther schedule.
     """
     temp_mode: Optional[str] = None
     """
     # Temporary mode
     
-    Similar to `temp_group` and `temp_teacher`:
-    overrides the mode specified in settings.
+    This value overrides the mode specified in settings.
     
     This is set according to which identifier
     was requested: a group or a teacher.
@@ -65,17 +134,28 @@ class Schedule(BaseModel):
     
     This value stores currently selected
     week date range.
+    
+    If this value is None, assume current week.
     """
 
     def reset_temp_mode(self):
+        """
+        # Reset all temporary identifiers
+        """
         self.temp_group = None
         self.temp_teacher = None
         self.temp_mode = None
     
     def reset_temp_week(self):
+        """
+        # Reset temporary week
+        """
         self.temp_week = None
     
     def reset_temps(self):
+        """
+        # Reset all temporary flags
+        """
         self.reset_temp_mode()
         self.reset_temp_week()
     
@@ -86,24 +166,41 @@ class Schedule(BaseModel):
         if self.temp_week is not None: return self.temp_week
         else: return week.current_active()
     
-    def is_week_greater_than_now(self) -> bool:
-        return self.get_week_or_current() > week.current_active()
-    
-    def is_week_less_than_now(self) -> bool:
-        return self.get_week_or_current() < week.current_active()
-    
-    def is_week_equal_to_now(self) -> bool:
-        return self.temp_week is None
-
 
 class Cabinet(BaseModel):
     primary: Optional[str]
+    """
+    # A value taken from the original schedule
+    """
     opposite: Optional[str]
+    """
+    # A value taken from the opposite schedule
+    This is only used to shame the people
+    responsible for maintaining the schedule
+    if `primary` and `opposite` don't match.
+    These differences are shown in the formatted schedule.
+    
+    ## For example
+    If this instance belongs to a group schedule,
+    `opposite` would reference a cabinet found in
+    teacher's schedule.
+    """
 
     def do_versions_match(self) -> bool:
         """
         # Basic comparison
-        Tests if `primary` == `opposite`
+        Tests if `primary` == `opposite`.
+        
+        ## Do not use in formatting
+        `primary` and `opposite` may be the same
+        from a human perspective,
+        but have differences in how they are written.
+        
+        ## Example
+        ```
+        cab = Cabinet(primary="каб. 39а", opposite="39а")
+        cab.do_version_match() // False
+        ```
         """
         self.primary == self.opposite
     
@@ -112,7 +209,22 @@ class Cabinet(BaseModel):
         # Complex comparison
         Tests if `primary` == `opposite`,
         but preprocesses both with regexes
-        for more accurate results
+        for more accurate results.
+        
+        ## Good to use in formatting
+        `primary` and `opposite` are both preprocessed
+        to remove excess garbage
+        (like prefix and punctuation)
+        and compares just the numbers.
+        
+        ## Example
+        ```
+        cab = Cabinet(primary="каб. 39а", opposite="39а")
+        cab.do_version_match_complex() // True
+        
+        cab = Cabinet(primary="каб. 39б", opposite="39а")
+        cab.do_version_match_complex() // False
+        ```
         """
         if self.primary is None and self.opposite is not None:
             return False
@@ -141,6 +253,9 @@ class Cabinet(BaseModel):
 
 
 class Attender(RepredBaseModel):
+    """
+    # Either a teacher or a group
+    """
     raw: str
     kind: ATTENDER_KIND_LITERAL
     name: str
@@ -153,16 +268,22 @@ class Subject(RepredBaseModel):
     num: int
     format: FORMAT_LITERAL
     attenders: list[Attender]
-
-    def is_unknown_window(self) -> bool:
-        return self.raw != "" and len(self.attenders) < 1
+    """
+    # Either teachers or groups
+    """
 
     @property
     def repr_name(self) -> str:
         return self.name
 
+    def is_unknown_window(self) -> bool:
+        """
+        # Is this subject cannot be classified
+        """
+        return self.raw != "" and len(self.attenders) < 1
 
-class Day(RepredBaseModel):
+
+class Day(RepredBaseModel, GetDate):
     raw: str
     date: datetime.date
     subjects: list[Subject]
@@ -170,128 +291,141 @@ class Day(RepredBaseModel):
     @property
     def repr_name(self) -> str:
         return WEEKDAYS[self.date.weekday()]
+    
+    def get_date(self) -> datetime.date:
+        return self.date
 
-@dataclass
-class DaysWithWeek:
-    """
-    Shorthand for `dww`
-    """
-    week: Range[datetime.date]
-    days: list[Day]
-
-@dataclass
-class FormationWithWeek:
-    """
-    Shorthand for `fww`
-    """
-    week: Range[datetime.date]
-    formation: Formation
 
 class Formation(RepredBaseModel):
+    """
+    # Either a group or a teacher
+    """
     raw: str
     name: str
     days: list[Day]
-    days_weekly_chunked: list[DaysWithWeek] = Field(default_factory=list)
+    days_weekly_chunked: list[Weeked[list[Day]]] = Field(
+        default_factory=list
+    )
+    """
+    # Days chunked by week
+    """
 
     @property
     def repr_name(self) -> str:
         return self.name
     
     def _chunk_by_weeks(self):
-        chunks: list[DaysWithWeek] = []
-        
-        current_week: Optional[Range[datetime.date]] = None
-        hold: list[Day] = []
-        
-        for idx, day in enumerate(self.days):
-            try:
-                next_day = self.days[idx+1]
-                next_day_week = week.from_day(next_day.date)
-                is_last = False
-            except IndexError:
-                next_day = None
-                next_day_week = None
-                is_last = True
-            
-            day_week = week.from_day(day.date)
-            
-            if current_week is None:
-                current_week = day_week
-            
-            hold.append(day)
-            
-            if next_day_week != current_week or is_last:
-                dww = DaysWithWeek(week=day_week, days=hold)
-                chunks.append(dww)
-                hold = []
-                current_week = next_day_week
-        
-        self.days_weekly_chunked = chunks
+        self.days_weekly_chunked = Weeked[list[Day]].chunk_by_weeks(pack=self.days)
     
-    def _copy_as_fww(self, dww: DaysWithWeek) -> FormationWithWeek:
+    def _copy_weeked(self, weeked: Weeked[list[Day]]) -> Weeked[Formation]:
         form = Formation(
             raw=self.raw,
             name=self.name,
-            days=dww.days,
-            days_weekly_chunked=[dww]
+            days=weeked.data,
+            days_weekly_chunked=[weeked]
         )
-        return FormationWithWeek(week=dww.week, formation=form)
+        return Weeked(week=weeked.week, data=form)
     
-    def get_week(self, rng: Range[datetime.date]) -> Optional[DaysWithWeek]:
-        for dww in self.days_weekly_chunked:
-            if dww.week == rng:
-                return dww
+    def get_week_range(self) -> Optional[Range[datetime.date]]:
+        try:
+            return self.days_weekly_chunked[0].week
+        except IndexError:
+            return None
     
-    def get_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
+    def get_days(self) -> list[GetDate]:
+        return self.days
+    
+    def get_week(self, rng: Range[datetime.date]) -> Optional[list[Day]]:
+        for weeked in self.days_weekly_chunked:
+            if weeked.week == rng:
+                return weeked.data
+    
+    def get_week_self(self, rng: Range[datetime.date]) -> Optional[Formation]:
         w = self.get_week(rng)
         if w is None: return None
-        return self._copy_as_fww(w)
+        return Formation(
+            raw=self.raw,
+            name=self.name,
+            days=w,
+            days_weekly_chunked=[w]
+        )
     
-    def prev_week(self, rng: Range[datetime.date]) -> Optional[DaysWithWeek]:
-        for idx, dww in enumerate(self.days_weekly_chunked):
-            if dww.week != rng: continue
+    def prev_week(self, rng: Range[datetime.date]) -> Optional[Weeked[list[Day]]]:
+        for idx, weeked in enumerate(self.days_weekly_chunked):
+            if weeked.week != rng: continue
             prev_idx = idx - 1
             if prev_idx < 0: return None
             return self.days_weekly_chunked[prev_idx]
     
-    def prev_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
+    def prev_week_self(self, rng: Range[datetime.date]) -> Optional[Weeked[Formation]]:
         w = self.prev_week(rng)
         if w is None: return None
-        return self._copy_as_fww(w)
+        return self._copy_weeked(w)
     
-    def next_week(self, rng: Range[datetime.date]) -> Optional[DaysWithWeek]:
-        for idx, dww in enumerate(self.days_weekly_chunked):
-            if dww.week != rng: continue
+    def nearest_prev_week(self, rng: Range[datetime.date]) -> Optional[Weeked[list[Day]]]:
+        try:
+            return next(filter(
+                lambda weeked: rng > weeked.week,
+                reversed(self.days_weekly_chunked)
+            ))
+        except StopIteration:
+            return None
+    
+    def nearest_prev_week_self(self, rng: Range[datetime.date]) -> Optional[Weeked[Formation]]:
+        w = self.nearest_prev_week(rng)
+        if w is None: return None
+        return self._copy_weeked(w)
+    
+    def next_week(self, rng: Range[datetime.date]) -> Optional[Weeked[list[Day]]]:
+        for idx, weeked in enumerate(self.days_weekly_chunked):
+            if weeked.week != rng: continue
             try: return self.days_weekly_chunked[idx+1]
             except IndexError: return None
     
-    def next_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
+    def next_week_self(self, rng: Range[datetime.date]) -> Optional[Weeked[Formation]]:
         w = self.next_week(rng)
         if w is None: return None
-        return self._copy_as_fww(w)
+        return self._copy_weeked(w)
     
-    def first_week(self) -> Optional[DaysWithWeek]:
+    def nearest_next_week(self, rng: Range[datetime.date]) -> Optional[Weeked[list[Day]]]:
+        try:
+            return next(filter(
+                lambda weeked: rng < weeked.week,
+                self.days_weekly_chunked
+            ))
+        except StopIteration:
+            return None
+    
+    def nearest_next_week_self(self, rng: Range[datetime.date]) -> Optional[Weeked[Formation]]:
+        w = self.nearest_next_week(rng)
+        if w is None: return None
+        return self._copy_weeked(w)
+    
+    def first_week(self) -> Optional[Weeked[list[Day]]]:
         try: return self.days_weekly_chunked[0]
         except: return None
     
-    def first_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
+    def first_week_self(self, rng: Range[datetime.date]) -> Optional[Weeked[Formation]]:
         w = self.first_week(rng)
         if w is None: return None
-        return self._copy_as_fww(w)
+        return self._copy_weeked(w)
     
-    def last_week(self) -> Optional[DaysWithWeek]:
+    def last_week(self) -> Optional[Weeked[list[Day]]]:
         try: return self.days_weekly_chunked[-1]
         except: return None
 
-    def last_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
+    def last_week_self(self, rng: Range[datetime.date]) -> Optional[Weeked[Formation]]:
         w = self.last_week(rng)
         if w is None: return None
-        return self._copy_as_fww(w)
+        return self._copy_weeked(w)
 
 class Page(BaseModel):
     kind: raw.KIND_LITERAL
     date: Range[datetime.date]
     formations: list[Formation]
+    """
+    # Either groups or teachers
+    """
 
     def _chunk_formations_by_week(self):
         for form in self.formations:

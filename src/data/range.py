@@ -24,6 +24,18 @@ class Range(BaseModel, Generic[T]):
                 return start
             
             return f"{start} - {end}"
+        elif (
+            isinstance(self.start, datetime.date)
+            and isinstance(self.end, datetime.date)
+        ):
+            start_day = fmt.zero_at_start(self.start.day)
+            start_month = fmt.zero_at_start(self.start.month)
+            start_year = str(self.start.year)
+            end_day = fmt.zero_at_start(self.end.day)
+            end_month = fmt.zero_at_start(self.end.month)
+            end_year = str(self.end.year)
+            
+            return f"{start_day}.{start_month}.{start_year} - {end_day}.{end_month}.{end_year}"
 
         return f"{self.start} - {self.end}"
     

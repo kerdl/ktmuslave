@@ -113,8 +113,8 @@ def week_bullets_from_bitmap(bitmap: list[bool]) -> str:
     # Format bullet indicator from a bitmap
     ## Example
     ```
-    assert week_bullet_from_map([false, false, false]) == "○○○"
-    assert week_bullet_from_map([false, true, false]) == "○●○"
+    assert week_bullets_from_bitmap([False, False, False]) == "○○○"
+    assert week_bullets_from_bitmap([False, True, False]) == "○●○"
     ```
     """
     output = ""
@@ -127,7 +127,7 @@ def week_bullets_from_bitmap(bitmap: list[bool]) -> str:
     return output
 
 def week_bullets_from_formation(form: Formation, pos: Range[datetime.date]) -> str:
-    bitmap = map(lambda dww: dww.week == pos, form.days_weekly_chunked)
+    bitmap = map(lambda weeked: weeked.week == pos, form.days_weekly_chunked)
     return week_bullets_from_bitmap(bitmap)
 
 
@@ -499,7 +499,7 @@ def formation(
     label = form.raw
     filtered_days = form.get_week(week_pos)
     days_str = "\n\n".join(days(
-        days=filtered_days.days,
+        days=filtered_days,
         entries=entries,
         do_tg_markup=do_tg_markup
     ))
@@ -538,7 +538,8 @@ class CompareFormatted:
 
 def cmp(
     model: Union[TranslatedBaseModel, RepredBaseModel],
-    do_detailed: bool = True
+    do_detailed: bool = True,
+    ignored_fields: list[str] = []
 ) -> CompareFormatted:
     rows: list[str] = []
     has_detailed = False
@@ -548,6 +549,9 @@ def cmp(
     for field in model:
         key = field[0]
         value = field[1]
+        
+        if key in ignored_fields:
+            continue
 
         if isinstance(value, (Changes, DetailedChanges)):
             local_translation = None if not is_translated else model.translate(key)
@@ -580,7 +584,11 @@ def cmp(
                 has_detailed = True
 
                 if do_detailed:
-                    compared = cmp(changed)
+                    compared = cmp(
+                        model=changed,
+                        do_detailed=do_detailed,
+                        ignored_fields=ignored_fields
+                    )
                 else:
                     compared = CompareFormatted(text="", has_detailed=False)
 
