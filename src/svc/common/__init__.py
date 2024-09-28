@@ -316,7 +316,10 @@ class BaseCtx:
         # allowed to call again after 1 second
         next_allowed_time = self.last_call + 1
 
-        if next_allowed_time > current_time:
+        if (
+            next_allowed_time > current_time and
+            not self.last_call > current_time
+        ):
             # then throttle
             sleep_secs_until_allowed: float = next_allowed_time - current_time
             await asyncio.sleep(sleep_secs_until_allowed)
@@ -375,7 +378,7 @@ class BaseCtx:
         try:
             return sc_format.formation(
                 form=self.get_schedule_as_teacher(),
-                week_pos=self.get_week_or_current().week,
+                week_pos=self.get_week_or_current(),
                 entries=self.settings.tchr_zoom.entries.list,
                 mode=self.settings.mode,
                 do_tg_markup=self.last_everything.is_from_tg_generally
