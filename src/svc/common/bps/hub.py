@@ -10,6 +10,7 @@ from src.svc.common.bps import zoom as zoom_bp
 from src.data import zoom as zoom_data, week
 from src.data.settings import Group, Mode, Teacher
 from src.data.schedule import format as sc_format
+from src.parse import group, teacher
 from src.svc.common.states import formatter as states_fmt
 from src.svc.common.states.tree import INIT, ZOOM, HUB
 from src.svc.common.router import router
@@ -39,31 +40,32 @@ async def hub(
         elif everything.message.text:
             group_match = pattern.GROUP.match(everything.message.text)
             if group_match is None:
-                teacher = Teacher(typed=everything.message.text)
-                teacher.generate_valid(defs.schedule.teacher_names())
-                identifier_match = pattern.TEACHER.match(teacher.valid) if teacher.valid else None
-                if identifier_match is not None:
+                valid_teacher = teacher.validate(
+                    everything.message.text,
+                    defs.schedule.teacher_names()
+                )
+                identifier_match = pattern.TEACHER.match(
+                    valid_teacher
+                ) if valid_teacher else None
+                if valid_teacher is not None:
                     ctx.schedule.temp_mode = Mode.TEACHER
             else:
-                identifier_match = group_match
+                valid_group = group.validate(group_match.group())
+                identifier_match = pattern.GROUP.match(
+                    valid_group
+                )
                 ctx.schedule.temp_mode = Mode.GROUP
 
             if identifier_match is None:
                 return
         
-            identifier_match = identifier_match.group()
-
-            if ctx.mode == Mode.GROUP:
-                identifier_object = Group(typed=identifier_match)
-                identifier_object.generate_valid()
-            elif ctx.mode == Mode.TEACHER:
-                identifier_object = teacher
+            identifier = identifier_match.group()
             
-            if identifier_object.valid != ctx.identifier:
+            if identifier != ctx.identifier:
                 if ctx.mode == Mode.GROUP:
-                    ctx.schedule.temp_group = identifier_object.valid
+                    ctx.schedule.temp_group = identifier
                 elif ctx.mode == Mode.TEACHER:
-                    ctx.schedule.temp_teacher = identifier_object.valid
+                    ctx.schedule.temp_teacher = identifier
                 
                 ctx.schedule.reset_temp_week()
     if not ctx.identifier_exists:

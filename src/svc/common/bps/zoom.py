@@ -2,7 +2,7 @@ from typing import Any, Callable, Optional
 from loguru import logger
 
 from src import defs, text
-from src.parse import pattern
+from src.parse import pattern, zoom as zoom_parse
 from src.data.settings import Mode
 from src.svc.common import CommonEverything, messages, pagination, bps, Source
 from src.svc.common.states import formatter as states_fmt
@@ -612,6 +612,8 @@ async def browse(
 
     is_init_space = Space.INIT in ctx.navigator.spaces
     is_hub_space = Space.HUB in ctx.navigator.spaces
+    
+    quick_lookup_hint = messages.format_entry_quick_lookup()
 
     if everything.is_from_event:
         # try to check if user selected an entry in list
@@ -626,7 +628,11 @@ async def browse(
             return await to_entry(everything)
 
     # if used used jump by number or entry name
-    if everything.is_from_message and not is_jump_call:
+    if (
+        everything.is_from_message and
+        not zoom_parse.Key.is_relevant_in_text(everything.message.text) and
+        not is_jump_call
+    ):
         number = pattern.NUMBER.match(everything.message.text)
         if number:
             try: number = int(number.group())
@@ -634,7 +640,10 @@ async def browse(
         
         requested_entry = None
         if number is None:
-            requested_entry = storage.focused.get(everything.message.text)
+            requested_entry = storage.focused.get_approx(
+                everything.message.text,
+                as_teacher=ctx.is_group_mode
+            )
         else:
             if number > 0:
                 everything.ctx.pages.current_num = number - 1
@@ -665,14 +674,13 @@ async def browse(
 
     if storage.is_focused_on_new_entries and not is_jump_call:
         # user came here from adding mass zoom data
-        
         if everything.is_from_message and is_first_call:
             return await mass(everything)
         
         ctx.pages.list = pagination.from_zoom(
             data=storage.new_entries.list,
             mode=ctx.settings.mode,
-            text_footer=text_footer,
+            text_footer=text_footer if text_footer else quick_lookup_hint,
             keyboard_footer=[
                 [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
                 [kb.BACK_BUTTON],
@@ -681,11 +689,10 @@ async def browse(
         )
     elif storage.is_focused_on_entries and not is_jump_call:
         # user came here to view current active entries
-        
         ctx.pages.list = pagination.from_zoom(
             data=storage.entries.list,
             mode=ctx.settings.mode,
-            text_footer=text_footer,
+            text_footer=text_footer if text_footer else quick_lookup_hint,
             keyboard_footer=[
                 [
                     kb.ADD_INIT_BUTTON.only_if(is_init_space),
@@ -782,7 +789,6 @@ async def mass(everything: CommonEverything):
         # get text from all forwarded messages
         forwards_text = message.forwards_text
 
-        # of there is some text in forwards
         if forwards_text is not None:
             text += "\n\n"
             text += forwards_text
@@ -798,6 +804,8 @@ async def mass(everything: CommonEverything):
         text_footer = (
             messages.Builder()
                 .add(messages.format_you_can_add_more())
+                .rm_prev_chars(1)
+                .add(messages.format_entry_quick_lookup())
                 .add(footer_addition)
         )
 

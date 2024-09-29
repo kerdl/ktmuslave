@@ -27,13 +27,21 @@ class Builder:
         separator: str = "\n\n",
     ) -> None:
         self.separator = separator
-        self.components: list[str] = []
+        self.components: list[tuple[int, str]] = []
+        self._holden_remover: Optional[int] = None
 
     def add(self, text: str) -> Builder:
         if text == "" or text is None:
             return self
-
-        self.components.append(text)
+        
+        remover = self._holden_remover or 0
+        self.components.append((remover, text))
+        self._holden_remover = None
+            
+        return self
+    
+    def rm_prev_chars(self, count: int) -> Builder:
+        self._holden_remover = count
         return self
 
     def add_if(self, text: str, condition: bool):
@@ -43,7 +51,18 @@ class Builder:
         return self
 
     def make(self) -> str:
-        return self.separator.join(self.components)
+        output = ""
+        
+        for idx, (rm_count, comp) in enumerate(self.components):
+            is_last = idx == len(self.components) - 1
+            if output and rm_count > 0:
+                output = output[:len(output)-rm_count]
+                
+            output += comp
+            if not is_last:
+                output += self.separator
+            
+        return output
 
 
 #### Common footers and headers ####
@@ -498,11 +517,17 @@ def format_tchr_doesnt_contain_zoom():
 
 
 MSG_YOU_CAN_ADD_MORE = (
-    "🤓 | Ты можешь добавить больше или перезаписать что-то, "
-    "просто отправь ещё одно сообщение с данными"
+    "💡 | Отправь ещё одно сообщение с данными, чтобы добавить ещё или перезаписать"
 )
 def format_you_can_add_more():
     return MSG_YOU_CAN_ADD_MORE
+
+
+MSG_ENTRY_QUICK_LOOKUP = (
+    "💡 | Отправь имя записи или номер страницы, чтобы перейти к ней"
+)
+def format_entry_quick_lookup():
+    return MSG_ENTRY_QUICK_LOOKUP
 
 
 MSG_VALUE_TOO_BIG = (

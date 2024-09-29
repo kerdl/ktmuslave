@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import difflib
 from typing import (
     Callable,
     Literal,
@@ -16,7 +18,7 @@ from src import data
 from src.svc import common
 from src.data import error
 from src.data import Emojized, Translated, DataWarning, DataField
-from src.parse import pattern, zoom
+from src.parse import pattern, zoom, teacher
 from src.svc import telegram as tg
 
 
@@ -469,6 +471,17 @@ class Entries(BaseModel):
                 return entry
 
         return None
+    
+    def get_approx(self, name: str, as_teacher: bool = True) -> Optional[Data]:
+        names = [entry.name.value for entry in self.list]
+        
+        if as_teacher:
+            valid = teacher.validate(name, names)
+            return self.get(valid)
+        else:
+            matches = difflib.get_close_matches(name, names, cutoff=0.8)
+            try: return self.get(matches[0])
+            except IndexError: return None
 
     def has(self, name: str) -> bool:
         """ ## If `name` in this container """

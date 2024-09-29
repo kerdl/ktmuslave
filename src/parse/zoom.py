@@ -56,6 +56,14 @@ class Key:
         return cls._is_relevant(key, line)
     
     @classmethod
+    def is_relevant_in_text(cls, text: str) -> bool:
+        for (_, key) in cls.__dict__.items():
+            if cls.with_semicolon(key) in text:
+                return True
+            
+        return False
+    
+    @classmethod
     def _find(
         cls,
         line: str,

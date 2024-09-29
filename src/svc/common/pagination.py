@@ -113,17 +113,17 @@ def from_zoom(
         else:
             text = messages.format_empty_page()
 
-        # add page number at the bottom
-        text += "\n\n"
-        text += messages.format_page_num(
-            current = page_num + 1, 
-            last = len(pages)
-        )
-
         # add custom text footer
         if text_footer is not None:
             text += "\n\n"
             text += text_footer
+
+        # add page number at the bottom
+        text += "\n\n"
+        text += messages.format_page_num(
+            current=page_num + 1, 
+            last=len(pages)
+        )
 
         # whole keyboard schema
         kb_schema = []

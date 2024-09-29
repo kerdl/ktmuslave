@@ -168,6 +168,7 @@ class Schedule(BaseModel):
     
 
 class Cabinet(BaseModel):
+    recovered: bool
     primary: Optional[str]
     """
     # A value taken from the original schedule
@@ -257,6 +258,7 @@ class Attender(RepredBaseModel):
     # Either a teacher or a group
     """
     raw: str
+    recovered: bool
     kind: ATTENDER_KIND_LITERAL
     name: str
     cabinet: Cabinet
@@ -268,6 +270,7 @@ class Attender(RepredBaseModel):
 
 class Subject(RepredBaseModel):
     raw: str
+    recovered: bool
     name: str
     num: int
     format: FORMAT_LITERAL
@@ -289,6 +292,7 @@ class Subject(RepredBaseModel):
 
 class Day(RepredBaseModel, GetDate):
     raw: str
+    recovered: bool
     date: datetime.date
     subjects: list[Subject]
 
@@ -305,6 +309,7 @@ class Formation(RepredBaseModel):
     # Either a group or a teacher
     """
     raw: str
+    recovered: bool
     name: str
     days: list[Day]
     days_weekly_chunked: list[Weeked[list[Day]]] = Field(
@@ -324,6 +329,7 @@ class Formation(RepredBaseModel):
     def _copy_weeked(self, weeked: Weeked[list[Day]]) -> Weeked[Formation]:
         form = Formation(
             raw=self.raw,
+            recovered=self.recovered,
             name=self.name,
             days=weeked.data,
             days_weekly_chunked=[weeked]
@@ -349,6 +355,7 @@ class Formation(RepredBaseModel):
         if w is None: return None
         return Formation(
             raw=self.raw,
+            recovered=self.recovered,
             name=self.name,
             days=w,
             days_weekly_chunked=[Weeked[list[Day]](week=rng, data=w)]

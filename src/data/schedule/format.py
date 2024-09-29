@@ -86,6 +86,8 @@ LITERAL_FORMAT = {
     Format.REMOTE: "дристант"
 }
 
+RECOVERED_EMOJI = "♻️"
+
 WINDOW = "🪟 ОКНО ЕБАТЬ"
 
 # HAHAHAHA PENIS HAHAHAHHAHAHAHAHAHAHHAHAHAHAHA
@@ -178,7 +180,15 @@ def date(dt: datetime.date) -> str:
 
     return f"{str_day}.{str_month}.{str_year}"
 
-def attender_cabinet(att: Attender) -> str:
+def attender_cabinet(
+    att: Attender,
+    add_recovered_suffix: bool = True
+) -> str:
+    if att.recovered and add_recovered_suffix:
+        att_name = f"{att.name} {RECOVERED_EMOJI}"
+    else:
+        att_name = att.name
+    
     if (
         att.cabinet.primary and
         att.cabinet.opposite and
@@ -186,26 +196,27 @@ def attender_cabinet(att: Attender) -> str:
     ):
         if att.kind == AttenderKind.TEACHER:
             return (
-                f"{att.name} (у группы - \"{att.cabinet.primary}\", "
+                f"{att_name} (у группы - \"{att.cabinet.primary}\", "
                 f"у препода - \"{att.cabinet.opposite}\")"
             )
         if att.kind == AttenderKind.GROUP:
             return (
-                f"{att.name} (у препода - \"{att.cabinet.primary}\", "
+                f"{att_name} (у препода - \"{att.cabinet.primary}\", "
                 f"у группы - \"{att.cabinet.opposite}\")"
             )
     elif att.cabinet.primary:
-        return f"{att.name} {att.cabinet.primary}"
+        return f"{att_name} {att.cabinet.primary}"
     elif att.cabinet.opposite:
-        return f"{att.name} {att.cabinet.opposite}" 
+        return f"{att_name} {att.cabinet.opposite}" 
     else:
-        return att.name
+        return att_name
 
 def attenders(
     atts: list[Attender],
     format: FORMAT_LITERAL,
     entries: set[zoom.Data],
-    do_tg_markup: bool = False
+    add_recovered_suffix: bool = True,
+    do_tg_markup: bool = False,
 ) -> list[str]:
     str_entries = [entry.name.value for entry in entries]
 
@@ -215,7 +226,10 @@ def attenders(
         matches = difflib.get_close_matches(att.name, str_entries, cutoff=0.8)
 
         if len(matches) < 1:
-            fmt_attenders.append(attender_cabinet(att))
+            fmt_attenders.append(attender_cabinet(
+                att,
+                add_recovered_suffix=add_recovered_suffix and not att.recovered
+            ))
             continue
         
         first_match = matches[0]
@@ -231,10 +245,15 @@ def attenders(
             do_tg_markup=do_tg_markup
         )
         
+        fmt_att = attender_cabinet(
+            att,
+            add_recovered_suffix=add_recovered_suffix and not att.recovered
+        )
+        
         if fmt_data:
-            fmt_attenders.append(f"{attender_cabinet(att)} ({fmt_data})")
+            fmt_attenders.append(f"{fmt_att} ({fmt_data})")
         else:
-            fmt_attenders.append(attender_cabinet(att))
+            fmt_attenders.append(fmt_att)
     
     return fmt_attenders
 
@@ -242,8 +261,9 @@ def subject(
     subj: Subject,
     entries: set[zoom.Data],
     rng: Optional[Range[Subject]] = None,
-    do_tg_markup: bool = False,
-    weekday: Optional[WEEKDAY_LITERAL] = None
+    weekday: Optional[WEEKDAY_LITERAL] = None,
+    add_recovered_suffix: bool = True,
+    do_tg_markup: bool = False
 ) -> str:
     if subj.is_unknown_window():
         if rng is not None:
@@ -271,7 +291,7 @@ def subject(
             else:
                 fmt = fmt.strip()
                 fmt += ": "
-            fmt += subj.name
+            fmt += subj.name if subj.name else subj.raw
                 
             return fmt
         
@@ -280,11 +300,12 @@ def subject(
     num = keycap_num(subj.num)
     raw_time = defs.settings.get_time_for(wkd=weekday, num=subj.num)
     time = str(raw_time) if raw_time else ""
-    name = subj.name
+    name = subj.name if subj.name else subj.raw
     attenders_ = attenders(
         atts=subj.attenders,
         format=subj.format,
         entries=entries,
+        add_recovered_suffix=not subj.recovered,
         do_tg_markup=do_tg_markup
     )
 
@@ -299,6 +320,10 @@ def subject(
         base = f"{left_base}: {name}"
     else:
         base = f"{left_base}:"
+        
+    if subj.recovered and add_recovered_suffix:
+        base += " "
+        base += RECOVERED_EMOJI
 
     if len(attenders_) > 0:
         base += " "
@@ -309,6 +334,7 @@ def subject(
 def days(
     days: list[Day],
     entries: set[zoom.Data],
+    add_recovered_suffix: bool = True,
     do_tg_markup: bool = False
 ) -> list[str]:
     fmt_days: list[str] = []
@@ -361,8 +387,9 @@ def days(
                     subj=rng.start,
                     entries=entries,
                     rng=rng,
+                    weekday=weekday,
+                    add_recovered_suffix=add_recovered_suffix and not day.recovered,
                     do_tg_markup=do_tg_markup,
-                    weekday=weekday
                 )
                 fmt_subjs.append((rng, subj_fmt))
 
@@ -383,8 +410,9 @@ def days(
             fmt_subj = subject(
                 subj=subj,
                 entries=entries,
-                do_tg_markup=do_tg_markup,
-                weekday=weekday
+                weekday=weekday,
+                add_recovered_suffix=add_recovered_suffix and not day.recovered,
+                do_tg_markup=do_tg_markup
             )
             fmt_subjs.append((
                 subj,
@@ -435,7 +463,9 @@ def days(
                 if literal_format:
                     fmt_day += f"({literal_format}) "
                 if dt:
-                    fmt_day += dt
+                    fmt_day += f"{dt} "
+                if day.recovered and add_recovered_suffix:
+                    fmt_day += RECOVERED_EMOJI
                 
                 fmt_day = fmt_day.strip()
                 fmt_day += ":"
@@ -496,11 +526,15 @@ def formation(
                 f"{update_params}"
             )
 
-    label = form.raw
+    label = form.name if form.name else form.raw
+    if form.recovered:
+        label += " "
+        label += RECOVERED_EMOJI
     filtered_days = form.get_week(week_pos)
     days_str = "\n\n".join(days(
         days=filtered_days,
         entries=entries,
+        add_recovered_suffix=not form.recovered,
         do_tg_markup=do_tg_markup
     ))
 
