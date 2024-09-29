@@ -1,15 +1,31 @@
 from __future__ import annotations
-
-if __name__ == "__main__":
-    import sys
-    sys.path.append(".")
-
-from typing import Generator, Union, TypeVar, Optional, TYPE_CHECKING
+from typing import (
+    Generator,
+    Union,
+    TypeVar,
+    Optional,
+    List,
+    TYPE_CHECKING
+)
 from dataclasses import dataclass
 from pydantic import BaseModel, Field as PydField
-
-from src.svc.common.keyboard import BACK_BUTTON, Keyboard, Button, Color, Payload
-from src.svc.common.template import CommonBotTemplate, MetadataKeys
+from src.svc.common.keyboard import (
+    BACK_BUTTON,
+    Keyboard,
+    Button,
+    Color,
+    Payload,
+    PAGE_PREVIOUS_BUTTON,
+    PAGE_PREVIOUS_JUMP_BUTTON,
+    PAGE_NEXT_BUTTON,
+    PAGE_NEXT_JUMP_BUTTON,
+    PAGE_PREVIOUS_DEAD_END_BUTTON,
+    PAGE_NEXT_DEAD_END_BUTTON,
+)
+from src.svc.common.template import (
+    CommonBotTemplate,
+    MetadataKeys
+)
 from src.svc.common import error, messages
 from src.data import zoom
 
@@ -19,16 +35,15 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-BULLET = "■"
-
-
 def chunks(lst: list[T], n: int) -> Generator[list[T], None, None]:
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
 class Container(BaseModel):
-    list: list[CommonBotTemplate] = PydField(default_factory=list)
+    list: List[CommonBotTemplate] = PydField(
+        default_factory=lambda *a, **kw: list(*a, **kw)
+    )
     """ ## List of pages, containing messsage templates """
     current_num: int = 0
     """ ## On which page number user is currently on """
@@ -55,7 +70,7 @@ class Container(BaseModel):
 def from_zoom(
     data: Union[list[zoom.Data], set[zoom.Data]], 
     mode: "MODE_LITERAL",
-    per_page: int = 4, 
+    per_page: int = 2, 
     text_footer: Optional[str] = None,
     keyboard_width: int = 2,
     keyboard_header: list[list[Button]] = [[]],
@@ -66,7 +81,7 @@ def from_zoom(
 
     if isinstance(data, set):
         data = list(data)
-    
+
     if mode == Mode.GROUP:
         field_filter = lambda field: field[0] not in ["name", "host_key"]
     elif mode == Mode.TEACHER:
@@ -98,17 +113,17 @@ def from_zoom(
         else:
             text = messages.format_empty_page()
 
-        # add page number at the bottom
-        text += "\n\n"
-        text += messages.format_page_num(
-            current = page_num + 1, 
-            last = len(pages)
-        )
-
         # add custom text footer
         if text_footer is not None:
             text += "\n\n"
             text += text_footer
+
+        # add page number at the bottom
+        text += "\n\n"
+        text += messages.format_page_num(
+            current=page_num + 1, 
+            last=len(pages)
+        )
 
         # whole keyboard schema
         kb_schema = []
@@ -120,17 +135,24 @@ def from_zoom(
             kb_schema.append(row)
 
         if not is_single_page:
-            back_symbol = "←" if not is_first_page else BULLET
-            next_symbol = "→" if not is_last_page else BULLET
-
-            back_button = Button(text=back_symbol, callback=Payload.PAGE_BACK)
-            next_button = Button(text=next_symbol, callback=Payload.PAGE_NEXT)
+            back_button = PAGE_PREVIOUS_BUTTON
+            back_jump_button = PAGE_PREVIOUS_JUMP_BUTTON
+            next_button = PAGE_NEXT_BUTTON
+            next_jump_button = PAGE_NEXT_JUMP_BUTTON
+            
+            if is_first_page:
+                back_button = PAGE_PREVIOUS_DEAD_END_BUTTON
+                back_jump_button = PAGE_PREVIOUS_DEAD_END_BUTTON
+            if is_last_page:
+                next_button = PAGE_NEXT_DEAD_END_BUTTON
+                next_jump_button = PAGE_NEXT_DEAD_END_BUTTON
 
             # make a row with navigation
             kb_schema.append([
                 back_button, 
-                #page_button, 
-                next_button
+                back_jump_button,
+                next_jump_button,
+                next_button,
             ])
 
         # iterate for each section in current page (2D array)
@@ -149,9 +171,9 @@ def from_zoom(
             )
 
             button = Button(
-                text     = f"{name_emoji} {section.name.__repr_name__()}", 
-                callback = section.name.__repr_name__(),
-                color    = Color.BLUE
+                text=f"{name_emoji} {section.name.__repr_name__()}", 
+                callback=section.name.__repr_name__(),
+                color=Color.BLUE
             )
 
             cur_row.append(button)
@@ -171,18 +193,10 @@ def from_zoom(
             kb_schema.append(row)
 
         message = CommonBotTemplate(
-            text     = text,
-            keyboard = Keyboard(kb_schema, add_back=False),
-            metadata = {MetadataKeys.PAGE_NUM_NAMES_MAP: page_num_names_map}
+            text=text,
+            keyboard=Keyboard(kb_schema, add_back=False),
+            metadata={MetadataKeys.PAGE_NUM_NAMES_MAP: page_num_names_map}
         )
         msgs.append(message)
 
     return msgs
-
-
-if __name__ == "__main__":
-
-    text = """"""
-
-    data = zoom.Data.parse(text)
-    from_zoom(data=data)

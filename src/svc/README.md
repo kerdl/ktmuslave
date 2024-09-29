@@ -1,9 +1,24 @@
-# `S`er`v`i`c`es, code for specific messengers
+# Services
 
-- `common` - main folder, which
-contains all handlers with shared
-functionality
-- `telegram` - handlers specific for https://telegram.org
-- `vk` - handlers specific for https://vk.com
-- `__init__.py` - so when importing, vscode shows this dir 
-as green and not white 🤪
+- `common` - shared bot logic
+  - states
+  - keyboards
+  - buttons
+  - messages
+  - blueprints
+- `telegram` - logic specifically for Telegram
+  - bot initializing
+  - getting chat type
+  - getting sender's name from events
+  - chunked message send and edit
+  - mention and command extraction from messages
+- `vk` - logic specifically for VK
+  - bot initializing
+  - getting chat type
+  - getting sender's name from events
+  - chunked message send and edit
+  - admin rights detection
+  - payload equality
+  - event types definition
+  - text extraction from forwarded messages
+- `__init__.py` - empty

@@ -2,10 +2,10 @@ from loguru import logger
 
 from src import defs
 from src.svc.common import CommonEverything, messages, keyboard as kb
-from src.svc.common.router import r, Middleware, MessageMiddleware, EventMiddleware
+from src.svc.common.router import router, Middleware, MessageMiddleware, EventMiddleware
 
 
-@r.middleware()
+@router.middleware()
 class Log(Middleware):
     async def pre(self, everything: CommonEverything):
         async def log():
@@ -28,13 +28,13 @@ class Log(Middleware):
         
         defs.create_task(log())
 
-@r.middleware()
+@router.middleware()
 class BotMentionFilter(Middleware):
     async def pre(self, everything: CommonEverything):
         if not everything.is_for_bot():
             self.stop()
 
-@r.middleware()
+@router.middleware()
 class CtxCheck(Middleware):
     async def pre(self, everything: CommonEverything):
         if not await defs.ctx.is_added(everything):
@@ -45,12 +45,12 @@ class CtxCheck(Middleware):
             everything.ctx.last_everything = everything
             everything.ctx.navigator.set_everything(everything)
 
-@r.middleware()
+@router.middleware()
 class Throttling(Middleware):
     async def pre(self, everything: CommonEverything):
         await everything.ctx.throttle()
 
-@r.middleware()
+@router.middleware()
 class ManualUpdateBlock(EventMiddleware):
     async def pre(self, everything: CommonEverything):
         if everything.event.payload != kb.Payload.UPDATE:
@@ -61,7 +61,7 @@ class ManualUpdateBlock(EventMiddleware):
         )
         await self.stop_pre()
 
-@r.middleware()
+@router.middleware()
 class OldMessagesBlock(EventMiddleware):
     async def pre(self, everything: CommonEverything):
         from src.svc.common.bps import hub, init
@@ -118,7 +118,7 @@ class OldMessagesBlock(EventMiddleware):
                 self.stop_pre()
 
 
-@r.middleware()
+@router.middleware()
 class ShowNotImplementedError(Middleware):
     async def post(self, everything: CommonEverything):
         try:
@@ -129,7 +129,7 @@ class ShowNotImplementedError(Middleware):
         except Exception:
             ...
 
-@r.middleware()
+@router.middleware()
 class SaveCtxToDb(Middleware):
     async def post(self, everything: CommonEverything):
         logger.debug(f"saving {everything.ctx.db_key} ctx")

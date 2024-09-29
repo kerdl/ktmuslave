@@ -1,21 +1,40 @@
 import asyncio
-from typing import Literal, Optional, Callable, Union
-from dotenv import get_key
+from typing import (
+    Literal,
+    Optional,
+    Callable,
+    Union,
+    TypeVar
+)
 from aiogram import Bot, Router, Dispatcher
-from aiogram.types import MessageEntity, ForceReply, InlineKeyboardMarkup, Message, CallbackQuery, ChatMemberUpdated
-import re
+from aiogram.types import (
+    MessageEntity,
+    ForceReply,
+    InlineKeyboardMarkup,
+    Message,
+    CallbackQuery,
+    ChatMemberUpdated
+)
+from aiogram.client.default import Default
 import html
+from src import defs, text as text_utils
 
-from src import defs, text as text_utils, ENV_PATH
+
+T = TypeVar("T")
 
 
 class ChatType:
-    PRIVATE    = "private"
-    GROUP      = "group"
+    PRIVATE = "private"
+    GROUP = "group"
     SUPERGROUP = "supergroup"
-    CHANNEL    = "channel"
+    CHANNEL = "channel"
 
-CHAT_TYPE = Literal["private", "group", "supergroup", "channel"]
+CHAT_TYPE = Literal[
+    "private",
+    "group",
+    "supergroup",
+    "channel"
+]
 
 
 def is_group_chat(    
@@ -46,12 +65,12 @@ async def chunked_send(
         is_last = (index + 1) == len(chunks)
 
         result = await defs.tg_bot.send_message(
-            chat_id                  = chat_id,
-            text                     = chunk,
-            disable_web_page_preview = disable_web_page_preview,
-            reply_markup             = reply_markup if is_last else None,
-            reply_to_message_id      = reply_to_message_id if is_first else None,
-            parse_mode               = "HTML"
+            chat_id=chat_id,
+            text=chunk,
+            disable_web_page_preview=disable_web_page_preview,
+            reply_markup=reply_markup if is_last else None,
+            reply_to_message_id=reply_to_message_id if is_first else None,
+            parse_mode="HTML"
         )
 
         responses.append(result)
@@ -78,43 +97,42 @@ async def chunked_edit(
 
         if not is_used_first_edit:
             result = await defs.tg_bot.edit_message_text(
-                chat_id                  = chat_id,
-                message_id               = message_id,
-                text                     = chunk,
-                disable_web_page_preview = disable_web_page_preview,
-                reply_markup             = reply_markup if is_last else None,
-                parse_mode               = "HTML"
+                chat_id=chat_id,
+                message_id=message_id,
+                text=chunk,
+                disable_web_page_preview=disable_web_page_preview,
+                reply_markup=reply_markup if is_last else None,
+                parse_mode="HTML"
             )
-
             edit_result = result
-
             is_used_first_edit = True
         else:
             result = await defs.tg_bot.send_message(
-                chat_id                  = chat_id,
-                text                     = chunk,
-                disable_web_page_preview = disable_web_page_preview,
-                reply_markup             = reply_markup if is_last else None,
-                parse_mode               = "HTML"
+                chat_id=chat_id,
+                text=chunk,
+                disable_web_page_preview=disable_web_page_preview,
+                reply_markup=reply_markup if is_last else None,
+                parse_mode="HTML"
             )
-
             sending_results.append(result)
     
     return (edit_result, sending_results)
+
 
 class EntityType:
     MENTION = "mention"
     BOT_COMMAND = "bot_command"
 
+
 class EventType:
     MESSAGE = "message"
     CALLBACK_QUERY = "callback_query"
+
 
 def extract_mentions(entities: list[MessageEntity], text: str) -> list[str]:
     mentions: list[str] = []
 
     for enitity in entities:
-
         if enitity.type == EntityType.MENTION:
             mention = enitity.extract_from(text)
             mentions.append(mention)
@@ -125,7 +143,6 @@ def extract_commands(entities: list[MessageEntity], text: str) -> list[str]:
     commands: list[str] = []
 
     for entity in entities:
-
         if entity.type == EntityType.BOT_COMMAND:
             command = entity.extract_from(text)
             commands.append(command)
@@ -135,26 +152,50 @@ def extract_commands(entities: list[MessageEntity], text: str) -> list[str]:
 def escape_html(text: str) -> str:
     return html.escape(text)
 
+def remove_markup(text: str) -> str:
+    return (text
+        .replace("<code>", "")
+        .replace("</code>", "")
+    )
+
 def force_reply() -> ForceReply:
     return ForceReply(force_reply=True)
 
 
-def load_bot(loop: asyncio.BaseEventLoop | asyncio.AbstractEventLoop = None) -> Bot:
+def sanitize_object(obj: T) -> T:
+    try: obj.__dict__
+    except AttributeError: return obj
+    
+    for key, value in obj.__dict__.items():
+        if (
+            value is None or
+            isinstance(value, bool) or
+            isinstance(value, int) or
+            isinstance(value, str)
+        ):
+            continue
+        
+        if isinstance(value, Default):
+            obj.__dict__[key] = None
+            continue
+            
+        obj.__dict__[key] = sanitize_object(value)
+        
+    return obj
+
+
+def load_bot(token: Optional[str] = None) -> Bot:
     """
     ## Set token, load handlers and return a `Bot`
     """
-
-    bot = Bot(token=get_key(ENV_PATH, "TG_TOKEN"))
+    bot = Bot(token=token)
     return bot
 
 def load_router() -> Router:
     """
     ## Init router
     """
-
-    r = Router()
-
-    return r
+    return Router()
 
 def load_dispatch(router: Router) -> Dispatcher:
     """
@@ -162,5 +203,4 @@ def load_dispatch(router: Router) -> Dispatcher:
     """
     dp = Dispatcher()
     dp.include_router(router)
-
     return dp

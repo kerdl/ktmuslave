@@ -1,7 +1,7 @@
 import re
 
 
-GROUP = re.compile(r"([0-9])([-]{0,1})([а-яёА-ЯЁ]{3})([-]{0,1})([0-9]{1,2})")
+GROUP = re.compile(r"([0-9])([-.]|\s)*([а-яёА-ЯЁ]{2,3})([-.]|\s)*([0-9]{1,2})")
 TEACHER = re.compile(r"([А-ЯЁ][а-яё]{1,})(\s)([А-ЯЁ]{1}[.])([А-ЯЁ]{1}[.]{0,1}){0,1}")
 TEACHER_CASE_IGNORED = re.compile(r"([А-ЯЁа-яё]{1,})(\s)([А-ЯЁа-яё]{1}[.])([А-ЯЁа-яё]{1}[.]{0,1}){0,1}")
 TEACHER_NO_DOTS_CASE_IGNORED = re.compile(r"([А-ЯЁа-яё]{1,})(\s)([А-ЯЁа-яё]{1})([А-ЯЁа-яё]{1}){0,1}")
@@ -13,8 +13,8 @@ SPACE = re.compile(r"\s")
 SPACE_NEWLINE = re.compile(r"\n\s{1,}\n")
 DIGIT = re.compile(r"\d")
 NUMBER = re.compile(r"\d{1,}")
-LETTER  = re.compile(r"[^\W\d]")
-NON_LETTER = re.compile(r"\W")
+LETTER = re.compile(r"[^\W\d]")
+NON_WORD = re.compile(r"[^а-яёА-ЯЁa-zA-Z0-9_]")
 NON_LETTER_NO_SPACE = re.compile(r"[^\w\s]")
 PUNCTUATION = re.compile(r"[!\"#\$%&\'\(\)\*\+,-\./:;<=>\?@\[\\\]\^_`{\|}~]")
 ZOOM_ID = re.compile(r"(\d{11}|\d{10})")

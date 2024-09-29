@@ -6,39 +6,40 @@ import json
 import datetime
 from copy import deepcopy
 from json.encoder import JSONEncoder
-from typing import Literal, Optional, Callable, Any, TypeVar, Generic, TYPE_CHECKING
+from typing import Literal, Optional, Callable, Any, Coroutine, Awaitable, TypeVar, TYPE_CHECKING
 from copy import deepcopy
 from dataclasses import dataclass, field
-from pydantic import BaseModel, utils
+from pydantic import BaseModel
 from vkbottle import ShowSnackbarEvent, VKAPIError
-from vkbottle.bot import Message as VkMessage
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 from aiogram.types import Message as TgMessage, CallbackQuery, ChatMemberUpdated
 from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError, TelegramBadRequest
 from redis.commands.json.path import Path
-from redis.commands.search.query import Query
-from redis.commands.search.result import Result
-
-from src import defs, RedisName
+from redis.exceptions import ResponseError
+from src import defs, RedisName, text
+from src.api.schedule import Notify
+from src.data import RepredBaseModel, HiddenVars, week
+from src.data.schedule import Schedule, format as sc_format, Page, Formation
+from src.data.schedule.raw import Kind, KIND_LITERAL
+from src.data.schedule.compare import PageCompare, FormationCompare
+from src.data.settings import Settings, Mode
+from src.data.range import Range
 from src.svc import vk, telegram as tg
-from src import text
+from src.svc.vk.types_ import MessageV2 as VkMessage, RawEvent
 from src.svc.common.states import formatter as states_fmt, Values
 from src.svc.common.states.tree import HUB
 from src.svc.common.navigator import Navigator, DbNavigator
 from src.svc.common import pagination, messages
-from src.svc.vk.types_ import RawEvent
 from src.svc.common import keyboard as kb, error
-from src.data import RepredBaseModel, HiddenVars
-from src.data.schedule import Schedule, format as sc_format, Type, TYPE_LITERAL, Page, TchrPage
-from src.data.schedule.compare import PageCompare, TchrPageCompare
-from src.data.settings import Settings, TimeMode
-from src.api.schedule import Notify
-from .states.tree import Space
+from src.svc.common.states.tree import Space
 
 
 if TYPE_CHECKING:
     from src.data.settings import MODE_LITERAL
+
+
+T = TypeVar("T")
 
 
 class Source:
@@ -87,37 +88,28 @@ MESSENGER_SOURCE = Literal["vk", "tg"]
 MESSENGER_SOURCE_T = TypeVar("MESSENGER_SOURCE_T")
 EVENT_SOURCE = Literal["message", "event"]
 
-DB_BASE_CTX_UPDATED_FORWARD_REFS = False
+DB_BASE_CTX_REBUILDED = False
 
 
 @dataclass
-class BroadcastIdentifier:
+class BroadcastFormation:
     mode: str
-    identifier: str
+    formation: str
     header: str
-    sc_type: TYPE_LITERAL
-
-    @property
-    def is_daily(self) -> bool:
-        return self.sc_type == Type.DAILY
-
-    @property
-    def is_weekly(self) -> bool:
-        return self.sc_type == Type.WEEKLY
 
     def add_header_to(self, fmt_schedule: str) -> str:
         return f"{self.header}\n\n{fmt_schedule}"
 
     @staticmethod
-    def filter_for_identifier(
-        identifier: str,
-        mappings: list[BroadcastIdentifier]
-    ) -> list[BroadcastIdentifier]:
+    def filter_for_formation(
+        form: str,
+        mappings: list[BroadcastFormation]
+    ) -> list[BroadcastFormation]:
         relatives = []
 
         """ # Search for relative mapping """
         for mapping in mappings:
-            if mapping.identifier == identifier:
+            if mapping.formation == form:
                 relatives.append(mapping)
 
         return relatives
@@ -137,22 +129,20 @@ class DbBaseCtx(BaseModel):
     last_call: float = 0.0
     last_everything: Optional[CommonEverything]
     last_bot_message: Optional[CommonBotMessage]
-    last_daily_message: Optional[CommonBotMessage]
-    last_weekly_message: Optional[CommonBotMessage]
-    last_tchr_daily_message: Optional[CommonBotMessage]
-    last_tchr_weekly_message: Optional[CommonBotMessage]
+    last_groups_schedule: Optional[CommonBotMessage]
+    last_teachers_schedule: Optional[CommonBotMessage]
 
     @classmethod
-    def ensure_update_forward_refs(cls):
-        global DB_BASE_CTX_UPDATED_FORWARD_REFS
+    def ensure_rebuild(cls):
+        global DB_BASE_CTX_REBUILDED
 
-        if not DB_BASE_CTX_UPDATED_FORWARD_REFS:
-            cls.update_forward_refs()
-            DB_BASE_CTX_UPDATED_FORWARD_REFS = True
+        if not DB_BASE_CTX_REBUILDED:
+            cls.model_rebuild()
+            DB_BASE_CTX_REBUILDED = True
 
     @classmethod
     def from_runtime(cls: type[DbBaseCtx], ctx: BaseCtx) -> DbBaseCtx:
-        DbBaseCtx.ensure_update_forward_refs()
+        DbBaseCtx.ensure_rebuild()
 
         return cls(
             chat_id=ctx.chat_id,
@@ -166,10 +156,8 @@ class DbBaseCtx(BaseModel):
             last_call=ctx.last_call,
             last_everything=ctx.last_everything,
             last_bot_message=ctx.last_bot_message,
-            last_daily_message=ctx.last_daily_message,
-            last_weekly_message=ctx.last_weekly_message,
-            last_tchr_daily_message=ctx.last_tchr_daily_message,
-            last_tchr_weekly_message=ctx.last_tchr_weekly_message
+            last_groups_schedule=ctx.last_groups_schedule,
+            last_teachers_schedule=ctx.last_teachers_schedule
         )
 
     def to_runtime(self) -> BaseCtx:
@@ -189,45 +177,43 @@ class BaseCtx:
     """ # Storage for settings and zoom data """
     schedule: Schedule = field(default_factory=Schedule)
     """ # Schedule data """
+    
+    pages: pagination.Container = field(default_factory=pagination.Container)
+    """
+    # Page storage for big data
+    Used to store generated pages
+    for massive data that can't
+    fit in one message (like zoom entries).
+    """
 
     last_call: float = field(default_factory=lambda: .0)
     """
     # Last UNIX time when user interacted with bot
-
-    ## Used
-    - to throttle users who
-    click buttons too fast
-    """
-
-    pages: pagination.Container = field(default_factory=pagination.Container)
-    """
-    # Page storage for big data
-
-    ## Used
-    - to store generated pages
-    for massive data that can't
-    fit in one message (like zoom entries)
+    Used to throttle users who
+    click buttons too fast.
     """
     last_everything: Optional[CommonEverything] = None
     """
     # Last received event
-
-    ## Used
-    - for `navigator`, that passes `everything`
-    to `on_enter`, `on_exit` methods of states
+    Used for `navigator`, that passes `everything`
+    to `on_enter`, `on_exit` methods of states.
     """
     last_bot_message: Optional[CommonBotMessage] = None
     """
     # Last message sent by the bot
-
-    ## Used
-    - to resend it when for some reason
-    user interacts with OLD messages
+    Used to resend it when for some reason
+    user interacts with OLD messages.
     """
-    last_daily_message: Optional[CommonBotMessage] = None
-    last_weekly_message: Optional[CommonBotMessage] = None
-    last_tchr_daily_message: Optional[CommonBotMessage] = None
-    last_tchr_weekly_message: Optional[CommonBotMessage] = None
+    last_groups_schedule: Optional[CommonBotMessage] = None
+    """
+    # Last groups schedule message sent by the bot
+    Used to reply to it when sending an updated one.
+    """
+    last_teachers_schedule: Optional[CommonBotMessage] = None
+    """
+    # Last teachers schedule message sent by the bot
+    Used to reply to it when sending an updated one.
+    """
 
     @property
     def db_key(self) -> str:
@@ -243,14 +229,12 @@ class BaseCtx:
             navigator=db.navigator.to_runtime(db.last_everything),
             settings=db.settings,
             schedule=db.schedule,
-            last_call=db.last_call,
             pages=db.pages,
+            last_call=db.last_call,
             last_everything=db.last_everything,
             last_bot_message=db.last_bot_message,
-            last_daily_message=db.last_daily_message,
-            last_weekly_message=db.last_weekly_message,
-            last_tchr_daily_message=db.last_tchr_daily_message,
-            last_tchr_weekly_message=db.last_tchr_weekly_message,
+            last_groups_schedule=db.last_groups_schedule,
+            last_teachers_schedule=db.last_teachers_schedule
         )
 
         self.settings.zoom.check_all()
@@ -275,7 +259,7 @@ class BaseCtx:
         # contains a bunch of shitty enums
         # that are only properly serialized
         # when calling `self_db.json()`, but not `self_db.dict()`
-        self_db_json = self_db.json()
+        self_db_json = self_db.model_dump_json()
         self_db_dict = json.loads(self_db_json)
 
         self.last_everything.set_hidden_vars(hidden_vars)
@@ -288,22 +272,60 @@ class BaseCtx:
             self_db_dict,
             decode_keys=True
         )
+        
+    @property
+    def is_temp_mode(self) -> bool:
+        return not not self.schedule.temp_mode
+
+    @property
+    def mode(self) -> "MODE_LITERAL":
+        if self.is_temp_mode: return self.schedule.temp_mode
+        else: return self.settings.mode
+    
+    @property
+    def is_group_mode(self) -> bool:
+        from src.data.settings import Mode
+        return self.mode == Mode.GROUP
+
+    @property
+    def is_teacher_mode(self) -> bool:
+        from src.data.settings import Mode
+        return self.mode == Mode.TEACHER
+
+    @property
+    def identifier(self) -> str:
+        if self.is_temp_mode and self.is_group_mode:
+            return self.schedule.temp_group
+        if self.is_temp_mode and self.is_teacher_mode:
+            return self.schedule.temp_teacher
+        if not self.is_temp_mode and self.is_group_mode:
+            return self.settings.group.confirmed
+        if not self.is_temp_mode and self.is_teacher_mode:
+            return self.settings.teacher.confirmed
+
+    @property
+    def identifier_exists(self) -> bool:
+        if self.is_group_mode:
+            return self.identifier in defs.schedule.group_names()
+        if self.is_teacher_mode:
+            return self.identifier in defs.schedule.teacher_names()
 
     def register(self) -> None:
         self.is_registered = True
 
     async def throttle(self) -> None:
         """ ## Stop executing for a short period to avoid rate limit """
-
         current_time = time.time()
 
         # allowed to call again after 1 second
         next_allowed_time = self.last_call + 1
 
-        if next_allowed_time > current_time:
+        if (
+            next_allowed_time > current_time and
+            not self.last_call > current_time
+        ):
             # then throttle
             sleep_secs_until_allowed: float = next_allowed_time - current_time
-
             await asyncio.sleep(sleep_secs_until_allowed)
 
         self.last_call = current_time
@@ -312,89 +334,169 @@ class BaseCtx:
         self.last_everything = everything
         self.navigator.set_everything(everything)
 
-    async def schedule_for_confirmed_group(
-        self,
-        sc_type: TYPE_LITERAL
-    ) -> Page:
-        from src.api.schedule import SCHEDULE_API
+    def get_schedule_as_group(self) -> Optional[Formation]:
+        try:
+            page = defs.schedule.get_groups()
+            return page.get_by_name(self.identifier)
+        except AttributeError:
+            return None
 
-        if sc_type == Type.DAILY:
-            return await SCHEDULE_API.daily(self.settings.group.confirmed)
-        if sc_type == Type.WEEKLY:
-            return await SCHEDULE_API.weekly(self.settings.group.confirmed)
+    def get_schedule_as_teacher(self) -> Optional[Formation]:
+        try:
+            page = defs.schedule.get_teachers()
+            return page.get_by_name(self.identifier)
+        except AttributeError:
+            return None
 
-    async def schedule_for_confirmed_teacher(
-        self,
-        sc_type: TYPE_LITERAL
-    ) -> TchrPage:
-        from src.api.schedule import SCHEDULE_API
+    def get_schedule(self) -> Optional[Formation]:
+        if self.mode == Mode.GROUP:
+            return self.get_schedule_as_group()
+        if self.mode == Mode.TEACHER:
+            return self.get_schedule_as_teacher()
+    
+    def get_week_or_current(self) -> Range[datetime.date]:
+        try:
+            unchecked_rng = self.schedule.get_week_or_current()
+            for_unchecked = self.get_schedule().get_week(unchecked_rng)
+            
+            if for_unchecked is None:
+                next_week = self.get_schedule().nearest_next_week(unchecked_rng)
+                if next_week: return next_week.week
+                prev_week = self.get_schedule().nearest_prev_week(unchecked_rng)
+                if prev_week: return prev_week.week
+            else:
+                return unchecked_rng
+        except AttributeError:
+            return week.current_active()
+    
+    def fmt_schedule_as_group(self) -> Optional[str]:
+        try:
+            return sc_format.formation(
+                form=self.get_schedule_as_group(),
+                week_pos=self.get_week_or_current(),
+                entries=self.settings.zoom.entries.list,
+                mode=self.settings.mode,
+                do_tg_markup=self.last_everything.is_from_tg_generally
+            )
+        except AttributeError:
+            return None
 
-        if sc_type == Type.DAILY:
-            return await SCHEDULE_API.tchr_daily(self.settings.teacher.confirmed)
-        if sc_type == Type.WEEKLY:
-            return await SCHEDULE_API.tchr_weekly(self.settings.teacher.confirmed)
+    def fmt_schedule_as_teacher(self) -> Optional[str]:
+        try:
+            return sc_format.formation(
+                form=self.get_schedule_as_teacher(),
+                week_pos=self.get_week_or_current(),
+                entries=self.settings.tchr_zoom.entries.list,
+                mode=self.settings.mode,
+                do_tg_markup=self.last_everything.is_from_tg_generally
+            )
+        except AttributeError:
+            return None
+    
+    def fmt_schedule(self) -> Optional[str]:
+        if self.is_group_mode:
+            return self.fmt_schedule_as_group()
+        if self.is_teacher_mode:
+            return self.fmt_schedule_as_teacher()
+    
+    def is_backward_week_shift_allowed(self) -> bool:
+        """ # Is it allowed to view the previous week """
+        try:
+            form = self.get_schedule()
+            return form.first_week().week < self.get_week_or_current()
+        except (AttributeError, IndexError, TypeError): return False
+        
+    def is_forward_week_shift_allowed(self) -> bool:
+        """ # Is it allowed to view the next week """
+        try:
+            form = self.get_schedule()
+            return self.get_week_or_current() < form.last_week().week
+        except (AttributeError, IndexError, TypeError): return False
+    
+    def shift_week_backward(self) -> bool:
+        try:
+            form = self.get_schedule()
+            target = form.prev_week_self(self.get_week_or_current())
+            if week.current_active() == target.week:
+                self.schedule.reset_temp_week()
+            else:
+                self.schedule.temp_week = target.week
+            return True
+        except:
+            return False
+        
+    def shift_week_forward(self) -> bool:
+        try:
+            form = self.get_schedule()
+            target = form.next_week_self(self.get_week_or_current())
+            if week.current_active() == target.week:
+                self.schedule.reset_temp_week()
+            else:
+                self.schedule.temp_week = target.week
+            return True
+        except AttributeError:
+            return False
+        
+    def jump_week_backward(self) -> bool:
+        try:
+            current_active_week = week.current_active()
+            form = self.get_schedule()
+            weeked_first = form.first_week()
+            weeked_current = form.get_week(current_active_week)
+            if (
+                self.get_week_or_current() > current_active_week and
+                weeked_current is not None
+            ):
+                # jump to the current week
+                self.schedule.reset_temp_week()
+            elif weeked_first.week != self.get_week_or_current():
+                # jump to the beginning
+                self.schedule.temp_week = weeked_first.week
+            else:
+                return False
+            
+            return True
+        except AttributeError:
+            return False
+    
+    def jump_week_forward(self) -> bool:
+        try:
+            current_active_week = week.current_active()
+            form = self.get_schedule()
+            weeked_last = form.last_week()
+            weeked_current = form.get_week(current_active_week)
+            if (
+                self.get_week_or_current() < current_active_week and
+                weeked_current is not None
+            ):
+                # jump to the current week
+                self.schedule.reset_temp_week()
+            elif weeked_last.week != self.get_week_or_current():
+                # jump to the end
+                self.schedule.temp_week = weeked_last.week
+            else:
+                return False
+            
+            return True
+        except AttributeError:
+            return False
 
-    async def fmt_schedule_for_confirmed_group(
-        self,
-        sc_type: TYPE_LITERAL
-    ) -> str:
-        page = await self.schedule_for_confirmed_group(sc_type)
-
-        try: group = page.groups[0]
-        except IndexError: group = None
-
-        return await sc_format.identifier(
-            group,
-            self.settings.zoom.entries.list,
-            self.settings.mode,
-            self.last_everything.is_from_tg_generally,
-            override_time=self.settings.time_mode == TimeMode.OVERRIDE
-        )
-
-    async def fmt_schedule_for_confirmed_teacher(
-        self,
-        sc_type: TYPE_LITERAL
-    ) -> str:
-        page = await self.schedule_for_confirmed_teacher(sc_type)
-
-        try: teacher = page.teachers[0]
-        except IndexError: teacher = None
-
-        return await sc_format.identifier(
-            teacher,
-            self.settings.tchr_zoom.entries.list,
-            self.settings.mode,
-            self.last_everything.is_from_tg_generally,
-            override_time=self.settings.time_mode == TimeMode.OVERRIDE
-        )
-
-    async def send_custom_broadcast(
-        self,
-        message: CommonBotMessage,
-        sc_type: TYPE_LITERAL
-    ):
+    async def send_custom_broadcast(self, message: CommonBotMessage):
         from src.data.settings import Mode
 
         new_message = await message.send()
 
         if new_message.id is not None:
-            # we do that after 'cause of the sending delay,
-            # and going back to hub state before the message
-            # is sent causes bugs if user was actively
-            # interacting with the bot
+            # we do these after sending and not before 
+            # 'cause of the sending delay
             self.navigator.jump_back_to_or_append(HUB.I_MAIN)
+            self.week_shift = 0
 
-            if sc_type == Type.DAILY:
-                if self.settings.mode == Mode.GROUP:
-                    self.last_daily_message = new_message
-                elif self.settings.mode == Mode.TEACHER:
-                    self.last_tchr_daily_message = new_message
-            elif sc_type == Type.WEEKLY:
-                if self.settings.mode == Mode.GROUP:
-                    self.last_weekly_message = new_message
-                elif self.settings.mode == Mode.TEACHER:
-                    self.last_tchr_weekly_message = new_message
-
+            if self.settings.mode == Mode.GROUP:
+                self.last_groups_schedule = new_message
+            elif self.settings.mode == Mode.TEACHER:
+                self.last_teachers_schedule = new_message
+            
             self.last_bot_message = new_message
 
             await self.save()
@@ -407,17 +509,18 @@ class BaseCtx:
     async def retry_send_custom_broadcast(
         self,
         message: CommonBotMessage,
-        sc_type: TYPE_LITERAL,
         max_tries: int = 3,
         interval: int = 10 # in secs
     ):
+        from src.data.settings import Mode
+        
         tries = 0
         errors = []
         successful = False
 
         while tries < max_tries:
             try:
-                await self.send_custom_broadcast(message, sc_type)
+                await self.send_custom_broadcast(message)
                 successful = True
                 break
             except Exception as e:
@@ -427,62 +530,60 @@ class BaseCtx:
 
         if successful:
             logger.opt(colors=True).success(
-                f"<G><k><d>BROADCASTING {sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                f"<G><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                 f"succeeded after {tries} times"
             )
         else:
             logger.opt(colors=True).error(
-                f"<R><k><d>BROADCASTING {sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                f"<R><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                 f"failed all {max_tries} times with errors: {' | '.join(errors)}"
             )
 
-    async def send_broadcast(self, mappings: list[BroadcastIdentifier]):
+    async def send_broadcast(
+        self,
+        mappings: list[BroadcastFormation]
+    ):
         from src.data.settings import Mode
 
-        last_daily_message = None
-        last_weekly_message = None
+        last_schedule = None
 
         if self.settings.mode == Mode.GROUP:
-            last_daily_message = self.last_daily_message
-            last_weekly_message = self.last_weekly_message
+            last_schedule = self.last_groups_schedule
         elif self.settings.mode == Mode.TEACHER:
-            last_daily_message = self.last_tchr_daily_message
-            last_weekly_message = self.last_tchr_weekly_message
+            last_schedule = self.last_teachers_schedule
 
         for mapping in mappings:
-            opposite_sc_type = Type.opposite(mapping.sc_type)
             reply_to = None
 
-            fmt_schedule = None
-            if self.settings.mode == Mode.GROUP:
-                fmt_schedule = await self.fmt_schedule_for_confirmed_group(mapping.sc_type)
-            elif self.settings.mode == Mode.TEACHER:
-                fmt_schedule = await self.fmt_schedule_for_confirmed_teacher(mapping.sc_type)
+            fmt_schedule = self.fmt_schedule()
+            bcast_text = None
+            raw_bcast_text = mapping.add_header_to(fmt_schedule)
             
-            bcast_text = mapping.add_header_to(fmt_schedule)
-            bcast_text_with_reply_hint = (
-                f"{messages.format_replied_to_schedule_message(opposite_sc_type)}\n\n"
-                f"{bcast_text}"
+            if last_schedule:
+                reply_to = last_schedule.id
+                bcast_text = (
+                f"{messages.format_replied_to_schedule_message()}\n\n"
+                f"{raw_bcast_text}"
             )
-            bcast_text_failed_reply_hint = (
-                f"{messages.format_failed_reply_to_schedule_message(opposite_sc_type)}\n\n"
-                f"{bcast_text}"
-            )
-
-            if mapping.is_daily:
-                if not last_weekly_message:
-                    bcast_text_with_reply_hint = bcast_text
-                else:
-                    reply_to = last_weekly_message.id
-            elif mapping.is_weekly:
-                if not last_daily_message:
-                    bcast_text_with_reply_hint = bcast_text
-                else:
-                    reply_to = last_daily_message.id
-
+            else:
+                bcast_text = raw_bcast_text
+            
             bcast_message = CommonBotMessage(
-                text=bcast_text_with_reply_hint,
-                keyboard=await kb.Keyboard.hub_broadcast_default(self.settings.mode),
+                text=bcast_text,
+                keyboard=kb.Keyboard.hub_broadcast_default(
+                    is_previous_dead_end=(
+                        not self.is_backward_week_shift_allowed()
+                    ),
+                    is_previous_jump_dead_end=(
+                        not self.is_backward_week_shift_allowed()
+                    ),
+                    is_next_dead_end=(
+                        not self.is_forward_week_shift_allowed()
+                    ),
+                    is_next_jump_dead_end=(
+                        not self.is_forward_week_shift_allowed()
+                    )
+                ),
                 can_edit=False,
                 src=self.last_everything.src,
                 chat_id=self.chat_id,
@@ -492,28 +593,26 @@ class BaseCtx:
             async def try_without_reply(
                 e: Exception,
                 bcast_message: CommonBotMessage,
-                mapping: BroadcastIdentifier
+                mapping: BroadcastFormation
             ):
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"failed with {type(e).__name__}({e}), trying without replying"
                 )
 
                 bcast_message.reply_to = None
-                bcast_message.text = bcast_text_failed_reply_hint
 
                 try:
                     logger.opt(colors=True).info(
-                        f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                        f"<W><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                         f"{mapping.header}"
                     )
                     await self.send_custom_broadcast(
-                        message=bcast_message,
-                        sc_type=mapping.sc_type
+                        message=bcast_message
                     )
                 except Exception as e:
                     logger.opt(colors=True).warning(
-                        f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                        f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                         f"unknown exception: {type(e).__name__}({e})"
                     )
                 except error.BroadcastSendFail:
@@ -521,12 +620,11 @@ class BaseCtx:
 
             try:
                 logger.opt(colors=True).info(
-                    f"<W><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"<W><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"{mapping.header}"
                 )
                 await self.send_custom_broadcast(
-                    message=bcast_message,
-                    sc_type=mapping.sc_type
+                    message=bcast_message
                 )
             except VKAPIError[913] as e:
                 await try_without_reply(e, bcast_message, mapping)
@@ -535,7 +633,7 @@ class BaseCtx:
                     await try_without_reply(e, bcast_message, mapping)
             except TelegramBadRequest as e:
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"{type(e).__name__}({e})"
                 )
 
@@ -547,17 +645,17 @@ class BaseCtx:
 
             except TelegramForbiddenError:
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"user had blocked the bot"
                 )
             except error.BroadcastSendFail as e:
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"sending the broadcast message had failed: {type(e).__name__}({e})"
                 )
             except Exception as e:
                 logger.opt(colors=True).warning(
-                    f"<Y><k><d>BROADCASTING {mapping.sc_type.upper()} {self.db_key} {self.settings.group.confirmed}</></></> "
+                    f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"unknown exception: {type(e).__name__}({e})"
                 )
 
@@ -610,7 +708,7 @@ class Ctx:
     async def delete(self, key: str):
         await defs.redis.json().delete(key)
 
-    async def get_who_needs_broadcast(
+    async def get_who_needs_group_broadcast(
         self,
         groups: list[str]
     ) -> Optional[list]:
@@ -620,22 +718,19 @@ class Ctx:
             return None
 
         affected_groups_query = "|".join(groups)
-
         query = (
             f"@{RedisName.IS_REGISTERED}:""{true} "
             f"@{RedisName.MODE}:{Mode.GROUP} "
             f"@{RedisName.BROADCAST}:""{true} "
             f"@{RedisName.GROUP}:({affected_groups_query})"
         )
-
-        #response: Result = await defs.redis.ft(RedisName.BROADCAST).search(query, params)
         response: list = await defs.redis.execute_command(
             f"FT.SEARCH",
             f"{RedisName.BROADCAST}",
             f"{query}",
             f"LIMIT",
             f"0",
-            f"10000"
+            f"10000" # fuck it
         )
 
         return response
@@ -650,22 +745,35 @@ class Ctx:
             return None
 
         affected_teachers_query = "|".join(teachers)
-
         query = (
             f"@{RedisName.IS_REGISTERED}:""{true} "
             f"@{RedisName.MODE}:{Mode.TEACHER} "
             f"@{RedisName.BROADCAST}:""{true} "
             f"@{RedisName.TEACHER}:({affected_teachers_query})"
         )
-
-        #response: Result = await defs.redis.ft(RedisName.BROADCAST).search(query, params)
         response: list = await defs.redis.execute_command(
             f"FT.SEARCH",
             f"{RedisName.TCHR_BROADCAST}",
             f"{query}",
             f"LIMIT",
             f"0",
-            f"10000"
+            f"10000" # fuck it
+        )
+
+        return response
+    
+    async def get_who_enabled_broadcast(self):
+        query = (
+            f"@{RedisName.IS_REGISTERED}:""{true} "
+            f"@{RedisName.BROADCAST}:""{true}"
+        )
+        response: list = await defs.redis.execute_command(
+            f"FT.SEARCH",
+            f"{RedisName.GENERIC_BROADCAST}",
+            f"{query}",
+            f"LIMIT",
+            f"0",
+            f"10000" # fuck it
         )
 
         return response
@@ -689,14 +797,11 @@ class Ctx:
 
             value = key_or_value[1]
 
-            # run_in_executor means regular function
-            # being executed as async function
-
             # convert ["string json" -> DbBaseCtx]
             # in executor
             db_ctx = await defs.loop.run_in_executor(
                 None,
-                DbBaseCtx.parse_raw,
+                DbBaseCtx.model_validate_json,
                 value
             )
             # convert [DbBaseCtx -> BaseCtx]
@@ -710,20 +815,19 @@ class Ctx:
 
         return ctxs
 
-    async def get_who_needs_broadcast_parsed(self, groups: list[str]) -> list[BaseCtx]:
-        raw_result = await self.get_who_needs_broadcast(groups)
-
-        if raw_result is None:
-            return []
-
+    async def get_who_needs_group_broadcast_parsed(self, groups: list[str]) -> list[BaseCtx]:
+        raw_result = await self.get_who_needs_group_broadcast(groups)
+        if raw_result is None: return []
         return await self.parse_redis_result(raw_result)
 
     async def get_who_needs_tchr_broadcast_parsed(self, teachers: list[str]) -> list[BaseCtx]:
         raw_result = await self.get_who_needs_tchr_broadcast(teachers)
-
-        if raw_result is None:
-            return []
-
+        if raw_result is None: return []
+        return await self.parse_redis_result(raw_result)
+    
+    async def get_who_enabled_broadcast_parsed(self) -> list[BaseCtx]:
+        raw_result = await self.get_who_enabled_broadcast()
+        if raw_result is None: return []
         return await self.parse_redis_result(raw_result)
     
     async def get_everyone_parsed(self) -> list[BaseCtx]:
@@ -738,7 +842,7 @@ class Ctx:
             # in executor
             db_ctx = await defs.loop.run_in_executor(
                 None,
-                DbBaseCtx.parse_obj,
+                DbBaseCtx.model_validate,
                 raw_ctx[0]
             )
             # convert [DbBaseCtx -> BaseCtx]
@@ -753,137 +857,160 @@ class Ctx:
         return parsed
 
     @staticmethod
-    def sort_first_by_db_keys(keys: list[str], ctxs: list[BaseCtx]) -> list[BaseCtx]:
-        """
-        ## Put desired contexts in the list first
-        In the order of `keys` list
-
-        ## Example
-        ```
-        keys = ["TG_13376969", "VK_69696969"]
-        ctxs = [BaseCtx("VK_00000000"), BaseCtx("VK_69696969"), BaseCtx("TG_13376969")]
-
-        result = Ctx().sort_first_by_db_keys(keys, ctxs)
-
-        assert result == [BaseCtx("TG_13376969"), BaseCtx("VK_69696969"), BaseCtx("VK_00000000")]
-        ```
-        """
-        new_list: list[BaseCtx] = []
-
-        for key in keys:
-            for index, ctx in enumerate(ctxs):
-                if ctx.db_key == key:
-                    new_list.append(ctx)
-                    ctxs.pop(index)
-                    break
-
-        new_list += ctxs
-
-        return new_list
+    async def retry_redis_command(
+        fn: Callable[[], Awaitable[T]],
+        args: tuple[Any] = (),
+        max_tries: int = 3
+    ) -> T:
+        tries = 0
+        while True:
+            try:
+                return await fn(*args)
+            except ResponseError as e:
+                if tries > max_tries: raise e
+                tries += 1
+                if "Timeout" in str(e): continue
+                raise e
 
     async def broadcast_mappings(
         self,
-        mappings: list[BroadcastIdentifier]
+        mappings: list[BroadcastFormation]
     ):
         from src.data.settings import Mode
 
-        affected_groups = [mapping.identifier for mapping in mappings if mapping.mode == Mode.GROUP]
-        affected_teachers = [mapping.identifier for mapping in mappings if mapping.mode == Mode.TEACHER]
+        affected_groups = [
+            mapping.formation for mapping in mappings if mapping.mode == Mode.GROUP
+        ]
+        affected_teachers = [
+            mapping.formation for mapping in mappings if mapping.mode == Mode.TEACHER
+        ]
+        
+        groups_fn = self.get_who_needs_group_broadcast_parsed
+        groups_args = (affected_groups,)
+        teachers_fn = self.get_who_needs_tchr_broadcast_parsed
+        teachers_args = (affected_teachers,)
 
-        chats_that_need_group_broadcast = await self.get_who_needs_broadcast_parsed(affected_groups)
-        chats_that_need_tchr_broadcast = await self.get_who_needs_tchr_broadcast_parsed(affected_teachers)
+        chats_that_need_group_broadcast = (
+            await self.retry_redis_command(fn=groups_fn, args=groups_args)
+        )
+        chats_that_need_tchr_broadcast = (
+            await self.retry_redis_command(fn=teachers_fn, args=teachers_args)
+        )
 
         for chat in chats_that_need_group_broadcast:
             chat.schedule.reset_temps()
             chat_teacher = chat.settings.group.confirmed
-            chat_relative_mappings = BroadcastIdentifier.filter_for_identifier(chat_teacher, mappings)
+            chat_relative_mappings = (
+                BroadcastFormation.filter_for_formation(chat_teacher, mappings)
+            )
 
             await chat.send_broadcast(chat_relative_mappings)
 
         for chat in chats_that_need_tchr_broadcast:
             chat.schedule.reset_temps()
             chat_teacher = chat.settings.teacher.confirmed
-            chat_relative_mappings = BroadcastIdentifier.filter_for_identifier(chat_teacher, mappings)
+            chat_relative_mappings = (
+                BroadcastFormation.filter_for_formation(chat_teacher, mappings)
+            )
 
             await chat.send_broadcast(chat_relative_mappings)
 
-    async def broadcast(self, notify: Notify, invoker: Optional[BaseCtx] = None):
+    async def broadcast_schedule_to_subscribes(
+        self,
+        header: str
+    ):
+        fn = self.get_who_enabled_broadcast_parsed
+        subscribers = await self.retry_redis_command(fn=fn)
+        
+        for chat in subscribers:
+            if chat.fmt_schedule() is None:
+                continue
+            
+            chat.schedule.reset_temps()
+            
+            # i realize how stupid this is
+            # but bro, again, i don't care
+            # and who does
+            fake_mapping = BroadcastFormation(
+                mode="",
+                formation="",
+                header=header
+            )
+            
+            await chat.send_broadcast([fake_mapping])
+
+    async def broadcast(self, notify: Notify):
         from src.data.schedule.compare import ChangeType
         from src.data.settings import Mode
 
-        GROUP_TYPES = {
-            Type.WEEKLY: notify.weekly,
-            Type.DAILY:  notify.daily
-        }
-        TCHR_TYPES = {
-            Type.WEEKLY: notify.tchr_weekly,
-            Type.DAILY:  notify.tchr_daily
-        }
+        mappings: list[BroadcastFormation] = []
 
-        mappings: list[BroadcastIdentifier] = []
+        for (mode, page_cmp) in [
+            (Mode.GROUP, notify.groups),
+            (Mode.TEACHER, notify.teachers)
+        ]:
+            do_detailed_compare = (
+                page_cmp.date.is_same() if page_cmp is not None else False
+            )
+            
+            change_types = {
+                ChangeType.APPEARED: page_cmp.formations.appeared if page_cmp else None,
+                ChangeType.CHANGED: page_cmp.formations.changed if page_cmp else None
+            }
+            
+            for (change, formations) in change_types.items():
+                formations: list[Formation | FormationCompare]
+                if formations is None: continue
+                
+                for formation in formations:
+                    name = formation.repr_name
+                    week = None
+                    
+                    if change == ChangeType.APPEARED:
+                        formation: Formation
+                        week = formation.get_week_range()
+                        fmt_changes = sc_format.CompareFormatted(
+                            text=None,
+                            has_detailed=False
+                        )
+                    elif change == ChangeType.CHANGED:
+                        formation: FormationCompare
+                        week = formation.get_week_range()
+                        fmt_changes = sc_format.cmp(
+                            model=formation,
+                            do_detailed=do_detailed_compare,
+                            ignored_fields=["days_weekly_chunked"]
+                        )
+                    
+                    header = None
+                    if mode == Mode.GROUP:
+                        header = messages.format_group_changed_in_schedule(
+                            change=change,
+                            date_range=week
+                        )
+                    elif mode == Mode.TEACHER:
+                        header = messages.format_teacher_changed_in_schedule(
+                            change=change,
+                            date_range=week
+                        )
+            
+                    if fmt_changes.text is not None:
+                        header += "\n\n"
 
-        for (mode, types) in [(Mode.GROUP, GROUP_TYPES), (Mode.TEACHER, TCHR_TYPES)]:
-            mode: str
-            types: dict[str, PageCompare | TchrPageCompare]
+                        if fmt_changes.has_detailed and not do_detailed_compare:
+                            header += messages.format_detailed_compare_not_shown()
+                            header += "\n"
 
-            for (sc_type, page_compare) in types.items():
-                do_detailed_compare = page_compare.date.is_same() if page_compare is not None else False
+                        header += fmt_changes.text
 
-                CHANGE_TYPES = None
-                if mode == Mode.GROUP:
-                    CHANGE_TYPES = {
-                        ChangeType.APPEARED: page_compare.groups.appeared if page_compare else None,
-                        ChangeType.CHANGED:  page_compare.groups.changed if page_compare else None
-                    }
-                elif mode == Mode.TEACHER:
-                    CHANGE_TYPES = {
-                        ChangeType.APPEARED: page_compare.teachers.appeared if page_compare else None,
-                        ChangeType.CHANGED:  page_compare.teachers.changed if page_compare else None
-                    }
-
-                for (change, identifiers) in CHANGE_TYPES.items():
-                    identifiers: list[RepredBaseModel]
-
-                    if identifiers is None:
-                        continue
-
-                    for identifier in identifiers:
-                        header = None
-                        if mode == Mode.GROUP:
-                            header = messages.format_group_changed_in_sc_type(
-                                change  = change,
-                                sc_type = sc_type
-                            )
-                        elif mode == Mode.TEACHER:
-                            header = messages.format_teacher_changed_in_sc_type(
-                                change  = change,
-                                sc_type = sc_type
-                            )
-
-                        name = identifier.repr_name
-
-                        if change == ChangeType.APPEARED:
-                            fmt_changes = sc_format.CompareFormatted(
-                                text=None,
-                                has_detailed=False
-                            )
-                        elif change == ChangeType.CHANGED:
-                            fmt_changes = sc_format.cmp(
-                                identifier,
-                                is_detailed = do_detailed_compare
-                            )
-
-                        if fmt_changes.text is not None:
-                            header += "\n\n"
-
-                            if fmt_changes.has_detailed and not do_detailed_compare:
-                                header += messages.format_detailed_compare_not_shown()
-                                header += "\n"
-
-                            header += fmt_changes.text
-
-                        mappings.append(BroadcastIdentifier(mode, name, header, sc_type))
-
+                    bcast_formation = BroadcastFormation(
+                        mode=mode,
+                        formation=name,
+                        header=header
+                    )
+                    
+                    mappings.append(bcast_formation)
+            
         await self.broadcast_mappings(mappings)
 
 
@@ -946,7 +1073,7 @@ class BaseCommonEvent(HiddenVars):
         return self.src == Source.TG_EDITED_CHANNEL_POST
 
     async def load_ctx(self) -> BaseCtx:
-        DbBaseCtx.ensure_update_forward_refs()
+        DbBaseCtx.ensure_rebuild()
 
         src = None
         if self.src.startswith("tg"):
@@ -977,23 +1104,23 @@ class BaseCommonEvent(HiddenVars):
     ) -> str:
         """
         ## Add generic components to `text`
-        - wise mystical tree of states on top
-        - debug info even higher
+        - debug info
+        - wise mystical tree of states
         """
         if add_tree:
             text = states_fmt.tree(
-                navigator  = self.ctx.navigator,
-                everything = everything,
-                values     = tree_values,
-                base_lvl   = base_lvl
+                navigator=self.ctx.navigator,
+                everything=everything,
+                values=tree_values,
+                base_lvl=base_lvl
             ) + "\n\n" + text
 
         if messages.DEBUGGING:
             text = messages.format_debug(
-                trace            = self.ctx.navigator.trace,
-                back_trace       = self.ctx.navigator.back_trace,
-                last_bot_message = self.ctx.last_bot_message,
-                settings         = self.ctx.settings
+                trace=self.ctx.navigator.trace,
+                back_trace=self.ctx.navigator.back_trace,
+                last_bot_message=self.ctx.last_bot_message,
+                settings=self.ctx.settings
             ) + "\n\n" + text
 
         return text
@@ -1017,7 +1144,7 @@ class CommonMessage(BaseCommonEvent):
     """ ## Info about an edited Telegram channel post """
 
     @classmethod
-    def from_vk(cls: type[CommonMessage], message: VkMessage):
+    def from_vk(cls, message: VkMessage):
         self = cls(
             src=Source.VK,
             chat_id=message.peer_id,
@@ -1257,7 +1384,6 @@ class CommonMessage(BaseCommonEvent):
         event = self.vk
         is_group_chat = event.peer_id != event.from_id
         bot_id = defs.vk_bot_info.id
-        negative_bot_id = -bot_id
 
         if not self.vk_is_invite() and (is_group_chat and not (
             self.vk_did_user_mention_bot()
@@ -1326,21 +1452,21 @@ class CommonMessage(BaseCommonEvent):
             base_lvl = 2
 
         text = self.preprocess_text(
-            text        = text,
-            add_tree    = add_tree,
-            tree_values = tree_values,
-            base_lvl    = base_lvl,
-            everything  = CommonEverything.from_message(self)
+            text=text,
+            add_tree=add_tree,
+            tree_values=tree_values,
+            base_lvl=base_lvl,
+            everything=CommonEverything.from_message(self)
         )
 
         if self.is_from_vk:
             vk_message = self.vk
 
             result = await vk.chunked_send(
-                peer_id          = vk_message.peer_id,
-                message          = text,
-                keyboard         = keyboard.to_vk().get_json() if keyboard else None,
-                dont_parse_links = True,
+                peer_id=vk_message.peer_id,
+                message=text,
+                keyboard=keyboard.to_vk().get_json() if keyboard else None,
+                dont_parse_links=True,
             )
 
             chat_id = result[-1].peer_id
@@ -1351,9 +1477,9 @@ class CommonMessage(BaseCommonEvent):
             tg_message = self.tg
 
             result = await tg.chunked_send(
-                chat_id      = tg_message.chat.id,
-                text         = text,
-                reply_markup = keyboard.to_tg() if keyboard else None,
+                chat_id=tg_message.chat.id,
+                text=text,
+                reply_markup=keyboard.to_tg() if keyboard else None,
             )
 
             chat_id = result[-1].chat.id
@@ -1361,14 +1487,14 @@ class CommonMessage(BaseCommonEvent):
             was_split = len(result) > 1
 
         bot_message = CommonBotMessage(
-            src         = self.src,
-            chat_id     = chat_id,
-            id          = id,
-            was_split   = was_split,
-            text        = text,
-            keyboard    = keyboard,
-            add_tree    = add_tree,
-            tree_values = tree_values
+            src=self.src,
+            chat_id=chat_id,
+            id=id,
+            was_split=was_split,
+            text=text,
+            keyboard=keyboard,
+            add_tree=add_tree,
+            tree_values=tree_values
         )
 
         if set_as_last:
@@ -1415,11 +1541,11 @@ class CommonBotMessage(BaseModel):
     async def send(self) -> CommonBotMessage:
         if self.is_from_vk:
             results = await vk.chunked_send(
-                peer_id          = self.chat_id,
-                message          = self.text,
-                keyboard         = self.keyboard.to_vk().get_json(),
-                reply_to         = self.reply_to,
-                dont_parse_links = True,
+                peer_id=self.chat_id,
+                message=self.text,
+                keyboard=self.keyboard.to_vk().get_json(),
+                reply_to=self.reply_to,
+                dont_parse_links=True,
             )
 
             sent_message: MessagesSendUserIdsResponseItem = results[-1]
@@ -1429,11 +1555,11 @@ class CommonBotMessage(BaseModel):
 
         elif self.is_from_tg:
             result = await tg.chunked_send(
-                chat_id                  = self.chat_id,
-                text                     = self.text,
-                reply_markup             = self.keyboard.to_tg(),
-                reply_to_message_id      = self.reply_to,
-                disable_web_page_preview = True,
+                chat_id=self.chat_id,
+                text=self.text,
+                reply_markup=self.keyboard.to_tg(),
+                reply_to_message_id=self.reply_to,
+                disable_web_page_preview=True,
             )
 
             last_message = result[-1]
@@ -1454,14 +1580,14 @@ class CommonBotMessage(BaseModel):
     async def pin(self):
         if self.is_from_vk:
             await defs.vk_bot.api.messages.pin(
-                peer_id                 = self.chat_id,
-                conversation_message_id = self.id
+                peer_id=self.chat_id,
+                conversation_message_id=self.id
             )
 
         elif self.is_from_tg:
             await defs.tg_bot.pin_chat_message(
-                chat_id    = self.chat_id,
-                message_id = self.id
+                chat_id=self.chat_id,
+                message_id=self.id
             )
 
     async def safe_pin(self):
@@ -1648,8 +1774,8 @@ class CommonEvent(BaseCommonEvent):
 
         if self.is_from_tg:
             bot = await defs.tg_bot.get_chat_member(
-                chat_id = self.chat_id,
-                user_id = defs.tg_bot_info.id
+                chat_id=self.chat_id,
+                user_id=defs.tg_bot_info.id
             )
 
             return bot.can_pin_messages
@@ -1658,23 +1784,31 @@ class CommonEvent(BaseCommonEvent):
         self,
         text: str
     ):
-        """
-        ## Show little notification on top
-        """
+        try:
+            if self.is_from_vk:
+                await defs.vk_bot.api.messages.send_message_event_answer(
+                    event_id=self.vk["object"]["event_id"],
+                    user_id=self.vk["object"]["user_id"],
+                    peer_id=self.vk["object"]["peer_id"],
+                    event_data=ShowSnackbarEvent(text=text)
+                )
+            elif self.is_from_tg:
+                await self.tg.answer(
+                    text=text,
+                    show_alert=True
+                )
+        except:
+            ...
 
+    async def pong(self):
         if self.is_from_vk:
-            result = await defs.vk_bot.api.messages.send_message_event_answer(
-                event_id   = self.vk["object"]["event_id"],
-                user_id    = self.vk["object"]["user_id"],
-                peer_id    = self.vk["object"]["peer_id"],
-                event_data = ShowSnackbarEvent(text=text)
+            await defs.vk_bot.api.messages.send_message_event_answer(
+                event_id=self.vk["object"]["event_id"],
+                user_id=self.vk["object"]["user_id"],
+                peer_id=self.vk["object"]["peer_id"]
             )
-
-        elif self.is_from_tg:
-            result = await self.tg.answer(
-                text,
-                show_alert=True
-            )
+        if self.is_from_tg:
+            await self.tg.answer()
 
     async def edit_message(
         self,
@@ -1693,11 +1827,11 @@ class CommonEvent(BaseCommonEvent):
             base_lvl = 2
 
         text = self.preprocess_text(
-            text        = text,
-            add_tree    = add_tree,
-            tree_values = tree_values,
-            base_lvl    = base_lvl,
-            everything  = CommonEverything.from_event(self)
+            text=text,
+            add_tree=add_tree,
+            tree_values=tree_values,
+            base_lvl=base_lvl,
+            everything=CommonEverything.from_event(self)
         )
 
         was_split = False
@@ -1715,10 +1849,10 @@ class CommonEvent(BaseCommonEvent):
                 was_sent_instead = True
 
                 result = await vk.chunked_send(
-                    peer_id          = chat_id,
-                    message          = text,
-                    keyboard         = keyboard.to_vk().get_json() if keyboard else None,
-                    dont_parse_links = True,
+                    peer_id=chat_id,
+                    message=text,
+                    keyboard=keyboard.to_vk().get_json() if keyboard else None,
+                    dont_parse_links=True,
                 )
 
                 message_id = result[-1].conversation_message_id
@@ -1732,11 +1866,11 @@ class CommonEvent(BaseCommonEvent):
             else:
                 try:
                     result = await vk.chunked_edit(
-                        peer_id                 = chat_id,
-                        conversation_message_id = message_id,
-                        message                 = text,
-                        keyboard                = keyboard.to_vk().get_json() if keyboard else None,
-                        dont_parse_links        = True,
+                        peer_id=chat_id,
+                        conversation_message_id=message_id,
+                        message=text,
+                        keyboard=keyboard.to_vk().get_json() if keyboard else None,
+                        dont_parse_links=True,
                     )
 
                     if len(result[1]) > 0:
@@ -1757,24 +1891,29 @@ class CommonEvent(BaseCommonEvent):
                 was_sent_instead = True
 
                 result = await tg.chunked_send(
-                    chat_id = chat_id,
-                    text    = text,
-                    reply_markup= keyboard.to_tg() if keyboard else None
+                    chat_id=chat_id,
+                    text=text,
+                    reply_markup=keyboard.to_tg() if keyboard else None
                 )
 
                 message_id = result[-1].message_id
                 was_split = len(result) > 1
             else:
-                result = await tg.chunked_edit(
-                    chat_id      = chat_id,
-                    message_id   = message_id,
-                    text         = text,
-                    reply_markup = keyboard.to_tg() if keyboard else None,
-                )
-
-                if len(result[1]) > 0:
-                    message_id = result[1][-1].message_id
-                    was_split = True
+                try:
+                    result = await tg.chunked_edit(
+                        chat_id=chat_id,
+                        message_id=message_id,
+                        text=text,
+                        reply_markup=keyboard.to_tg() if keyboard else None,
+                    )
+                    
+                    if len(result[1]) > 0:
+                        message_id = result[1][-1].message_id
+                        was_split = True
+                except TelegramBadRequest as e:
+                    if "exactly the same" in e.message:
+                        await self.tg.answer()
+                    else: raise e
 
         if was_sent_instead:
             await self.show_notification(
@@ -1782,14 +1921,14 @@ class CommonEvent(BaseCommonEvent):
             )
 
         bot_message = CommonBotMessage(
-            src         = self.src,
-            chat_id     = chat_id,
-            id          = message_id,
-            was_split   = was_split,
-            text        = text,
-            keyboard    = keyboard,
-            add_tree    = add_tree,
-            tree_values = tree_values
+            src=self.src,
+            chat_id=chat_id,
+            id=message_id,
+            was_split=was_split,
+            text=text,
+            keyboard=keyboard,
+            add_tree=add_tree,
+            tree_values=tree_values
         )
 
         await self.ctx.set_last_bot_message(bot_message)
@@ -1812,11 +1951,11 @@ class CommonEvent(BaseCommonEvent):
             base_lvl = 2
 
         text = self.preprocess_text(
-            text        = text,
-            add_tree    = add_tree,
-            tree_values = tree_values,
-            base_lvl    = base_lvl,
-            everything  = CommonEverything.from_event(self)
+            text=text,
+            add_tree=add_tree,
+            tree_values=tree_values,
+            base_lvl=base_lvl,
+            everything=CommonEverything.from_event(self)
         )
 
         was_split = False
@@ -1826,10 +1965,10 @@ class CommonEvent(BaseCommonEvent):
             message_id = self.vk["object"]["conversation_message_id"]
 
             result = await vk.chunked_send(
-                peer_id          = chat_id,
-                message          = text,
-                keyboard         = keyboard.to_vk().get_json() if keyboard else None,
-                dont_parse_links = True,
+                peer_id=chat_id,
+                message=text,
+                keyboard=keyboard.to_vk().get_json() if keyboard else None,
+                dont_parse_links=True,
             )
 
             message_id = result[-1].conversation_message_id
@@ -1840,23 +1979,23 @@ class CommonEvent(BaseCommonEvent):
             message_id = self.tg.message.message_id
 
             result = await tg.chunked_send(
-                chat_id = chat_id,
-                text    = text,
-                reply_markup= keyboard.to_tg() if keyboard else None
+                chat_id=chat_id,
+                text=text,
+                reply_markup=keyboard.to_tg() if keyboard else None
             )
 
             message_id = result[-1].message_id
             was_split = len(result) > 1
 
         bot_message = CommonBotMessage(
-            src         = self.src,
-            chat_id     = chat_id,
-            id          = message_id,
-            was_split   = was_split,
-            text        = text,
-            keyboard    = keyboard,
-            add_tree    = add_tree,
-            tree_values = tree_values
+            src=self.src,
+            chat_id=chat_id,
+            id=message_id,
+            was_split=was_split,
+            text=text,
+            keyboard=keyboard,
+            add_tree=add_tree,
+            tree_values=tree_values
         )
 
         if set_as_last:
@@ -1883,11 +2022,11 @@ class CommonEverything(BaseCommonEvent):
     @classmethod
     def from_message(cls: type[CommonEverything], message: CommonMessage):
         self = cls(
-            src         = message.src,
-            chat_id     = message.chat_id,
-            event_src   = Source.MESSAGE,
-            message     = message,
-            hidden_vars = False
+            src=message.src,
+            chat_id=message.chat_id,
+            event_src=Source.MESSAGE,
+            message=message,
+            hidden_vars=False
         )
 
         return self
@@ -1895,11 +2034,11 @@ class CommonEverything(BaseCommonEvent):
     @classmethod
     def from_event(cls: type[CommonEverything], event: CommonEvent):
         self = cls(
-            src         = event.src,
-            chat_id     = event.chat_id,
-            event_src   = Source.EVENT,
-            event       = event,
-            hidden_vars = False
+            src=event.src,
+            chat_id=event.chat_id,
+            event_src=Source.EVENT,
+            event=event,
+            hidden_vars=False
         )
 
         return self
@@ -2055,8 +2194,9 @@ class CommonEverything(BaseCommonEvent):
         tree_values: Optional[Values] = None
     ):
         """
-        - if we received a `message`, we SEND our response `(answer)`
-        - if we received an `event`, we EDIT the message with response
+        If we have received a `message`, we SEND our response (answer).
+        
+        If we have received an `event`, we EDIT the message with our response.
         """
         event = self.event
         if event is not None:
@@ -2067,9 +2207,16 @@ class CommonEverything(BaseCommonEvent):
         send = False
         notify_about_resending = False
 
-        if self.is_from_event and self.ctx.last_bot_message and self.ctx.last_bot_message.can_edit:
+        if (
+            self.is_from_event and
+            self.ctx.last_bot_message and
+            self.ctx.last_bot_message.can_edit
+        ):
             edit = True
-        elif self.is_from_event and (not self.ctx.last_bot_message or not self.ctx.last_bot_message.can_edit):
+        elif (
+            self.is_from_event and
+            (not self.ctx.last_bot_message or not self.ctx.last_bot_message.can_edit)
+        ):
             send = True
             notify_about_resending = True
         else:
@@ -2077,10 +2224,10 @@ class CommonEverything(BaseCommonEvent):
 
         if edit:
             return await event.edit_message(
-                text        = text,
-                keyboard    = keyboard,
-                add_tree    = add_tree,
-                tree_values = tree_values
+                text=text,
+                keyboard=keyboard,
+                add_tree=add_tree,
+                tree_values=tree_values
             )
         elif send:
             if notify_about_resending:
@@ -2090,10 +2237,10 @@ class CommonEverything(BaseCommonEvent):
 
             if message is not None:
                 return await message.answer(
-                    text        = text,
-                    keyboard    = keyboard,
-                    add_tree    = add_tree,
-                    tree_values = tree_values
+                    text=text,
+                    keyboard=keyboard,
+                    add_tree=add_tree,
+                    tree_values=tree_values
                 )
             else:
                 return await event.send_message(
@@ -2115,22 +2262,22 @@ class CommonEverything(BaseCommonEvent):
             event = self.event
 
             return await event.send_message(
-                text        = text,
-                keyboard    = keyboard,
-                add_tree    = add_tree,
-                tree_values = tree_values,
-                set_as_last = set_as_last
+                text=text,
+                keyboard=keyboard,
+                add_tree=add_tree,
+                tree_values=tree_values,
+                set_as_last=set_as_last
             )
 
         if self.is_from_message:
             message = self.message
 
             return await message.answer(
-                text        = text,
-                keyboard    = keyboard,
-                add_tree    = add_tree,
-                tree_values = tree_values,
-                set_as_last = set_as_last
+                text=text,
+                keyboard=keyboard,
+                add_tree=add_tree,
+                tree_values=tree_values,
+                set_as_last=set_as_last
             )
 
     async def send_message(
@@ -2141,10 +2288,10 @@ class CommonEverything(BaseCommonEvent):
     ):
         if self.is_from_vk:
             result = await vk.chunked_send(
-                peer_id  = self.chat_id,
-                message  = text,
-                keyboard = keyboard.to_vk().get_json() if keyboard else None,
-                chunker  = chunker
+                peer_id=self.chat_id,
+                message=text,
+                keyboard=keyboard.to_vk().get_json() if keyboard else None,
+                chunker=chunker
             )
         
             chat_id = result[-1].peer_id
@@ -2152,10 +2299,10 @@ class CommonEverything(BaseCommonEvent):
             was_split = len(result) > 1
         if self.is_from_tg:
             result = await tg.chunked_send(
-                chat_id      = self.chat_id,
-                text         = text,
-                reply_markup = keyboard.to_tg() if keyboard else None,
-                chunker      = chunker
+                chat_id=self.chat_id,
+                text=text,
+                reply_markup=keyboard.to_tg() if keyboard else None,
+                chunker=chunker
             )
 
             chat_id = result[-1].chat.id
@@ -2163,14 +2310,14 @@ class CommonEverything(BaseCommonEvent):
             was_split = len(result) > 1
 
         bot_message = CommonBotMessage(
-            src         = self.src,
-            chat_id     = chat_id,
-            id          = id,
-            was_split   = was_split,
-            text        = text,
-            keyboard    = keyboard,
-            add_tree    = False,
-            tree_values = None
+            src=self.src,
+            chat_id=chat_id,
+            id=id,
+            was_split=was_split,
+            text=text,
+            keyboard=keyboard,
+            add_tree=False,
+            tree_values=None
         )
         
         return bot_message
@@ -2209,9 +2356,11 @@ def run_forever():
                 await asyncio.sleep(1)
 
             logger.info("starting vk polling again")
-
-    defs.create_task(tg_start_polling())
-    defs.create_task(vk_run_polling())
+    
+    if defs.vk_bot:
+        defs.create_task(vk_run_polling())
+    if defs.tg_dispatch:
+        defs.create_task(tg_start_polling())
 
     try:
         loop.run_forever()

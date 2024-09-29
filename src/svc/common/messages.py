@@ -1,17 +1,17 @@
 from __future__ import annotations
-from typing import Any, Optional, TYPE_CHECKING
-from dotenv import get_key
-import html
-import datetime
 
-from src import defs, ENV_PATH
+import datetime
+import html
+from typing import Any, Optional, TYPE_CHECKING
+from src import defs
+from src.data import zoom, format as output
 from src.data.settings import Settings
-from src.svc import common
-from src.data import zoom, format as fmt, schedule
 from src.data.schedule import compare
+from src.data.range import Range
 from src.parse.zoom import Key
+from src.svc import telegram as tg, common
 from src.svc.common.states import State
-from src.svc.common.keyboard import Text, Payload
+from src.svc.common.keyboard import Text
 
 
 if TYPE_CHECKING:
@@ -27,13 +27,21 @@ class Builder:
         separator: str = "\n\n",
     ) -> None:
         self.separator = separator
-        self.components: list[str] = []
+        self.components: list[tuple[int, str]] = []
+        self._holden_remover: Optional[int] = None
 
     def add(self, text: str) -> Builder:
         if text == "" or text is None:
             return self
-
-        self.components.append(text)
+        
+        remover = self._holden_remover or 0
+        self.components.append((remover, text))
+        self._holden_remover = None
+            
+        return self
+    
+    def rm_prev_chars(self, count: int) -> Builder:
+        self._holden_remover = count
         return self
 
     def add_if(self, text: str, condition: bool):
@@ -43,7 +51,18 @@ class Builder:
         return self
 
     def make(self) -> str:
-        return self.separator.join(self.components)
+        output = ""
+        
+        for idx, (rm_count, comp) in enumerate(self.components):
+            is_last = idx == len(self.components) - 1
+            if output and rm_count > 0:
+                output = output[:len(output)-rm_count]
+                
+            output += comp
+            if not is_last:
+                output += self.separator
+            
+        return output
 
 
 #### Common footers and headers ####
@@ -57,14 +76,10 @@ def default_footer_addition(everything: common.CommonEverything):
     - so we should ask user to reply
     or mention the bot
     """
-
-    from src import defs
-
     mention = ""
     footer_addition = ""
 
     if everything.is_group_chat:
-
         if everything.is_from_vk:
             mention = defs.vk_bot_mention
             footer_addition = format_mention_me(mention)
@@ -80,8 +95,12 @@ MSG_DEBUG = (
     "8==o🤮 back_trace:\n"
     "{back_trace}"
 )
-def format_debug(trace: list[State], back_trace: list[State], last_bot_message: common.CommonBotMessage, settings: Settings):
-
+def format_debug(
+    trace: list[State],
+    back_trace: list[State],
+    last_bot_message: common.CommonBotMessage,
+    settings: Settings
+):
     def fmt_trace(trace: list[State]):
         return "\n".join([f"   {state.space}:{state.anchor}" for state in trace])
 
@@ -89,8 +108,8 @@ def format_debug(trace: list[State], back_trace: list[State], last_bot_message: 
     back_trace_str = fmt_trace(back_trace)
 
     return MSG_DEBUG.format(
-        trace            = trace_str,
-        back_trace       = back_trace_str,
+        trace=trace_str,
+        back_trace=back_trace_str,
     )
 
 
@@ -115,15 +134,8 @@ def format_empty_page():
     return MSG_EMPTY_PAGE
 
 
-MSG_NO_MORE_PAGES = (
-    "■ Дальше ничего нет"
-)
-def format_no_more_pages() -> str:
-    return MSG_NO_MORE_PAGES
-
-
 MSG_PRESS_BEGIN = (
-    f"👇 Нажимай {Text.BEGIN}, хуле"
+    f"👇 Нажимай {Text.BEGIN}"
 )
 def format_press_begin():
     return MSG_PRESS_BEGIN
@@ -194,29 +206,36 @@ MSG_CURRENT_VALUE = (
 )
 def format_current_value(value: Any):
     return MSG_CURRENT_VALUE.format(
-        value = fmt.value_repr(value)
+        value = output.value_repr(value)
     )
 
 
 MSG_CANT_CONNECT_TO_SCHEDULE_SERVER = (
-    f"🤔 | Невозможно подключиться к серверу расписания"
+    "🤔 | Невозможно подключиться к серверу расписания"
 )
 def format_cant_connect_to_schedule_server() -> str:
     return MSG_CANT_CONNECT_TO_SCHEDULE_SERVER
+
+
+MSG_SCHEDULE_UNAVAILABLE = (
+    "🤔 | Расписание недоступно"
+)
+def format_schedule_unavailable() -> str:
+    return MSG_SCHEDULE_UNAVAILABLE
 
 
 #### Full messages for specific states ####
 
 MSG_WELCOME =  (
     "👨🏿 Буду пиздить расписание "
-    "с 🌐 ktmu-sutd.ru 🌐 "
-    "и делиться с {count}"
+    "с ktmu-sutd.ru "
+    "и делиться с {noun}"
 )
 def format_welcome(is_group_chat: bool):
     if is_group_chat:
-        return MSG_WELCOME.format(count="вами")
+        return MSG_WELCOME.format(noun="вами")
     else:
-        return MSG_WELCOME.format(count="тобой")
+        return MSG_WELCOME.format(noun="тобой")
 
 MSG_CHOOSE_SCHEDULE_MODE = (
     "⛓️ | Выбери режим расписания"
@@ -254,7 +273,7 @@ def format_unknown_identifier(identifier: str):
 
 
 MSG_INVALID_GROUP = (
-    "❌ | Эта хуйня не подходит под формат:\n"
+    "❌ | Это не подходит под формат:\n"
     "  └ 1кдд69\n"
     "  └ 1-кдд-69\n"
     "  └ 1КДД69\n"
@@ -266,7 +285,7 @@ def format_invalid_group():
 
 
 MSG_INVALID_TEACHER = (
-    "❌ | Эта хуйня не подходит под формат:\n"
+    "❌ | Это не подходит под формат:\n"
     "  └ Говновоз Ж.Д.\n"
     "  └ Говновоз жд\n"
     "  └ Говновоз\n"
@@ -331,27 +350,16 @@ def format_permit_pin(src: common.MESSENGER_OR_EVT_SOURCE):
 
 
 MSG_CANT_PIN_VK = (
-    "❌ Нихуя нет, перепроверь мою админку"
+    "❌ Не получилось, проверь мою админку"
 )
 MSG_CANT_PIN_TG = (
-    "❌ Нихуя нет, перепроверь моё право \"Закрепление сообщений\""
+    "❌ Не получилось, проверь моё право \"Закрепление сообщений\""
 )
 def format_cant_pin(src: common.MESSENGER_OR_EVT_SOURCE):
     if src == common.Source.VK:
         return MSG_CANT_PIN_VK
     if src == common.Source.TG:
         return MSG_CANT_PIN_TG
-
-
-MSG_TIME_OVERRIDE = (
-    "{timetable}\n\n"
-    "🕒 | Я могу ставить такой график звонков вместо "
-    "того, что указано в обычном распиcании\n"
-    "💡 | Используй это, если тебя тоже заебал неправильно указанный "
-    "график в субботу"
-)
-def format_time_override(timetable: str):
-    return MSG_TIME_OVERRIDE.format(timetable=timetable)
 
 
 MSG_RECOMMEND_ADDING_ZOOM = (
@@ -371,7 +379,7 @@ def format_choose_adding_type():
 
 MSG_ZOOM_ADD_FROM_TEXT_EXPLAIN = (
     f"{Text.FROM_TEXT} - пишешь одно сообщение по формату, "
-    f"автоматом берёт все данные"
+    "автоматом берёт все данные"
 )
 def format_zoom_add_from_text_explain():
     return MSG_ZOOM_ADD_FROM_TEXT_EXPLAIN
@@ -379,7 +387,7 @@ def format_zoom_add_from_text_explain():
 
 MSG_ZOOM_ADD_MANUALLY_INIT_EXPLAIN = (
     f"{Text.MANUALLY} - добавляешь, изменяешь, удаляешь "
-    f"по отдельности"
+    "по отдельности"
 )
 def format_zoom_add_manually_init_explain():
     return MSG_ZOOM_ADD_MANUALLY_INIT_EXPLAIN
@@ -400,7 +408,7 @@ def format_send_zoom_data():
 
 
 MSG_ZOOM_DATA_FORMAT = (
-    f"📝 | Формат:\n"
+    "📝 | Формат:\n"
     f"   ↵ {Key.NAME}: <Фамилия> <И>.<О>.\n"
     f"   ↵ {Key.URL}: <Ссылка>\n"
     f"   ↵ {Key.ID}: <ID>\n"
@@ -410,6 +418,7 @@ MSG_ZOOM_DATA_FORMAT = (
 )
 def format_zoom_data_format(do_escape: bool = False):
     text = MSG_ZOOM_DATA_FORMAT
+    
     if do_escape:
         return html.escape(text)
 
@@ -417,7 +426,7 @@ def format_zoom_data_format(do_escape: bool = False):
 
 
 MSG_TCHR_ZOOM_DATA_FORMAT = (
-    f"📝 | Формат:\n"
+    "📝 | Формат:\n"
     f"   ↵ {Key.NAME}: <Имя записи>\n"
     f"   ↵ {Key.URL}: <Ссылка>\n"
     f"   ↵ {Key.ID}: <ID>\n"
@@ -428,6 +437,7 @@ MSG_TCHR_ZOOM_DATA_FORMAT = (
 )
 def format_tchr_zoom_data_format(do_escape: bool = False):
     text = MSG_TCHR_ZOOM_DATA_FORMAT
+    
     if do_escape:
         return html.escape(text)
 
@@ -436,38 +446,53 @@ def format_tchr_zoom_data_format(do_escape: bool = False):
 
 MSG_ZOOM_EXAMPLE = (
     "🔖 | Например:\n"
-    "имя: Ебанько Х.Й.\n"
-    "ссылка: https://pornhub.com\n"
-    "Ид: 22813376969\n"
-    "Код: 0oChK0\n"
+    "<code>"
+    "   имя: Говновоз Ж.Д.\n"
+    "   ссылка: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d\n"
+    "   Ид: 22813376969\n"
+    "   Код: 0oChK0\n"
     "\n"
-    "имя: Говновоз Ж.\n"
-    "Ид: 22813376969\n"
-    "заметки: выебывается на парах"
+    "   имя: Говновоз Ж.\n"
+    "   Ид: 22813376969\n"
+    "   заметки: говновоз жидкий дрист https://www.nsopw.gov"
+    "</code>"
 )
-def format_zoom_example():
-    return MSG_ZOOM_EXAMPLE
+def format_zoom_example(do_markup: bool = True):
+    text = MSG_ZOOM_EXAMPLE
+    
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_TCHR_ZOOM_EXAMPLE = (
     "🔖 | Например:\n"
-    "имя: Для 1КДД69\n"
-    "ссылка: https://pornhub.com\n"
-    "Ид: 22813376969\n"
-    "Код: 0oChK0\n"
-    "ключ: h0stk3y\n"
+    "<code>"
+    "   имя: Для 1КДД69\n"
+    "   ссылка: https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d\n"
+    "   Ид: 22813376969\n"
+    "   Код: 0oChK0\n"
+    "   ключ: mRp3ni5\n"
     "\n"
-    "Имя: Доп. занятия\n"
-    "Ид: 22813376969\n"
-    "заметки: впускать только 2КДД69"
+    "   Имя: Доп. занятия\n"
+    "   Ид: 22813376969\n"
+    "   заметки: только 2КДД69"
+    "</code>"
 )
-def format_tchr_zoom_example():
-    return MSG_TCHR_ZOOM_EXAMPLE
+def format_tchr_zoom_example(do_markup: bool = True):
+    text = MSG_TCHR_ZOOM_EXAMPLE
+    
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_MASS_ZOOM_DATA_EXPLAIN = (
     "❗ Обязательно ставь префикс в начале строки, регистр неважен\n"
-    "💡 Можешь писать в разной последовательности и пропускать некоторые поля"
+    "💡 Можешь писать в разной последовательности и пропускать некоторые поля\n"
+    "💡 В одном сообщении может быть несколько блоков, смотри пример"
 )
 def format_mass_zoom_data_explain():
     return MSG_MASS_ZOOM_DATA_EXPLAIN
@@ -492,11 +517,17 @@ def format_tchr_doesnt_contain_zoom():
 
 
 MSG_YOU_CAN_ADD_MORE = (
-    "🤓 | Ты можешь добавить больше или перезаписать что-то, "
-    "просто отправь ещё одно сообщение с данными"
+    "💡 | Отправь ещё одно сообщение с данными, чтобы добавить ещё или перезаписать"
 )
 def format_you_can_add_more():
     return MSG_YOU_CAN_ADD_MORE
+
+
+MSG_ENTRY_QUICK_LOOKUP = (
+    "💡 | Отправь имя записи или номер страницы, чтобы перейти к ней"
+)
+def format_entry_quick_lookup():
+    return MSG_ENTRY_QUICK_LOOKUP
 
 
 MSG_VALUE_TOO_BIG = (
@@ -508,18 +539,28 @@ def format_value_too_big(limit: int):
 
 MSG_ENTER_NAME = (
     "🐷 | Отправь новое имя этой записи\n"
-    "  └ 👉 Например: Ебанько Х.Й., Ебанько Х."
+    "  └ 👉 Например: <code>Говновоз Ж.Д.</code>, <code>Говновоз Ж.</code>"
 )
-def format_enter_name():
-    return MSG_ENTER_NAME
+def format_enter_name(do_markup: bool = True):
+    text = MSG_ENTER_NAME
+    
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_TCHR_ENTER_NAME = (
     "🐷 | Отправь новое имя этой записи\n"
-    "  └ 👉 Например: Для 1КДД69, Доп. занятия"
+    "  └ 👉 Например: <code>Для 1КДД69</code>, <code>Доп. занятия</code>"
 )
-def format_tchr_enter_name():
-    return MSG_TCHR_ENTER_NAME
+def format_tchr_enter_name(do_markup: bool = True):
+    text = MSG_TCHR_ENTER_NAME
+    
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_NAME_IN_DATABASE = (
@@ -531,34 +572,54 @@ def format_name_in_database():
 
 MSG_ENTER_URL = (
     "🌐 | Отправь новую ссылку для этой записи\n"
-    "  └ 👉 Например: https://us04web.zoom.us/j/2281337300?pwd=p0s0siMOEpotn0e0CHKOmudilaEBANYA"
+    "  └ 👉 Например: <code>https://us04web.zoom.us/j/2281337300?pwd=I4mTir3d0fPl4yingWithMyW00d</code>"
 )
-def format_enter_url():
-    return MSG_ENTER_URL
+def format_enter_url(do_markup: bool = True):
+    text = MSG_ENTER_URL
+    
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_ENTER_ID = (
     "📍 | Отправь новый ID для этой записи\n"
-    "  └ 👉 Например: 2281337300"
+    "  └ 👉 Например: <code>2281337300</code>"
 )
-def format_enter_id():
-    return MSG_ENTER_ID
+def format_enter_id(do_markup: bool = True):
+    text = MSG_ENTER_ID
+
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_ENTER_PWD = (
     "🔑 | Отправь новый пароль для этой записи\n"
-    "  └ 👉 Например: 0oChKo или др."
+    "  └ 👉 Например: <code>0oChKo</code> или др."
 )
-def format_enter_pwd():
-    return MSG_ENTER_PWD
+def format_enter_pwd(do_markup: bool = True):
+    text = MSG_ENTER_PWD
+
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_ENTER_HOST_KEY = (
     "🔒 | Отправь новый ключ хоста для этой записи\n"
-    "  └ 👉 Например: 0oChKo или др."
+    "  └ 👉 Например: <code>mRp3ni5</code> или др."
 )
-def format_enter_host_key():
-    return MSG_ENTER_HOST_KEY
+def format_enter_host_key(do_markup: bool = True):
+    text = MSG_ENTER_HOST_KEY
+
+    if not do_markup:
+        return tg.remove_markup(text)
+    
+    return text
 
 
 MSG_ENTER_NOTES = (
@@ -621,9 +682,11 @@ def format_zoom_mass_adding_overview(
 
 
 MSG_DUMP_EXPLAIN = (
-    f"💾 | Ты можешь преобразовать все добавленные здесь записи в текстовый вид "
+    f"💾 | Ты можешь преобразовать "
+    f"все добавленные здесь записи в текстовый вид "
     f"и добавить их в другом диалоге через функцию {Text.FROM_TEXT}\n\n"
-    f"💡 | Если записей слишком много, они могут быть отправлены несколькими сообщениями\n\n"
+    f"💡 | Если записей слишком много, "
+    f"они могут быть отправлены несколькими сообщениями\n\n"
     f"👇 | Нажимай {Text.DUMP} чтобы засрать беседу"
 )
 def format_dump_explain():
@@ -638,14 +701,16 @@ def format_remove_confirmation(removal_type: str):
 
 
 MSG_YOU_CAN_DUMP_ENTRIES_BEFORE_REMOVAL = (
-    "💾 | Ты можешь сделать дамп перед удалением, чтобы не потерять их"
+    "💾 | Ты можешь сделать дамп "
+    "перед удалением, чтобы не потерять их"
 )
 def format_you_can_dump_entries_before_removal():
     return MSG_YOU_CAN_DUMP_ENTRIES_BEFORE_REMOVAL
 
 
 MSG_FINISH = (
-    f"👍 | Фпринципи фсё, можешь перепроверить или нажать {Text.FINISH}"
+    f"👍 | Готово, можешь перепроверить "
+    f"или нажать {Text.FINISH}"
 )
 def format_finish():
     return MSG_FINISH
@@ -653,62 +718,70 @@ def format_finish():
 
 MSG_GROUP_SETTING_EXPLAIN = (
     f"{Text.GROUP}: ""{group}\n"
-    "└ Настройки группы, с которой работает негр"
+    f"└ Настройки группы, с которой работает негр"
 )
 MSG_TEACHER_SETTING_EXPLAIN = (
     f"{Text.TEACHER}: ""{teacher}\n"
-    "└ Настройки препода, с которым работает негр"
+    f"└ Настройки препода, с которым работает негр"
 )
 MSG_BROADCAST_SETTING_EXPLAIN = (
     f"{Text.BROADCAST}: ""{broadcast}\n"
-    "└ Получишь ли ты новое сообщение при обновлении расписания для установленной группы"
+    f"└ Получишь ли ты новое сообщение "
+    f"при обновлении расписания для установленной группы"
 )
 MSG_TCHR_BROADCAST_SETTING_EXPLAIN = (
     f"{Text.BROADCAST}: ""{broadcast}\n"
-    "└ Получишь ли ты новое сообщение при обновлении расписания для установленного препода"
+    f"└ Получишь ли ты новое сообщение "
+    f"при обновлении расписания для установленного препода"
 )
 MSG_PIN_SETTING_EXPLAIN = (
     f"{Text.PIN}: ""{do_pin}\n"
-    "└ Закрепит ли негр рассылку расписания"
+    f"└ Закрепит ли негр рассылку расписания"
 )
 MSG_ZOOM_SETTING_EXPLAIN = (
     f"{Text.ZOOM}: ""{zoom}\n"
-    "└ Настройки данных преподов: их имена, ссылки, ID, пароли и заметки, которые показываются в расписании"
+    f"└ Настройки данных преподов: "
+    f"их имена, ссылки, ID, пароли и заметки, "
+    f"которые показываются в расписании"
 )
 MSG_TCHR_ZOOM_SETTING_EXPLAIN = (
     f"{Text.ZOOM}: ""{zoom}\n"
-    "└ Настройки данных Zoom: ссылки, ID, пароли и заметки, которые показываются в расписании"
-)
-MSG_TIME_OVERRIDE_EXPLAIN = (
-    f"{Text.TIME} ""{time}\n"
-    "└ Перезапись времени из расписания на статичный график"
+    f"└ Настройки данных Zoom: "
+    f"ссылки, ID, пароли и заметки, "
+    f"которые показываются в расписании"
 )
 MSG_RESET_SETTING_EXPLAIN = (
     f"{Text.RESET}\n"
-    "└ Сбросить все данные и начать первоначальную настройку"
+    f"└ Сбросить все данные "
+    f"и начать первоначальную настройку"
 )
 def format_settings_main(
     is_group_chat: bool,
     group: str,
     broadcast: bool,
     do_pin: bool,
-    zoom: int,
-    time: str
+    zoom: int
 ) -> str:
     text = ""
 
-    text += f"{MSG_GROUP_SETTING_EXPLAIN.format(group=fmt.value_repr(group))}\n"
+    text += MSG_GROUP_SETTING_EXPLAIN.format(
+        group=output.value_repr(group)
+    ) + "\n"
     text += "\n"
-    text += f"{MSG_BROADCAST_SETTING_EXPLAIN.format(broadcast=fmt.value_repr(broadcast))}\n"
+    text += MSG_BROADCAST_SETTING_EXPLAIN.format(
+        broadcast=output.value_repr(broadcast)
+    ) + "\n"
     text += "\n"
     if is_group_chat:
-        text += f"{MSG_PIN_SETTING_EXPLAIN.format(do_pin=fmt.value_repr(do_pin))}\n"
+        text += MSG_PIN_SETTING_EXPLAIN.format(
+            do_pin=output.value_repr(do_pin)
+        ) + "\n"
         text += "\n"
-    text += f"{MSG_ZOOM_SETTING_EXPLAIN.format(zoom=fmt.value_repr(zoom))}\n"
+    text += MSG_ZOOM_SETTING_EXPLAIN.format(
+        zoom=output.value_repr(zoom)
+    ) + "\n"
     text += "\n"
-    text += f"{MSG_TIME_OVERRIDE_EXPLAIN.format(time=fmt.value_repr(time))}\n"
-    text += "\n"
-    text += f"{MSG_RESET_SETTING_EXPLAIN}\n"
+    text += MSG_RESET_SETTING_EXPLAIN + "\n"
 
     return text
 
@@ -717,28 +790,37 @@ def format_tchr_settings_main(
     teacher: str,
     broadcast: bool,
     do_pin: bool,
-    zoom: int,
-    time: str
+    zoom: int
 ) -> str:
     text = ""
 
-    text += f"{MSG_TEACHER_SETTING_EXPLAIN.format(teacher=fmt.value_repr(teacher))}\n"
+    text += MSG_TEACHER_SETTING_EXPLAIN.format(
+        teacher=output.value_repr(teacher)
+    ) + "\n"
     text += "\n"
-    text += f"{MSG_TCHR_BROADCAST_SETTING_EXPLAIN.format(broadcast=fmt.value_repr(broadcast))}\n"
+    text += MSG_TCHR_BROADCAST_SETTING_EXPLAIN.format(
+        broadcast=output.value_repr(broadcast)
+    ) + "\n"
     text += "\n"
     if is_group_chat:
-        text += f"{MSG_PIN_SETTING_EXPLAIN.format(do_pin=fmt.value_repr(do_pin))}\n"
+        text += MSG_PIN_SETTING_EXPLAIN.format(
+            do_pin=output.value_repr(do_pin)
+        ) + "\n"
         text += "\n"
-    text += f"{MSG_TCHR_ZOOM_SETTING_EXPLAIN.format(zoom=fmt.value_repr(zoom))}\n"
+    text += MSG_TCHR_ZOOM_SETTING_EXPLAIN.format(
+        zoom=output.value_repr(zoom)
+    ) + "\n"
     text += "\n"
-    text += f"{MSG_RESET_SETTING_EXPLAIN}\n"
+    text += MSG_RESET_SETTING_EXPLAIN + "\n"
 
     return text
 
 
 MSG_RESET_EXPLAIN = (
-    f"🗑️ | Это сбросит все настройки + Zoom данные и потребует пройти начальную настройку\n\n"
-    f"👇 | Нажимай {Text.RESET} чтобы у тебя тоже была болезнь Альцгеймера"
+    f"🗑️ | Это сбросит все настройки + Zoom данные "
+    f"и потребует пройти начальную настройку\n\n"
+    f"👇 | Нажимай {Text.RESET} если тоже хочешь "
+    f"болезнь Альцгеймера"
 )
 def format_reset_explain() -> str:
     return MSG_RESET_EXPLAIN
@@ -758,7 +840,10 @@ def format_logs_empty(do_escape: bool = False) -> str:
 MSG_EXECUTION_ERROR = (
     "❌ Error: {error}"
 )
-def format_execution_error(error: str, traceback: Optional[str] = None) -> str:
+def format_execution_error(
+    error: str,
+    traceback: Optional[str] = None
+) -> str:
     exec_error_message = MSG_EXECUTION_ERROR
     if traceback is not None:
         exec_error_message += "\n\n"
@@ -775,7 +860,10 @@ MSG_EXECUTE_CODE_EXPLAIN = (
     "src.svc.common.keyboard (Keyboard, *_BUTTON)\n"
     "src.svc.common.states.tree (HUB, SETTINGS, ...)"
 )
-def format_execute_code_explain(exposed_vars: list[str], print_example: str) -> str:
+def format_execute_code_explain(
+    exposed_vars: list[str],
+    print_example: str
+) -> str:
     return MSG_EXECUTE_CODE_EXPLAIN.format(
         exposed_vars=", ".join(exposed_vars),
         print_example=print_example
@@ -783,21 +871,21 @@ def format_execute_code_explain(exposed_vars: list[str], print_example: str) -> 
 
 
 MSG_NO_RIGHTS = (
-    "Хуй знает как у тебя это получилось, но тебе это недоступно"
+    "Тебе это недоступно"
 )
 def format_no_rights() -> str:
     return MSG_NO_RIGHTS
 
 
 MSG_NO_SCHEDULE = (
-    f"🤔 Твоей группы нет в этом расписании"
+    "🤔 Группы нет в этом расписании"
 )
 def format_no_schedule() -> str:
     return MSG_NO_SCHEDULE
 
 
 MSG_TCHR_NO_SCHEDULE = (
-    f"🤔 Препода нет в этом расписании"
+    "🤔 Препода нет в этом расписании"
 )
 def format_tchr_no_schedule() -> str:
     return MSG_TCHR_NO_SCHEDULE
@@ -805,42 +893,15 @@ def format_tchr_no_schedule() -> str:
 
 MSG_SCHEDULE_FOOTER = (
     "⏱ Последнее обновление: {last_update}\n"
-    "✉ Период автообновления: {update_period} мин"
+    "✉ Период автообновления: {update_period}"
 )
 def format_schedule_footer(last_update: Any, update_period: Any) -> str:
     return MSG_SCHEDULE_FOOTER.format(
-        last_update=last_update,
-        update_period=update_period
+        last_update=last_update if last_update else "неизвестно",
+        update_period=f"{update_period} мин" if update_period else "неизвестно"
     )
 
 
-MSG_NO_UPDATES = (
-    "🤔 Обновлений не найдено"
-)
-def format_no_updates():
-    return MSG_NO_UPDATES
-
-MSG_UPDATES_SENT = (
-    "✅ Обновления найдены, будут отправлены в новом сообщении"
-)
-def format_updates_sent():
-    return MSG_UPDATES_SENT
-
-MSG_UPDATES_TIMEOUT = (
-    "Превышено время обновления, повтори попытку позже"
-)
-def format_updates_timeout():
-    return MSG_UPDATES_TIMEOUT
-
-MSG_TOO_FAST_RETRY_AFTER = (
-    "Лее куда торопишься, повтори через {secs}"
-)
-def format_too_fast_retry_after(secs: int):
-    fmt_secs = f"{secs} с."
-
-    return MSG_TOO_FAST_RETRY_AFTER.format(
-        secs = fmt_secs
-    )
 MSG_MANUAL_UPDATES_ARE_DISABLED = (
     "❌ Ручные обновления теперь недоступны"
 )
@@ -855,100 +916,64 @@ def format_not_implemented_error() -> str:
     return MSG_NOT_IMPLEMENTED_ERROR
 
 
-MSG_MODE_CHANGED = (
-    "✅ Режим изменён"
+MSG_GROUP_CHANGED_IN_SCHEDULE = (
+    "🧭 Группа {change} в расписании"
 )
-def format_mode_changed() -> str:
-    return MSG_MODE_CHANGED
-
-
-MSG_GROUP_CHANGED_IN_SC_TYPE = (
-    "Группа {change} в {sc_type}"
-)
-def format_group_changed_in_sc_type(
+def format_group_changed_in_schedule(
     change: compare.ChangeType,
-    sc_type: schedule.Type
+    date_range: Optional[Range[datetime.date]] = None
 ):
     if change == compare.ChangeType.APPEARED:
         repr_change = "появилась"
     elif change == compare.ChangeType.CHANGED:
         repr_change = "изменилась"
 
-    if sc_type == schedule.Type.DAILY:
-        repr_sc_type = "дневном"
-    elif sc_type == schedule.Type.WEEKLY:
-        repr_sc_type = "недельном"
-
-    return MSG_GROUP_CHANGED_IN_SC_TYPE.format(
-        change  = repr_change,
-        sc_type = repr_sc_type
+    base = MSG_GROUP_CHANGED_IN_SCHEDULE.format(
+        change=repr_change
     )
+    if date_range:
+        base += f" ({date_range})"
+    
+    return base
 
 
-MSG_TEACHER_CHANGED_IN_SC_TYPE = (
-    "Препод {change} в {sc_type}"
+MSG_TEACHER_CHANGED_IN_SCHEDULE = (
+    "🧭 Препод {change} в расписании"
 )
-def format_teacher_changed_in_sc_type(
+def format_teacher_changed_in_schedule(
     change: compare.ChangeType,
-    sc_type: schedule.Type
+    date_range: Optional[Range[datetime.date]] = None
 ):
     if change == compare.ChangeType.APPEARED:
         repr_change = "появился"
     elif change == compare.ChangeType.CHANGED:
         repr_change = "изменился"
 
-    if sc_type == schedule.Type.DAILY:
-        repr_sc_type = "дневном"
-    elif sc_type == schedule.Type.WEEKLY:
-        repr_sc_type = "недельном"
-
-    return MSG_TEACHER_CHANGED_IN_SC_TYPE.format(
-        change  = repr_change,
-        sc_type = repr_sc_type
+    base = MSG_TEACHER_CHANGED_IN_SCHEDULE.format(
+        change=repr_change
     )
+    if date_range:
+        base += f" ({date_range})"
+        
+    return base
+
+
+NEXT_WEEK = (
+    "🧭 Следующая неделя"
+)
+def format_next_week():
+    return NEXT_WEEK
 
 
 MSG_REPLIED_TO_SCHEDULE_MESSAGE = (
-    "👆 Последнее {sc_type} в ответном сообщении"
+    "👆 Прошлое расписание в ответном сообщении"
 )
-def format_replied_to_schedule_message(sc_type: schedule.TYPE_LITERAL):
-    if sc_type == schedule.Type.DAILY:
-        repr_sc_type = "дневное"
-    elif sc_type == schedule.Type.WEEKLY:
-        repr_sc_type = "недельное"
+def format_replied_to_schedule_message():
+    return MSG_REPLIED_TO_SCHEDULE_MESSAGE
 
-    return MSG_REPLIED_TO_SCHEDULE_MESSAGE.format(
-        sc_type = repr_sc_type
-    )
-
-
-MSG_FAILED_REPLY_TO_SCHEDULE_MESSAGE = (
-    "👎 Не удалось ответить на последнее {sc_type} расписание, "
-    f"находи его через поиск или запроси через кнопку {Text.RESEND}"
-)
-def format_failed_reply_to_schedule_message(sc_type: schedule.TYPE_LITERAL):
-    if sc_type == schedule.Type.DAILY:
-        repr_sc_type = "дневное"
-    elif sc_type == schedule.Type.WEEKLY:
-        repr_sc_type = "недельное"
-
-    return MSG_FAILED_REPLY_TO_SCHEDULE_MESSAGE.format(
-        sc_type = repr_sc_type
-    )
 
 MSG_DETAILED_COMPARE_NOT_SHOWN = (
-    "(изменилась дата, детальные изменения под • не показаны)"
+    "(детальные изменения не показаны)"
 )
 def format_detailed_compare_not_shown():
     return MSG_DETAILED_COMPARE_NOT_SHOWN
-
-MSG_NOT_MAINTAINED_ANYMORE = (
-    "⚠️⚠️⚠️\n"
-    "Бот больше не обслуживается. Расписание дистанта не работает.\n\n"
-    "Формат дистант расписания поменялся, в будущем возможно поменяется и очка, а переписывать код желания нет.\n"
-    "Создателя отчислили летом 2023-го, и ему больше нет дела до этого.\n\n"
-    "🔧 Кто хочет переделать/доработать бота сам, сюда: https://github.com/kerdl/ktmuslave.\n"
-    f"💼 Кто хочет задать вопрос или что-то предложить: {get_key(ENV_PATH, 'ADMIN_CONTACT_MAIL')}."
-)
-def format_not_maintained_anymore():
-    return MSG_NOT_MAINTAINED_ANYMORE

@@ -1,11 +1,32 @@
-# `S`ou`rc`e code root
+# Source code
 
-- `api` - interface to work with HTTP API schedule
-server running on localhost ([ktmuscrap](https://github.com/kerdl/ktmuscrap))
-- `data` - dataclasses of settings, zoom, etc.
+- `api` - code to communicate with
+[ktmuscrap](https://github.com/kerdl/ktmuscrap)
+- `data` - object definitions and their logic
+  - schedule objects
+  - schedule formatting
+  - settings object
+  - zoom storage
 - `parse` - parsing and conversion
-- `svc` - services, code for specific messengers with shared functionality,
-so that the bot responds the same everywhere
-- `__init__.py` - global variables and objects, initializations and etc.
-- `__main__.py` - where program starts executing
-- `text.py` - some text utilities (like identation and chunking)
+  - zoom data from text parser
+- `svc` - services, or actual bot logic
+  - states
+  - keyboards
+  - buttons
+  - messages
+  - blueprints
+- `__init__.py` - initialization of:
+  - bot instances
+  - database instance
+  - logging instance
+  - http client
+  - settings data
+- `__main__.py` - entry point
+- `persistence.py` - a base class for saving and loading JSONs
+- `settings.py` - settings object defintion
+- `text.py` - text utilities
+  - indentation
+  - chunking
+- `util.py` - utilities
+  - equal chunking
+- `weekcast.py` - weekly broadcast info object definition

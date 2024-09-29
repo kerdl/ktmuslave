@@ -6,6 +6,7 @@ import re
 
 from src import data
 from src.data import zoom
+from . import WHITESPACE_CHARS
 from .pattern import (
     SPACE_NEWLINE,
     NAME,
@@ -53,6 +54,14 @@ class Key:
     @classmethod
     def tchr_is_relevant(cls, key: Union[TCHR_KEY_LITERAL, list[TCHR_KEY_LITERAL]], line: str) -> bool:
         return cls._is_relevant(key, line)
+    
+    @classmethod
+    def is_relevant_in_text(cls, text: str) -> bool:
+        for (_, key) in cls.__dict__.items():
+            if cls.with_semicolon(key) in text:
+                return True
+            
+        return False
     
     @classmethod
     def _find(
@@ -127,6 +136,7 @@ class Parser:
 
         for (index, line) in enumerate(newline_split):
             is_last = (index + 1) == len(newline_split)
+            line = line.strip(WHITESPACE_CHARS)
 
             if mode == Mode.GROUP:
                 this_line_key = Key.group_find(line)
@@ -204,19 +214,19 @@ class Parser:
         relevance_fn: Callable[[Union[KEY_LITERAL, list[KEY_LITERAL]], str], bool],
         remove_fn: Callable[[Union[KEY_LITERAL, list[KEY_LITERAL]], str], str],
     ) -> Optional[zoom.Data]:
-        name: data.Field[Optional[str]] = data.Field(value=None)
-        url: data.Field[Optional[str]] = data.Field(value=None)
-        id: data.Field[Optional[str]] = data.Field(value=None)
-        pwd: data.Field[Optional[str]] = data.Field(value=None)
-        host_key: data.Field[Optional[str]] = data.Field(value=None)
-        notes: data.Field[Optional[str]] = data.Field(value=None)
+        name: Optional[str] = None
+        url: Optional[str] = None
+        id: Optional[str] = None
+        pwd: Optional[str] = None
+        host_key: Optional[str] = None
+        notes: Optional[str] = None
 
         lines: list[str] = text.split("\n")
 
         prev_key: Optional[KEY_LITERAL] = None
 
         for line in lines:
-            line = line.strip()
+            line = line.strip(WHITESPACE_CHARS)
 
             if line == "":
                 continue
@@ -225,71 +235,71 @@ class Parser:
 
             # if that is a name key
             if relevance_fn(Key.NAME, line):
-                name.value = remove_fn(Key.NAME, line)
+                name = remove_fn(Key.NAME, line)
                     
             # if that is a url key
             elif relevance_fn(Key.URL, line): 
-                url.value = remove_fn(Key.URL, line)
+                url = remove_fn(Key.URL, line)
 
             # if that is an id key
             elif relevance_fn(Key.ID, line):
-                id.value = remove_fn(Key.ID, line)
+                id = remove_fn(Key.ID, line)
 
             # if that is a pwd key
             elif relevance_fn(Key.PWD, line):
-                pwd.value = remove_fn(Key.PWD, line)
+                pwd = remove_fn(Key.PWD, line)
             
             # if that is a host key key
             elif relevance_fn(Key.HOST_KEY, line):
-                host_key.value = remove_fn(Key.HOST_KEY, line)
+                host_key = remove_fn(Key.HOST_KEY, line)
 
             # if that is a notes key
             elif relevance_fn(Key.NOTES, line):
-                if notes.value is None:
-                    notes.value = ""
+                if notes is None:
+                    notes = ""
 
                 without_key = remove_fn(Key.NOTES, line)
 
                 if without_key != "":
-                    notes.value += without_key
-                    notes.value += "\n"
+                    notes += without_key
+                    notes += "\n"
 
             elif prev_key == Key.NOTES:
-                notes.value += line
-                notes.value += "\n"
+                notes += line
+                notes += "\n"
 
             if this_line_key is not None:
                 prev_key = this_line_key
 
-        if name.value is None:
+        if name is None:
             return None
         
-        if len(name.value) > zoom.NAME_LIMIT:
+        if len(name) > zoom.NAME_LIMIT:
             return None
         
         for field in [url, id, pwd, host_key, notes]:
-            if field.value is None:
+            if field is None:
                 continue
 
-            if len(field.value) > zoom.VALUE_LIMIT:
-                field.value = None
+            if len(field) > zoom.VALUE_LIMIT:
+                field = None
         
-        if url.value is not None and id.value is None:
-            matched = ZOOM_ID.search(url.value)
+        if url is not None and id is None:
+            matched = ZOOM_ID.search(url)
 
             if matched is not None:
-                id.value = matched.group()
+                id = matched.group()
 
-        if notes.value is not None:
-            notes.value = ", ".join([section for section in notes.value.split("\n") if section != ""])
+        if notes is not None:
+            notes = ", ".join([section for section in notes.split("\n") if section != ""])
 
         model = zoom.Data(
-            name=name,
-            url=url,
-            id=id,
-            pwd=pwd,
-            host_key=host_key,
-            notes=notes
+            name=data.DataField[str](value=name),
+            url=data.DataField[Optional[str]](value=url),
+            id=data.DataField[Optional[str]](value=id),
+            pwd=data.DataField[Optional[str]](value=pwd),
+            host_key=data.DataField[Optional[str]](value=host_key),
+            notes=data.DataField[Optional[str]](value=notes)
         )
 
         model.check(mode)

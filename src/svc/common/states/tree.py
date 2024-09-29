@@ -3,54 +3,27 @@ from . import *
 
 
 class Init(Tree):
-    """
-    ```
-    MAIN
-      ↓
-    (Settings space)
-      ↓
-    FINISH
-    ```notpython
-    """
     __space__ = Space.INIT
 
-    I_MAIN   = State(**INIT_MAIN)
+    I_MAIN = State(**INIT_MAIN)
     I_FINISH = State(**INIT_FINISH)
 
 class Settings(Tree):
-    """
-    ```
-    MAIN
-      ┝ GROUP
-      |   ┝ UNKNOWN_GROUP
-      ┝ BROADCAST
-      |   ┝ SHOULD_PIN
-      ┕ ZOOM
-    ```notpython
-    """
-
     __space__ = Space.SETTINGS
 
-    I_MAIN              = State(**SETTINGS_MAIN)
-    II_MODE             = State(**MODE)
-    II_IDENTIFICATION   = State(**IDENTIFICATION)
-    II_GROUP            = State(**GROUP)
-    III_UNKNOWN_GROUP   = State(**UNKNOWN_GROUP)
-    II_TEACHER          = State(**TEACHER)
+    I_MAIN = State(**SETTINGS_MAIN)
+    II_MODE = State(**MODE)
+    II_IDENTIFICATION = State(**IDENTIFICATION)
+    II_GROUP = State(**GROUP)
+    III_UNKNOWN_GROUP = State(**UNKNOWN_GROUP)
+    II_TEACHER = State(**TEACHER)
     III_UNKNOWN_TEACHER = State(**UNKNOWN_TEACHER)
-    II_BROADCAST        = State(**BROADCAST)
-    III_SHOULD_PIN      = State(**SHOULD_PIN)
-    II_ZOOM             = State(**INIT_ZOOM)
-    II_TIME_OVERRIDE    = State(**TIME_OVERRIDE)
+    II_BROADCAST = State(**BROADCAST)
+    III_SHOULD_PIN = State(**SHOULD_PIN)
+    II_ZOOM = State(**INIT_ZOOM)
 
 
 class Hub(Tree):
-    """
-    ```
-    MAIN
-      ┕ (Settings space)
-    ```notpython
-    """
     __space__ = Space.HUB
 
     I_MAIN = State(**HUB_MAIN)
@@ -65,19 +38,19 @@ class Reset(Tree):
 class Zoom(Tree):
     __space__ = Space.ZOOM
 
-    I_MASS                  = State(**ZOOM_MASS)
-    II_BROWSE               = State(**ZOOM_BROWSE)
-    III_ENTRY               = State(**ZOOM_ENTRY)
-    IIII_NAME               = State(**ZOOM_EDIT_NAME)
-    IIII_URL                = State(**ZOOM_EDIT_URL)
-    IIII_ID                 = State(**ZOOM_EDIT_ID)
-    IIII_PWD                = State(**ZOOM_EDIT_PWD)
-    IIII_HOST_KEY           = State(**ZOOM_EDIT_HOST_KEY)
-    IIII_NOTES              = State(**ZOOM_EDIT_NOTES)
-    III_DUMP                = State(**ZOOM_DUMP)
+    I_MASS = State(**ZOOM_MASS)
+    II_BROWSE = State(**ZOOM_BROWSE)
+    III_ENTRY = State(**ZOOM_ENTRY)
+    IIII_NAME = State(**ZOOM_EDIT_NAME)
+    IIII_URL = State(**ZOOM_EDIT_URL)
+    IIII_ID = State(**ZOOM_EDIT_ID)
+    IIII_PWD = State(**ZOOM_EDIT_PWD)
+    IIII_HOST_KEY = State(**ZOOM_EDIT_HOST_KEY)
+    IIII_NOTES = State(**ZOOM_EDIT_NOTES)
+    III_DUMP = State(**ZOOM_DUMP)
     IIII_CONFIRM_REMOVE_ALL = State(**ZOOM_CONFIRM_REMOVE_ALL)
-    IIII_CONFIRM_CLEAR_ALL  = State(**ZOOM_CONFIRM_CLEAR_ALL)
-    I_MASS_CHECK            = State(**ZOOM_MASS_CHECK)
+    IIII_CONFIRM_CLEAR_ALL = State(**ZOOM_CONFIRM_CLEAR_ALL)
+    I_MASS_CHECK = State(**ZOOM_MASS_CHECK)
 
 
 class Admin(Tree):

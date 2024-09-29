@@ -1,27 +1,31 @@
 from __future__ import annotations
 
-from src import data
-
-if __name__ == "__main__":
-    import sys
-    sys.path.append(".")
-
-from loguru import logger
-from typing import Callable, Literal, Optional, Union, Any, ClassVar, TypeVar, TYPE_CHECKING
-from dataclasses import dataclass, field
+import difflib
+from typing import (
+    Callable,
+    Literal,
+    Optional,
+    Union,
+    Any,
+    ClassVar,
+    TypeVar,
+    List,
+    TYPE_CHECKING
+)
 from pydantic import BaseModel, Field as PydField
 from urllib.parse import urlparse
-
+from src import data
 from src.svc import common
 from src.data import error
-from src.data import Emojized, Translated, Warning, Field
-from src.parse import pattern, zoom
+from src.data import Emojized, Translated, DataWarning, DataField
+from src.parse import pattern, zoom, teacher
 from src.svc import telegram as tg
 
 
 T = TypeVar("T")
 if TYPE_CHECKING:
     from src.data.settings import MODE_LITERAL
+
 
 NAME_LIMIT = 30
 VALUE_LIMIT = 500
@@ -30,7 +34,7 @@ VALUE_LIMIT = 500
 NAME = (
     "{emoji} | {name}"
 )
-def format_name(emoji: str, name: Union[str, Field]):
+def format_name(emoji: str, name: Union[str, DataField]):
     if isinstance(name, str):
         return NAME.format(emoji = emoji, name = name)
 
@@ -60,12 +64,22 @@ def format_section(name: str, fields: list[str]):
 
 
 class Data(BaseModel, Translated, Emojized):
-    name: Field[str]
-    url: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
-    id: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
-    pwd: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
-    host_key: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
-    notes: Field[Optional[str]] = PydField(default_factory = lambda: Field(value=None))
+    name: DataField[str]
+    url: DataField[Optional[str]] = PydField(
+        default_factory=lambda: DataField(value=None)
+    )
+    id: DataField[Optional[str]] = PydField(
+        default_factory=lambda: DataField(value=None)
+    )
+    pwd: DataField[Optional[str]] = PydField(
+        default_factory=lambda: DataField(value=None)
+    )
+    host_key: DataField[Optional[str]] = PydField(
+        default_factory=lambda: DataField(value=None)
+    )
+    notes: DataField[Optional[str]] = PydField(
+        default_factory=lambda: DataField(value=None)
+    )
 
     __translation__: ClassVar[dict[str, str]] = {
         "name": "Имя",
@@ -92,18 +106,6 @@ class Data(BaseModel, Translated, Emojized):
         "notes": zoom.Key.NOTES
     }
 
-    def i_promise_i_will_get_rid_of_this_thing_but_not_now(self):
-        """
-        put new trash added to the dataclass here
-        to add it to old pickled objects
-        """
-        return
-
-        try:
-            self.notes
-        except AttributeError:
-            self.notes = Field(value=None)
-
     @classmethod
     def parse(cls: type[Data], text: str) -> list[Data]:
         from src.parse import zoom
@@ -115,7 +117,7 @@ class Data(BaseModel, Translated, Emojized):
         return zoom.Parser(text).teacher_parse()
     
     @staticmethod
-    def check_name(name: str) -> list[Warning]:
+    def check_name(name: str) -> list[DataWarning]:
         warns = []
 
         match = pattern.SHORT_NAME.match(name)
@@ -129,7 +131,7 @@ class Data(BaseModel, Translated, Emojized):
         return warns
     
     @staticmethod
-    def check_url(url: str) -> list[Warning]:
+    def check_url(url: str) -> list[DataWarning]:
         warns = []
 
         if urlparse(url).netloc is None:
@@ -144,7 +146,7 @@ class Data(BaseModel, Translated, Emojized):
         return warns
 
     @staticmethod
-    def check_id(id: str) -> list[Warning]:
+    def check_id(id: str) -> list[DataWarning]:
         warns = []
 
         if not pattern.ZOOM_ID.search(id.replace(" ", "")):
@@ -176,7 +178,7 @@ class Data(BaseModel, Translated, Emojized):
     def fields(
         self, 
         filter_: Callable[[tuple[str, Any]], bool] = lambda field: True
-    ) -> list[tuple[str, Field[Optional[str]]]]:
+    ) -> list[tuple[str, DataField[Optional[str]]]]:
         #        tuple    tuple     generator of tuples       condition
         return [field for field in self.__dict__.items() if filter_(field)]
 
@@ -202,7 +204,7 @@ class Data(BaseModel, Translated, Emojized):
     def name_emoji(
         self,
         mode: "MODE_LITERAL",
-        warn_sources: Callable[[Data], list[Field]] = lambda self: [self.name]
+        warn_sources: Callable[[Data], list[DataField]] = lambda self: [self.name]
     ) -> str:
         any_warns = any([field.has_warnings for field in warn_sources(self)])
 
@@ -211,7 +213,7 @@ class Data(BaseModel, Translated, Emojized):
         
         return self.completeness_emoji(mode)
 
-    def choose_emoji(self, key: str, field: Field) -> str:
+    def choose_emoji(self, key: str, field: DataField) -> str:
         if field.has_warnings:
             return data.Emoji.WARN
         elif field.value is not None:
@@ -223,10 +225,10 @@ class Data(BaseModel, Translated, Emojized):
         emoji = self.name_emoji(mode)
 
         fmt_name = self.name.format(
-            emoji         = emoji, 
-            name          = self.name.value, 
-            display_value = False,
-            do_tg_markup  = do_tg_markup,
+            emoji=emoji, 
+            name=self.name.value, 
+            display_value=False,
+            do_tg_markup=do_tg_markup,
             escape_tg_markdown=do_tg_markup
         )
 
@@ -246,9 +248,19 @@ class Data(BaseModel, Translated, Emojized):
             name = self.__translation__.get(key)
 
             if key == "url":
-                fmt = field.format(emoji, name, do_tg_markup=False, escape_tg_markdown=True)
+                fmt = field.format(
+                    emoji=emoji,
+                    name=name,
+                    do_tg_markup=False,
+                    escape_tg_markdown=True
+                )
             else:
-                fmt = field.format(emoji, name, do_tg_markup=do_tg_markup, escape_tg_markdown=do_tg_markup)
+                fmt = field.format(
+                    emoji=emoji,
+                    name=name,
+                    do_tg_markup=do_tg_markup,
+                    escape_tg_markdown=do_tg_markup
+                )
             fmt_fields.append(fmt)
         
         return "\n".join(fmt_fields)
@@ -257,7 +269,7 @@ class Data(BaseModel, Translated, Emojized):
         if self.all_fields_without_warns():
             return None
         
-        def field_filter(key_field: tuple[str, Field]) -> bool:
+        def field_filter(key_field: tuple[str, DataField]) -> bool:
             key = key_field[0]
             value = key_field[1]
 
@@ -369,7 +381,9 @@ class Data(BaseModel, Translated, Emojized):
 
 
 class Entries(BaseModel):
-    list: list[Data] = PydField(default_factory=list)
+    list: List[Data] = PydField(
+        default_factory=lambda *a, **kw: list(*a, *kw)
+    )
     """
     # The collection of data itself
     """
@@ -382,7 +396,7 @@ class Entries(BaseModel):
 
     @classmethod
     def from_list(cls: type[Entries], list: list[Data]):
-        return cls(list = list)
+        return cls(list=list)
     
     @property
     def selected(self) -> Data:
@@ -391,12 +405,12 @@ class Entries(BaseModel):
     def change_name(self, old: str, new: str) -> None:
         if old not in self.list:
             raise error.ZoomNameNotInDatabase(
-                "you're trying to change inexistent name"
+                "tried to change inexistent name"
             )
         
         if new in self.list:
             raise error.ZoomNameInDatabase(
-                "new name is already in database"
+                "new name is already in the database"
             )
         
         # get current data from old name
@@ -406,7 +420,7 @@ class Entries(BaseModel):
         self.remove(old)
 
         # change our backup with a new name
-        data.name = Field(value=new)
+        data.name = DataField(value=new)
 
         # add this backup with changed name back
         self.add(data)
@@ -418,8 +432,8 @@ class Entries(BaseModel):
         # in this container
         if not self.has(name):
             raise error.ZoomNameNotInDatabase(
-                "you're trying to select a name "
-                "that is not in database"
+                "tried to select a name "
+                "that is not in the database"
             )
         
         self.selected_name = name
@@ -448,8 +462,7 @@ class Entries(BaseModel):
             self.list.append(data)
 
     def add_from_name(self, name: str):
-        data = Data(name=Field(value=name))
-
+        data = Data(name=DataField[str](value=name))
         self.add(data)
 
     def get(self, name: str) -> Optional[Data]:
@@ -458,6 +471,17 @@ class Entries(BaseModel):
                 return entry
 
         return None
+    
+    def get_approx(self, name: str, as_teacher: bool = True) -> Optional[Data]:
+        names = [entry.name.value for entry in self.list]
+        
+        if as_teacher:
+            valid = teacher.validate(name, names)
+            return self.get(valid)
+        else:
+            matches = difflib.get_close_matches(name, names, cutoff=0.8)
+            try: return self.get(matches[0])
+            except IndexError: return None
 
     def has(self, name: str) -> bool:
         """ ## If `name` in this container """

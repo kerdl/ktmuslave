@@ -1,11 +1,17 @@
 from __future__ import annotations
-from typing import ClassVar, Iterable, TypeVar, Generic, Optional, Generator, Any
-from dataclasses import dataclass, field
-from pydantic import BaseModel, Field as PydField
-from pydantic.generics import GenericModel
 
-from . import format as fmt
-from src.svc import telegram as tg
+from typing import (
+    ClassVar,
+    Iterable,
+    TypeVar,
+    Generic,
+    Optional,
+    Generator,
+    Any
+)
+from dataclasses import dataclass
+from pydantic import BaseModel, Field
+from . import format as output
 
 
 T = TypeVar("T")
@@ -21,6 +27,7 @@ VALUE_FIELD_FMT = (
 class Translated:
     __translation__: ClassVar[dict[str, str]]
 
+
 class TranslatedBaseModel(BaseModel):
     __translation__: ClassVar[dict[str, str]]
 
@@ -30,15 +37,19 @@ class TranslatedBaseModel(BaseModel):
     def __iter__(self) -> Generator[tuple[str, Any], None, None]:
         return super().__iter__()
 
+
 class Emojized:
     __emojis__: ClassVar[dict[str, str]]
+
 
 class Repred:
     def __repr_name__(self) -> str: ...
 
+
 class RepredBaseModel(BaseModel):
     @property
     def repr_name(self) -> str: ...
+
 
 class HiddenVars(BaseModel):
     def __init__(self, hidden_vars: bool = True, **data):
@@ -62,29 +73,19 @@ class HiddenVars(BaseModel):
         return hidden_vars
 
 
-
-class Duration(BaseModel):
-    secs: int
-    nanos: int
-
-    def __str__(self) -> str:
-        """as minutes"""
-        return str(int(self.secs / 60))
-
-
 class Emoji:
-    COMPLETE   = "🔹"
+    COMPLETE = "🔹"
     INCOMPLETE = "🔸"
-    NONE       = "❓"
-    WARN       = "❗"
+    NONE = "⚪"
+    WARN = "❗"
 
 @dataclass
-class Warning:
+class DataWarning:
     anchor: str
     text: str
 
     @staticmethod
-    def format_multiple(warns: Iterable[Warning]) -> str:
+    def format_multiple(warns: Iterable[DataWarning]) -> str:
         text_warns: list[str] = []
 
         for warn in warns:
@@ -98,9 +99,9 @@ class Warning:
     def __eq__(self, other: object) -> bool:
         return self.anchor == other
 
-class Field(GenericModel, Generic[T], Repred):
+class DataField(BaseModel, Repred, Generic[T]):
     value: T
-    warnings: list[Warning] = PydField(default_factory=list, exclude=True)
+    warnings: list[DataWarning] = Field(default_factory=list, exclude=True)
 
     @property
     def has_warnings(self) -> bool:
@@ -114,32 +115,30 @@ class Field(GenericModel, Generic[T], Repred):
         do_tg_markup: bool = False,
         escape_tg_markdown: bool = False
     ) -> str:
-        from src.svc import common
+        from src.svc import telegram as tg
 
         if display_value:
-            value = fmt.value_repr(self.value)
+            value = output.value_repr(self.value)
             if escape_tg_markdown:
                 value = tg.escape_html(value)
             if do_tg_markup:
                 value = f"<code>{value}</code>"
             base_formatted = VALUE_FIELD_FMT.format(
-                emoji = emoji, 
-                name  = name, 
-                value = value,
+                emoji=emoji, 
+                name=name, 
+                value=value,
             )
         else:
             base_formatted = FIELD_FMT.format(
-                emoji = emoji, 
-                name  = name, 
+                emoji=emoji, 
+                name=name, 
             )
 
         if not self.has_warnings:
             return base_formatted
         
-        warns_text = Warning.format_multiple(self.warnings)
-        #warns_text = common.text.indent(warns_text, add_dropdown = True)
+        warns_text = DataWarning.format_multiple(self.warnings)
 
-        #return f"{base_formatted}\n{warns_text}"
         return f"{base_formatted} {warns_text}"
 
     def __repr_name__(self) -> str:
@@ -151,37 +150,38 @@ class Field(GenericModel, Generic[T], Repred):
     def __eq__(self, other: object) -> bool:
         return self.value == other
 
-INCORRECT_NAME_FORMAT = Warning(
+
+INCORRECT_NAME_FORMAT = DataWarning(
     "incorrect_name_format", 
     "🔴 не соответствует формату: Ебанько Х.Й. или Ебанько Х."
 )
-NO_DOT_AT_THE_END = Warning(
+NO_DOT_AT_THE_END = DataWarning(
     "no_dot_at_the_end", 
     "🔴 нет точки на конце"
 )
-URL_MAY_BE_CUTTED = Warning(
+URL_MAY_BE_CUTTED = DataWarning(
     "url_may_be_cutted",
     "🔴 возможно обрезана: на конце есть многоточие"
 )
-NOT_AN_URL = Warning(
+NOT_AN_URL = DataWarning(
     "not_an_url",
     "🔴 не является ссылкой"
 )
 
-INCORRECT_ID_FORMAT = Warning(
+INCORRECT_ID_FORMAT = DataWarning(
     "incorrect_id_format",
     "🔴 не соответствует формату: от 10 цифр"
 )
 
-HAS_LETTERS = Warning(
+HAS_LETTERS = DataWarning(
     "has_letters",
     "🔴 есть буквы, хотя не должны быть"
 )
-HAS_PUNCTUATION = Warning(
+HAS_PUNCTUATION = DataWarning(
     "has_punctuation",
     "🔴 есть знаки препинания, хотя не должны быть"
 )
-HAS_SPACE = Warning(
+HAS_SPACE = DataWarning(
     "has_space",
     "🔴 есть пробелы, хотя не должны быть"
 )
