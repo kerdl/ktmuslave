@@ -11,7 +11,7 @@ class Persistence(BaseModel):
     """
     path: Optional[Path] = None
     
-    async def save(self):
+    async def save(self) -> None:
         path: str = self.path
 
         async with aiofiles.open(path, mode="w") as f:
@@ -21,12 +21,12 @@ class Persistence(BaseModel):
             )
             await f.write(ser)
     
-    def poll_save(self):
+    def poll_save(self) -> None:
         from src import defs
         defs.create_task(self.save())
     
     @classmethod
-    def load(cls, path: Path):
+    def load(cls, path: Path) -> Self:
         with open(path, mode="r", encoding="utf8") as f:
             self = cls.model_validate_json(f.read())
             self.path = path
