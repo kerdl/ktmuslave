@@ -2,7 +2,7 @@ from __future__ import annotations
 import datetime
 from typing import Generic, TypeVar, Any
 from pydantic import BaseModel
-from src.data import format as fmt
+from src.data import format as output
 
 
 T = TypeVar("T")
@@ -17,8 +17,8 @@ class Range(BaseModel, Generic[T]):
             isinstance(self.start, datetime.time)
             and isinstance(self.end, datetime.time)
         ):
-            start = f"{self.start.hour}:{fmt.zero_at_start(self.start.minute)}"
-            end = f"{self.end.hour}:{fmt.zero_at_start(self.end.minute)}"
+            start = f"{self.start.hour}:{output.zero_at_start(self.start.minute)}"
+            end = f"{self.end.hour}:{output.zero_at_start(self.end.minute)}"
             
             if start == end:
                 return start
@@ -28,11 +28,11 @@ class Range(BaseModel, Generic[T]):
             isinstance(self.start, datetime.date)
             and isinstance(self.end, datetime.date)
         ):
-            start_day = fmt.zero_at_start(self.start.day)
-            start_month = fmt.zero_at_start(self.start.month)
+            start_day = output.zero_at_start(self.start.day)
+            start_month = output.zero_at_start(self.start.month)
             start_year = str(self.start.year)
-            end_day = fmt.zero_at_start(self.end.day)
-            end_month = fmt.zero_at_start(self.end.month)
+            end_day = output.zero_at_start(self.end.day)
+            end_month = output.zero_at_start(self.end.month)
             end_year = str(self.end.year)
             
             return f"{start_day}.{start_month}.{start_year} - {end_day}.{end_month}.{end_year}"

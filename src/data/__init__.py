@@ -11,7 +11,7 @@ from typing import (
 )
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
-from . import format as fmt
+from . import format as output
 
 
 T = TypeVar("T")
@@ -118,7 +118,7 @@ class DataField(BaseModel, Repred, Generic[T]):
         from src.svc import telegram as tg
 
         if display_value:
-            value = fmt.value_repr(self.value)
+            value = output.value_repr(self.value)
             if escape_tg_markdown:
                 value = tg.escape_html(value)
             if do_tg_markup:

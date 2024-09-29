@@ -4,7 +4,7 @@ import datetime
 import html
 from typing import Any, Optional, TYPE_CHECKING
 from src import defs
-from src.data import zoom, format as fmt
+from src.data import zoom, format as output
 from src.data.settings import Settings
 from src.data.schedule import compare
 from src.data.range import Range
@@ -206,7 +206,7 @@ MSG_CURRENT_VALUE = (
 )
 def format_current_value(value: Any):
     return MSG_CURRENT_VALUE.format(
-        value = fmt.value_repr(value)
+        value = output.value_repr(value)
     )
 
 
@@ -765,20 +765,20 @@ def format_settings_main(
     text = ""
 
     text += MSG_GROUP_SETTING_EXPLAIN.format(
-        group=fmt.value_repr(group)
+        group=output.value_repr(group)
     ) + "\n"
     text += "\n"
     text += MSG_BROADCAST_SETTING_EXPLAIN.format(
-        broadcast=fmt.value_repr(broadcast)
+        broadcast=output.value_repr(broadcast)
     ) + "\n"
     text += "\n"
     if is_group_chat:
         text += MSG_PIN_SETTING_EXPLAIN.format(
-            do_pin=fmt.value_repr(do_pin)
+            do_pin=output.value_repr(do_pin)
         ) + "\n"
         text += "\n"
     text += MSG_ZOOM_SETTING_EXPLAIN.format(
-        zoom=fmt.value_repr(zoom)
+        zoom=output.value_repr(zoom)
     ) + "\n"
     text += "\n"
     text += MSG_RESET_SETTING_EXPLAIN + "\n"
@@ -795,20 +795,20 @@ def format_tchr_settings_main(
     text = ""
 
     text += MSG_TEACHER_SETTING_EXPLAIN.format(
-        teacher=fmt.value_repr(teacher)
+        teacher=output.value_repr(teacher)
     ) + "\n"
     text += "\n"
     text += MSG_TCHR_BROADCAST_SETTING_EXPLAIN.format(
-        broadcast=fmt.value_repr(broadcast)
+        broadcast=output.value_repr(broadcast)
     ) + "\n"
     text += "\n"
     if is_group_chat:
         text += MSG_PIN_SETTING_EXPLAIN.format(
-            do_pin=fmt.value_repr(do_pin)
+            do_pin=output.value_repr(do_pin)
         ) + "\n"
         text += "\n"
     text += MSG_TCHR_ZOOM_SETTING_EXPLAIN.format(
-        zoom=fmt.value_repr(zoom)
+        zoom=output.value_repr(zoom)
     ) + "\n"
     text += "\n"
     text += MSG_RESET_SETTING_EXPLAIN + "\n"

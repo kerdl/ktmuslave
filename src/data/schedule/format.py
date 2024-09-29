@@ -35,7 +35,7 @@ from src.data import (
     week,
     TranslatedBaseModel,
     RepredBaseModel,
-    format as fmt,
+    format as output,
     Emoji
 )
 
@@ -174,8 +174,8 @@ def navigation_bullets(count: int, idx: int) -> str:
     return output
 
 def date(dt: datetime.date) -> str:
-    str_day = fmt.zero_at_start(dt.day)
-    str_month = fmt.zero_at_start(dt.month)
+    str_day = output.zero_at_start(dt.day)
+    str_month = output.zero_at_start(dt.month)
     str_year = str(dt.year)
 
     return f"{str_day}.{str_month}.{str_year}"
@@ -257,6 +257,32 @@ def attenders(
     
     return fmt_attenders
 
+def subject_from_parts(
+    num_range: Optional[Range[int]] = None,
+    num: Optional[int] = None,
+    time_range: Optional[Range[datetime.time]] = None,
+    time: Optional[datetime.time] = None,
+    name: Optional[str] = None,
+    raw: Optional[str] = None
+) -> str:
+    output = ""
+    
+    if num_range:
+        output += f"{circle_keycap_num_range(num_range)} "
+    elif num:
+        output += f"{circle_keycap_num(num)} "
+    if time_range:
+        output += f"{time_range}: "
+    elif time:
+        output += f"{time}: "
+    else:
+        output = output.strip()
+        output += ": "
+        
+    output += name if name else raw
+        
+    return output
+
 def subject(
     subj: Subject,
     entries: set[zoom.Data],
@@ -284,18 +310,24 @@ def subject(
                 end=end_time.end
             ) if start_time and end_time else None
             
-            fmt = ""
-            fmt += f"{circle_keycap_num_range(num_range)} "
-            if time_range:
-                fmt += f"{time_range}: "
-            else:
-                fmt = fmt.strip()
-                fmt += ": "
-            fmt += subj.name if subj.name else subj.raw
-                
-            return fmt
+            return subject_from_parts(
+                num_range=num_range,
+                time_range=time_range,
+                name=subj.name,
+                raw=subj.raw
+            )
         
-        return f"{circle_keycap_num(subj.num)} {subj.name}"
+        time = defs.settings.get_time_for(
+            wkd=weekday,
+            num=subj.num
+        )
+        
+        return subject_from_parts(
+            num=subj.num,
+            time=time,
+            name=subj.name,
+            raw=subj.raw
+        )
     
     num = keycap_num(subj.num)
     raw_time = defs.settings.get_time_for(wkd=weekday, num=subj.num)
@@ -429,7 +461,7 @@ def days(
         last_format = None
         last_num = None
 
-        for (subj, fmt) in fmt_subjs:
+        for (subj, output) in fmt_subjs:
             subj_end = None
 
             if isinstance(subj, Range):
@@ -470,13 +502,13 @@ def days(
                 fmt_day = fmt_day.strip()
                 fmt_day += ":"
                     
-                fmt = text.indent(fmt, add_dropdown = True)
+                output = text.indent(output, add_dropdown = True)
 
                 rows.append(fmt_day)
-                rows.append(fmt)
+                rows.append(output)
             else:
-                fmt = text.indent(fmt, add_dropdown = True)
-                rows.append(fmt)
+                output = text.indent(output, add_dropdown = True)
+                rows.append(output)
 
 
             if subj_end is None:
@@ -641,8 +673,8 @@ def cmp(
                 rows.append(formatted)
 
         elif isinstance(value, PrimitiveChange):
-            old = fmt.value_repr(value.old)
-            new = fmt.value_repr(value.new)
+            old = output.value_repr(value.old)
+            new = output.value_repr(value.new)
 
             rows.append(
                 f"{model.translate(key)}: {PRIMITIVE.format(old, new)}"
