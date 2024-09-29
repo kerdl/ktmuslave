@@ -196,13 +196,13 @@ def attender_cabinet(
     ):
         if att.kind == AttenderKind.TEACHER:
             return (
-                f"{att_name} (у группы - \"{att.cabinet.primary}\", "
-                f"у препода - \"{att.cabinet.opposite}\")"
+                f"{att_name} (у группы - «{att.cabinet.primary}», "
+                f"у препода - «{att.cabinet.opposite}»)"
             )
         if att.kind == AttenderKind.GROUP:
             return (
-                f"{att_name} (у препода - \"{att.cabinet.primary}\", "
-                f"у группы - \"{att.cabinet.opposite}\")"
+                f"{att_name} (у препода - «{att.cabinet.primary}», "
+                f"у группы - «{att.cabinet.opposite}»)"
             )
     elif att.cabinet.primary:
         return f"{att_name} {att.cabinet.primary}"
@@ -647,5 +647,13 @@ def cmp(
             rows.append(
                 f"{model.translate(key)}: {PRIMITIVE.format(old, new)}"
             )
+            
+        elif isinstance(value, TranslatedBaseModel):
+            compared = cmp(
+                model=value,
+                do_detailed=do_detailed,
+                ignored_fields=ignored_fields
+            )
+            rows.append(compared.text)
     
     return CompareFormatted(text="\n".join(rows), has_detailed=has_detailed)

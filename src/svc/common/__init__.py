@@ -6,7 +6,7 @@ import json
 import datetime
 from copy import deepcopy
 from json.encoder import JSONEncoder
-from typing import Literal, Optional, Callable, Any, TypeVar, TYPE_CHECKING
+from typing import Literal, Optional, Callable, Any, Coroutine, Awaitable, TypeVar, TYPE_CHECKING
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pydantic import BaseModel
@@ -16,6 +16,7 @@ from vkbottle_types.codegen.objects import MessagesMessageActionStatus
 from aiogram.types import Message as TgMessage, CallbackQuery, ChatMemberUpdated
 from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError, TelegramBadRequest
 from redis.commands.json.path import Path
+from redis.exceptions import ResponseError
 from src import defs, RedisName, text
 from src.api.schedule import Notify
 from src.data import RepredBaseModel, HiddenVars, week
@@ -36,6 +37,9 @@ from src.svc.common.states.tree import Space
 
 if TYPE_CHECKING:
     from src.data.settings import MODE_LITERAL
+
+
+T = TypeVar("T")
 
 
 class Source:
@@ -852,6 +856,22 @@ class Ctx:
 
         return parsed
 
+    @staticmethod
+    async def retry_redis_command(
+        fn: Callable[[], Awaitable[T]],
+        args: tuple[Any] = (),
+        max_tries: int = 3
+    ) -> T:
+        tries = 0
+        while True:
+            try:
+                return await fn(*args)
+            except ResponseError as e:
+                if tries > max_tries: raise e
+                tries += 1
+                if "Timeout" in str(e): continue
+                raise e
+
     async def broadcast_mappings(
         self,
         mappings: list[BroadcastFormation]
@@ -864,12 +884,17 @@ class Ctx:
         affected_teachers = [
             mapping.formation for mapping in mappings if mapping.mode == Mode.TEACHER
         ]
+        
+        groups_fn = self.get_who_needs_group_broadcast_parsed
+        groups_args = (affected_groups,)
+        teachers_fn = self.get_who_needs_tchr_broadcast_parsed
+        teachers_args = (affected_teachers,)
 
         chats_that_need_group_broadcast = (
-            await self.get_who_needs_group_broadcast_parsed(affected_groups)
+            await self.retry_redis_command(fn=groups_fn, args=groups_args)
         )
         chats_that_need_tchr_broadcast = (
-            await self.get_who_needs_tchr_broadcast_parsed(affected_teachers)
+            await self.retry_redis_command(fn=teachers_fn, args=teachers_args)
         )
 
         for chat in chats_that_need_group_broadcast:
@@ -894,7 +919,8 @@ class Ctx:
         self,
         header: str
     ):
-        subscribers = await self.get_who_enabled_broadcast_parsed()
+        fn = self.get_who_enabled_broadcast_parsed
+        subscribers = await self.retry_redis_command(fn=fn)
         
         for chat in subscribers:
             if chat.fmt_schedule() is None:
