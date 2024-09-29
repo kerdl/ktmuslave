@@ -261,6 +261,10 @@ class Attender(RepredBaseModel):
     name: str
     cabinet: Cabinet
 
+    @property
+    def repr_name(self) -> str:
+        return self.name
+
 
 class Subject(RepredBaseModel):
     raw: str
@@ -347,7 +351,7 @@ class Formation(RepredBaseModel):
             raw=self.raw,
             name=self.name,
             days=w,
-            days_weekly_chunked=[w]
+            days_weekly_chunked=[Weeked[list[Day]](week=rng, data=w)]
         )
     
     def prev_week(self, rng: Range[datetime.date]) -> Optional[Weeked[list[Day]]]:

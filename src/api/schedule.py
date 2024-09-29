@@ -214,7 +214,10 @@ class ScheduleApi:
                                     f"caught duplicate notify {notify.random}, ignoring"
                                 )
                                 continue
-                            
+
+                            # update data cache
+                            await self.request_all()
+
                             notify._chunk_formations_by_week()
                             current_active_week = week.current_active()
                             notify = notify.get_week_self(current_active_week)
@@ -226,9 +229,6 @@ class ScheduleApi:
                                     f"for broadcasting, ignoring"
                                 )
                                 continue
-
-                            # update data cache
-                            await self.request_all()
 
                             await defs.check_redisearch_index()
                             await defs.ctx.broadcast(notify)
