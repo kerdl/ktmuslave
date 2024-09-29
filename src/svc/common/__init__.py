@@ -356,7 +356,10 @@ class BaseCtx:
             for_unchecked = self.get_schedule().get_week(unchecked_rng)
             
             if for_unchecked is None:
-                return self.get_schedule().nearest_next_week(unchecked_rng).week
+                next_week = self.get_schedule().nearest_next_week(unchecked_rng)
+                if next_week: return next_week.week
+                prev_week = self.get_schedule().nearest_prev_week(unchecked_rng)
+                if prev_week: return prev_week.week
             else:
                 return unchecked_rng
         except AttributeError:

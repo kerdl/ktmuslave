@@ -332,14 +332,14 @@ def subject(
     return base
 
 def days(
-    days: list[Day],
+    day_list: list[Day],
     entries: set[zoom.Data],
     add_recovered_suffix: bool = True,
     do_tg_markup: bool = False
 ) -> list[str]:
     fmt_days: list[str] = []
 
-    for day in days:
+    for day in day_list:
         weekday = Weekday.from_index(day.date.weekday())
         dt = date(day.date)
 
@@ -530,9 +530,9 @@ def formation(
     if form.recovered:
         label += " "
         label += RECOVERED_EMOJI
-    filtered_days = form.get_week(week_pos)
+    filtered_days = form.get_week(week_pos) or []
     days_str = "\n\n".join(days(
-        days=filtered_days,
+        day_list=filtered_days,
         entries=entries,
         add_recovered_suffix=not form.recovered,
         do_tg_markup=do_tg_markup
