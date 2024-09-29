@@ -228,7 +228,7 @@ def attenders(
         if len(matches) < 1:
             fmt_attenders.append(attender_cabinet(
                 att,
-                add_recovered_suffix=add_recovered_suffix and not att.recovered
+                add_recovered_suffix=add_recovered_suffix
             ))
             continue
         
@@ -247,7 +247,7 @@ def attenders(
         
         fmt_att = attender_cabinet(
             att,
-            add_recovered_suffix=add_recovered_suffix and not att.recovered
+            add_recovered_suffix=add_recovered_suffix
         )
         
         if fmt_data:

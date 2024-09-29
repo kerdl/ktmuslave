@@ -11,6 +11,7 @@ from aiogram.types import Update
 import inspect
 import datetime
 from src import defs
+from src.svc import telegram
 from src.svc.vk.types_ import RawEvent, MessageV2 as VkMessageV2
 from src.svc.common import CommonEverything, CommonMessage
 from src.svc.common import CommonEvent
@@ -93,6 +94,8 @@ class TgUpdateCatcher:
             logger.warning(f"unsupported tg event type: {event.event_type}")
             return
     
+        if everything.message and everything.message.tg:
+            everything.message.tg = telegram.sanitize_object(everything.message.tg)
         # we're not using this
         # and it fails to serialize 🖕🖕🖕
         if everything.message:

@@ -3,7 +3,8 @@ from typing import (
     Literal,
     Optional,
     Callable,
-    Union
+    Union,
+    TypeVar
 )
 from aiogram import Bot, Router, Dispatcher
 from aiogram.types import (
@@ -14,8 +15,12 @@ from aiogram.types import (
     CallbackQuery,
     ChatMemberUpdated
 )
+from aiogram.client.default import Default
 import html
 from src import defs, text as text_utils
+
+
+T = TypeVar("T")
 
 
 class ChatType:
@@ -155,6 +160,28 @@ def remove_markup(text: str) -> str:
 
 def force_reply() -> ForceReply:
     return ForceReply(force_reply=True)
+
+
+def sanitize_object(obj: T) -> T:
+    try: obj.__dict__
+    except AttributeError: return obj
+    
+    for key, value in obj.__dict__.items():
+        if (
+            value is None or
+            isinstance(value, bool) or
+            isinstance(value, int) or
+            isinstance(value, str)
+        ):
+            continue
+        
+        if isinstance(value, Default):
+            obj.__dict__[key] = None
+            continue
+            
+        obj.__dict__[key] = sanitize_object(value)
+        
+    return obj
 
 
 def load_bot(token: Optional[str] = None) -> Bot:
