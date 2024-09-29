@@ -22,9 +22,11 @@
   - http client
   - settings data
 - `__main__.py` - entry point
+- `persistence.py` - a base class for saving and loading JSONs
 - `settings.py` - settings object defintion
 - `text.py` - text utilities
   - indentation
   - chunking
 - `util.py` - utilities
   - equal chunking
+- `weekcast.py` - weekly broadcast info object definition
