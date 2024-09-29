@@ -219,6 +219,13 @@ class ScheduleApi:
                             current_active_week = week.current_active()
                             notify = notify.get_week_self(current_active_week)
                             self.last_notify.set_random(notify.random)
+                            
+                            if not notify.is_eligible_for_broadcast():
+                                logger.info(
+                                    f"notify {notify.random} is not eligible "
+                                    f"for broadcasting, ignoring"
+                                )
+                                continue
 
                             # update data cache
                             await self.request_all()

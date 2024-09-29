@@ -198,7 +198,18 @@ class PageCompare(BaseModel):
             
         for form in self.formations.changed:
             form._chunk_by_weeks()
-        
+    
+    def get_week_range(self) -> Optional[Range[datetime.date]]:
+        try:
+            if self.formations.appeared:
+                return self.formations.appeared[0].get_week_range()
+            if self.formations.disappeared:
+                return self.formations.disappeared[0].get_week_range()
+            if self.formations.changed:
+                return self.formations.changed[0].get_week_range()
+        except (AttributeError, IndexError):
+            return None
+    
     def get_week_self(self, rng: Range[datetime.date]) -> Self:
         appeared = []
         disappeared = []

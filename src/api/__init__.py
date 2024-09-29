@@ -31,6 +31,15 @@ class Notify(BaseModel):
         except AttributeError:
             ...
     
+    def is_eligible_for_broadcast(self) -> bool:
+        flags = []
+        if self.groups:
+            flags.append(self.groups.get_week_range() is not None)
+        if self.teachers:
+            flags.append(self.teachers.get_week_range() is not None)
+        
+        return any(flags)
+    
     def get_week_self(self, rng: Range[datetime.date]) -> Self:
         return Notify(
             random=self.random,
