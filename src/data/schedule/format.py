@@ -397,7 +397,7 @@ def days(
             if (
                 subj.is_unknown_window() and
                 compare.cmp_subjects(
-                    hold, ignored_keys=["num"]
+                    hold + [subj], ignored_keys=["num"]
                 )
             ):
                 hold.append(subj)
