@@ -37,6 +37,10 @@ class BotMentionFilter(Middleware):
 @router.middleware()
 class CtxCheck(Middleware):
     async def pre(self, everything: CommonEverything):
+        if not await defs.is_redis_online():
+            logger.error("redis instance is offline, aborting...")
+            self.stop()
+            
         if not await defs.ctx.is_added(everything):
             added_ctx = await defs.ctx.add_from_everything(everything)
             everything.set_ctx(added_ctx)

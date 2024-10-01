@@ -21,7 +21,7 @@ from src.data import (
     Translated,
     DataField,
     Emoji,
-    format as output
+    format as fmt
 )
 from src.svc.vk.keyboard import CMD
 
@@ -207,7 +207,7 @@ class Button(BaseModel):
             return None
     
     def with_value(self, value: Any) -> Button:
-        value_repr = output.value_repr(value)
+        value_repr = fmt.value_repr(value)
 
         copied_self = deepcopy(self)
         copied_self.text += f": {value_repr}"

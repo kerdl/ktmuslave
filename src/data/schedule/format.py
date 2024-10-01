@@ -35,7 +35,7 @@ from src.data import (
     week,
     TranslatedBaseModel,
     RepredBaseModel,
-    format as output,
+    format as fmt,
     Emoji
 )
 
@@ -174,8 +174,8 @@ def navigation_bullets(count: int, idx: int) -> str:
     return output
 
 def date(dt: datetime.date) -> str:
-    str_day = output.zero_at_start(dt.day)
-    str_month = output.zero_at_start(dt.month)
+    str_day = fmt.zero_at_start(dt.day)
+    str_month = fmt.zero_at_start(dt.month)
     str_year = str(dt.year)
 
     return f"{str_day}.{str_month}.{str_year}"
@@ -673,8 +673,8 @@ def cmp(
                 rows.append(formatted)
 
         elif isinstance(value, PrimitiveChange):
-            old = output.value_repr(value.old)
-            new = output.value_repr(value.new)
+            old = fmt.value_repr(value.old)
+            new = fmt.value_repr(value.new)
 
             rows.append(
                 f"{model.translate(key)}: {PRIMITIVE.format(old, new)}"

@@ -94,9 +94,9 @@ def sink(message: Message):
                     elif admin.src == Source.TG:
                         await telegram.chunked_send(
                             chat_id=admin.id,
-                            message=str(no_escapes),
+                            text=str(no_escapes),
                         )
-                except Exception:
+                except Exception as e:
                     ...
 
         defs.create_task(send_error())
@@ -178,11 +178,7 @@ class Defs:
         port = self.redis.connection_pool.connection_kwargs["port"]
 
         while True:
-            try:
-                await self.redis.ping()
-                logger.info(f"redis connected on {host}:{port}")
-                break
-            except rexeptions.ConnectionError:
+            if not await self.is_redis_online():
                 if not logged:
                     logger.opt(colors=True).error(
                         f"unable to rech redis instance "
@@ -191,6 +187,16 @@ class Defs:
                     logged = True
                 
                 await asyncio.sleep(retry)
+            else:
+                logger.info(f"redis connected on {host}:{port}")
+                break
+
+    async def is_redis_online(self) -> bool:
+        try:
+            await self.redis.ping()
+            return True
+        except rexeptions.ConnectionError:
+            return False
 
     async def create_redisearch_group_broadcast_index(self) -> None:
         await self.redis.execute_command(

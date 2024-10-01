@@ -1,5 +1,4 @@
-# Source code
-
+# Structure
 - `api` - code to communicate with
 [ktmuscrap](https://github.com/kerdl/ktmuscrap)
 - `data` - object definitions and their logic
