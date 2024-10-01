@@ -2365,5 +2365,6 @@ def run_forever():
     try:
         loop.run_forever()
     except (KeyboardInterrupt, SystemExit):
-        logger.info("shutdown, closing log file")
-        defs.log_file.close()
+        if defs.log_file:
+            logger.info("shutdown, closing log file")
+            defs.log_file.close()

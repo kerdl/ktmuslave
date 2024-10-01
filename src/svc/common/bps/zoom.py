@@ -613,7 +613,9 @@ async def browse(
     is_init_space = Space.INIT in ctx.navigator.spaces
     is_hub_space = Space.HUB in ctx.navigator.spaces
     
-    quick_lookup_hint = messages.format_entry_quick_lookup()
+    quick_lookup_hint = (
+        messages.format_entry_quick_lookup()
+    ) if len(storage.entries.list) > 0 else None
 
     if everything.is_from_event:
         # try to check if user selected an entry in list

@@ -1,6 +1,6 @@
 from typing import Any, Optional, TYPE_CHECKING
 
-from src.data import format as output
+from src.data import format as fmt
 from src.svc.common.navigator import Navigator
 from src.svc.common.states import State, Values
 
@@ -84,7 +84,7 @@ def tree(
                 value = values.get_from_state(state)
 
                 if value is not None:
-                    value = output.value_repr(value)
+                    value = fmt.value_repr(value)
 
             if state == current_state:
                 return current(state, value)

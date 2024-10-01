@@ -16,12 +16,19 @@ https://vk.com/ktmuslave)
 [![Telegram](/assets/tg.svg)](
 https://t.me/ktmuslave_bot)
 
-## Overview
 
+## Overview
 - Both for [VK](https://vk.com/ktmuslave) and [Telegram](https://t.me/ktmuslave_bot) with one codebase
 - Step-by-step registration
 - Paginated editable Zoom data storage
 - Broadcast of schedule changes
+
+
+## Documentation
+- [Running instructions](/doc/en/running.md)
+- [Configuring](/doc/en/configuring.md)
+- [Code structure tour](/doc/en/tour.md)
+
 
 ## Parsing
 This bot is built to work with [**ktmuscrap**](https://github.com/kerdl/ktmuscrap) - a parsing HTTP REST API server.

@@ -38,17 +38,17 @@ class TimeSchedule(BaseModel):
     nums: dict[str, Range[datetime.time]] = Field(default_factory=dict)
 
 class TimeMapping(BaseModel):
-    monday: str
-    tuesday: str
-    wednesday: str
-    thursday: str
-    friday: str
-    saturday: str
-    sunday: str
+    monday: Optional[str] = None
+    tuesday: Optional[str] = None
+    wednesday: Optional[str] = None
+    thursday: Optional[str] = None
+    friday: Optional[str] = None
+    saturday: Optional[str] = None
+    sunday: Optional[str] = None
 
 class Time(BaseModel):
     schedules: list[TimeSchedule] = Field(default_factory=list)
-    mapping: TimeMapping
+    mapping: TimeMapping = Field(default_factory=TimeMapping)
     
     def get_for(
         self,
@@ -116,11 +116,12 @@ class Settings(BaseModel):
         else:
             self = cls(
                 path=path,
-                tokens=Tokens(vk="", tg=""),
-                server=Server(addr=""),
-                database=Database(addr=""),
+                tokens=Tokens(vk=None, tg=None),
+                server=Server(addr="127.0.0.1:8080"),
+                database=Database(addr="127.0.0.1:6379"),
                 logging=Logging(enabled=False, admins=[]),
-                urls=Urls()
+                urls=Urls(),
+                time=Time()
             )
             self.poll_save()
 
