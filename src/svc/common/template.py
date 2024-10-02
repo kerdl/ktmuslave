@@ -16,4 +16,4 @@ class CommonBotTemplate(BaseModel):
     """
     text: str
     keyboard: Keyboard
-    metadata: Optional[dict[str, Any]]
+    metadata: Optional[dict[str, Any]] = None
