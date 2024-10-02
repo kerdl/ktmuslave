@@ -162,6 +162,6 @@ def load(token: Optional[str] = None, loop: asyncio.AbstractEventLoop = None) ->
     @bot.on.message()
     async def message_dummy(*_): ...
 
-    bot.labeler.message_view.replace_mention = True
+    bot.labeler.message_view.replace_mention = False
 
     return bot

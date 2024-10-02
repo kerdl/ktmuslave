@@ -114,6 +114,7 @@ class Defs:
     vk_bot: Optional[VkBot] = None
     vk_bot_info: Optional[GroupsGroupFull] = None
     vk_bot_mention: Optional[str] = None
+    vk_bot_mention_regex: Optional[re.Pattern] = None
 
     tg_bot: Optional[TgBot] = None
     tg_bot_info: Optional[User] = None
@@ -163,6 +164,8 @@ class Defs:
         group_data = groups_resp.groups[0]
         self.vk_bot_info = group_data
         self.vk_bot_mention = "@" + group_data.screen_name
+        regex = f"[[].+[|]{self.vk_bot_mention}[]]"
+        self.vk_bot_mention_regex = re.compile(regex)
 
     async def get_tg_bot_info(self) -> None:
         me = await self.tg_bot.get_me()
