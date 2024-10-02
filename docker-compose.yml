@@ -14,6 +14,10 @@ services:
         bind:
           create_host_path: true
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
   ktmuscrap:
     build: https://github.com/kerdl/ktmuscrap.git
     ports:
@@ -27,6 +31,10 @@ services:
         bind:
           create_host_path: true
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
   redis:
     image: redis/redis-stack-server:latest
     environment:
