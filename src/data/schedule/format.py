@@ -88,7 +88,8 @@ LITERAL_FORMAT = {
 
 RECOVERED_EMOJI = "♻️"
 
-WINDOW = "🪟 ОКНО ЕБАТЬ"
+TODAY_BELOW = "📅 | Сегодня"
+WINDOW = "🪟 ОКНО"
 
 # HAHAHAHA PENIS HAHAHAHHAHAHAHAHAHAHHAHAHAHAHA
 APPEAR     = "+ {}"
@@ -369,6 +370,7 @@ def days(
     add_recovered_suffix: bool = True,
     do_tg_markup: bool = False
 ) -> list[str]:
+    today = datetime.date.today()
     fmt_days: list[str] = []
 
     for day in day_list:
@@ -488,6 +490,8 @@ def days(
 
                 fmt_day = ""
                 
+                if day.date == today:
+                    fmt_day += TODAY_BELOW + "\n"
                 if emoji:
                     fmt_day += f"{emoji} | "
                 if weekday:
