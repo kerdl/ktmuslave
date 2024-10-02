@@ -39,6 +39,7 @@ class Persistence(BaseModel):
             return cls.load(path)
         else:
             self = init_fn()
+            self.path = path
             self.poll_save()
 
             return self

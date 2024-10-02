@@ -24,6 +24,7 @@ class WeekCast(Persistence):
                 start=covered.start,
                 end=covered.end
             )
+            this.path = path
             this.poll_save()
         return this
 
