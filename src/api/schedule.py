@@ -208,7 +208,6 @@ class ScheduleApi:
                         logger.info(f"awaiting schedule updates...")
                         async for message in socket:
                             notify = Notify.model_validate_json(message)
-                            print(notify)
 
                             if notify.random == self.last_notify.random:
                                 logger.info(
@@ -225,10 +224,6 @@ class ScheduleApi:
                             self.last_notify.set_random(notify.random)
                             
                             if not notify.is_eligible_for_broadcast():
-                                logger.info(
-                                    f"notify {notify.random} is not eligible "
-                                    f"for broadcasting, ignoring"
-                                )
                                 continue
 
                             await defs.check_redisearch_index()
