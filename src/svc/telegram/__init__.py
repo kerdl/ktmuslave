@@ -55,6 +55,7 @@ async def chunked_send(
     disable_web_page_preview: bool = True,
     reply_markup: Optional[InlineKeyboardMarkup] = None,
     reply_to_message_id: Optional[int] = None,
+    parse_mode: Optional[str] = None,
     chunker: Callable[[str, Optional[int]], list[str]] = text_utils.chunks
 ) -> list[Message]:
     chunks = chunker(text)
@@ -70,7 +71,7 @@ async def chunked_send(
             disable_web_page_preview=disable_web_page_preview,
             reply_markup=reply_markup if is_last else None,
             reply_to_message_id=reply_to_message_id if is_first else None,
-            parse_mode="HTML"
+            parse_mode=parse_mode
         )
 
         responses.append(result)
@@ -83,6 +84,7 @@ async def chunked_edit(
     text: str,
     disable_web_page_preview: bool = True,
     reply_markup: Optional[InlineKeyboardMarkup] = None,
+    parse_mode: Optional[str] = None,
     chunker: Callable[[str, Optional[int]], list[str]] = text_utils.chunks
 ) -> tuple[Message, list[Message]]:
     chunks = chunker(text)
@@ -102,7 +104,7 @@ async def chunked_edit(
                 text=chunk,
                 disable_web_page_preview=disable_web_page_preview,
                 reply_markup=reply_markup if is_last else None,
-                parse_mode="HTML"
+                parse_mode=parse_mode
             )
             edit_result = result
             is_used_first_edit = True
@@ -112,7 +114,7 @@ async def chunked_edit(
                 text=chunk,
                 disable_web_page_preview=disable_web_page_preview,
                 reply_markup=reply_markup if is_last else None,
-                parse_mode="HTML"
+                parse_mode=parse_mode
             )
             sending_results.append(result)
     
