@@ -39,6 +39,9 @@ ATTENDER_KIND_LITERAL = Literal[
 ]
 
 
+NO_NAME = "Без имени"
+
+
 class GetDate:
     def get_date(self) -> datetime.date: ...
 
@@ -265,7 +268,9 @@ class Attender(RepredBaseModel):
 
     @property
     def repr_name(self) -> str:
-        return self.name
+        name = self.name.replace("\n", "").strip()
+        raw = self.raw.replace("\n", "").strip()
+        return name or raw or NO_NAME
 
 
 class Subject(RepredBaseModel):
@@ -281,7 +286,9 @@ class Subject(RepredBaseModel):
 
     @property
     def repr_name(self) -> str:
-        return self.name
+        name = self.name.replace("\n", "").strip()
+        raw = self.raw.replace("\n", "").strip()
+        return name or raw or NO_NAME
 
     def is_unknown_window(self) -> bool:
         """
@@ -321,7 +328,7 @@ class Formation(RepredBaseModel):
 
     @property
     def repr_name(self) -> str:
-        return self.name
+        return self.name or NO_NAME
     
     def _chunk_by_weeks(self):
         self.days_weekly_chunked = Weeked[list[Day]].chunk_by_weeks(pack=self.days)
