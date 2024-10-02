@@ -1,5 +1,5 @@
 from src.svc.common import CommonEverything, messages
-from src.svc.common.bps import zoom as executor
+from src.svc.common.bps import executor
 from src.svc.common.states.tree import SETTINGS, ADMIN
 from src.svc.common.router import router
 from src.svc.common.filters import PayloadFilter, StateFilter
