@@ -1248,7 +1248,7 @@ class CommonMessage(BaseCommonEvent):
     @property
     def text(self) -> Optional[str]:
         if self.is_from_vk:
-            return self.vk.text
+            return defs.vk_bot_mention_regex.sub("", self.vk.text)
         if self.is_from_tg:
             return self.tg.text
         if self.is_from_tg_edited_message:
@@ -1375,7 +1375,7 @@ class CommonMessage(BaseCommonEvent):
         if not self.is_from_vk:
             return False
 
-        return self.vk.is_mentioned
+        return not not defs.vk_bot_mention_regex.search(self.vk.text)
 
     def vk_is_for_bot(self) -> bool:
         if not self.is_from_vk:
