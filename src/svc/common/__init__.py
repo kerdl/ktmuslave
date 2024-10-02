@@ -1436,7 +1436,8 @@ class CommonMessage(BaseCommonEvent):
                 user_id = defs.tg_bot_info.id
             )
 
-            return bot.can_pin_messages
+            try: return bot.can_pin_messages
+            except AttributeError: return False
 
     async def answer(
         self,
@@ -1781,8 +1782,9 @@ class CommonEvent(BaseCommonEvent):
                 chat_id=self.chat_id,
                 user_id=defs.tg_bot_info.id
             )
-
-            return bot.can_pin_messages
+            
+            try: return bot.can_pin_messages
+            except AttributeError: return False
 
     async def show_notification(
         self,
