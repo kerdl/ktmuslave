@@ -29,5 +29,6 @@ class WeekCast(Persistence):
 
     @classmethod
     def load_or_init(cls: type[WeekCast], path: Path) -> Self:
-        init_fn = lambda: WeekCast(covered=week.cover_today(idx=BASE_WEEKDAY))
+        covered = week.cover_today(idx=BASE_WEEKDAY)
+        init_fn = lambda: WeekCast(covered=Range[datetime.date](start=covered.start, end=covered.end))
         return super().load_or_init(path=path, init_fn=init_fn)
