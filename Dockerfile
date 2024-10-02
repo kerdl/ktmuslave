@@ -1,4 +1,4 @@
-FROM python:3.12.7-bullseye
+FROM python:3.12-bullseye
 
 # build options
 ARG cwd=/ktmuslave

@@ -19,7 +19,11 @@ class WeekCast(Persistence):
     def load(cls, path: Path) -> Self:
         this = super().load(path)
         if this.covered is None:
-            this.covered = week.cover_today(idx=BASE_WEEKDAY)
+            covered = week.cover_today(idx=BASE_WEEKDAY)
+            this.covered = Range[datetime.date](
+                start=covered.start,
+                end=covered.end
+            )
             this.poll_save()
         return this
 
