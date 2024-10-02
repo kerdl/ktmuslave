@@ -9,6 +9,7 @@ from typing import (
 from dataclasses import dataclass
 from src import text, defs
 from src.data.range import Range
+from src.svc import telegram
 from src.svc.common import messages
 from src.data.schedule.compare import (
     Changes,
@@ -183,32 +184,43 @@ def date(dt: datetime.date) -> str:
 
 def attender_cabinet(
     att: Attender,
-    add_recovered_suffix: bool = True
+    add_recovered_suffix: bool = True,
+    do_tg_markup: bool = False
 ) -> str:
     if att.recovered and add_recovered_suffix:
         att_name = f"{att.name} {RECOVERED_EMOJI}"
     else:
         att_name = att.name
     
+    if do_tg_markup:
+        att_name = telegram.escape_html(att_name)
+    
+    primary = telegram.escape_html(
+        att.cabinet.primary
+    ) if att.cabinet.primary else None
+    opposite = telegram.escape_html(
+        att.cabinet.opposite
+    ) if att.cabinet.opposite else None
+    
     if (
-        att.cabinet.primary and
-        att.cabinet.opposite and
+        primary and
+        opposite and
         not att.cabinet.do_versions_match_complex()
     ):
         if att.kind == AttenderKind.TEACHER:
             return (
-                f"{att_name} (у группы - «{att.cabinet.primary}», "
-                f"у препода - «{att.cabinet.opposite}»)"
+                f"{att_name} (у группы - «{primary}», "
+                f"у препода - «{opposite}»)"
             )
         if att.kind == AttenderKind.GROUP:
             return (
-                f"{att_name} (у препода - «{att.cabinet.primary}», "
-                f"у группы - «{att.cabinet.opposite}»)"
+                f"{att_name} (у препода - «{primary}», "
+                f"у группы - «{opposite}»)"
             )
-    elif att.cabinet.primary:
-        return f"{att_name} {att.cabinet.primary}"
-    elif att.cabinet.opposite:
-        return f"{att_name} {att.cabinet.opposite}" 
+    elif primary:
+        return f"{att_name} {primary}"
+    elif opposite:
+        return f"{att_name} {opposite}" 
     else:
         return att_name
 
@@ -248,7 +260,8 @@ def attenders(
         
         fmt_att = attender_cabinet(
             att,
-            add_recovered_suffix=add_recovered_suffix
+            add_recovered_suffix=add_recovered_suffix,
+            do_tg_markup=do_tg_markup
         )
         
         if fmt_data:
@@ -334,6 +347,7 @@ def subject(
     raw_time = defs.settings.get_time_for(wkd=weekday, num=subj.num)
     time = str(raw_time) if raw_time else ""
     name = subj.name if subj.name else subj.raw
+    if do_tg_markup: name = telegram.escape_html(name)
     attenders_ = attenders(
         atts=subj.attenders,
         format=subj.format,

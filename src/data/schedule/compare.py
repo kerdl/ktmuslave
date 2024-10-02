@@ -30,6 +30,9 @@ CMP_T = TypeVar("CMP_T")
 ORIGNAL_T = TypeVar("ORIGNAL_T")
 
 
+NO_NAME = "Без имени"
+
+
 class ChangeType:
     APPEARED = "appeared"
     DISAPPEARED = "disappeared"
@@ -75,10 +78,11 @@ class AttenderCompare(RepredBaseModel):
 
     @property
     def repr_name(self) -> str:
-        return self.name or ""
+        return self.name or NO_NAME
 
 
 class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
+    raw: Optional[str] = None
     name: Optional[str] = None
     num: Optional[PrimitiveChange[int]] = None
     attenders: Optional[DetailedChanges[AttenderCompare, Attender]] = None
@@ -91,7 +95,9 @@ class SubjectCompare(TranslatedBaseModel, RepredBaseModel):
 
     @property
     def repr_name(self) -> str:
-        return self.name or ""
+        name = self.name.replace("\n", "").strip()
+        raw = self.raw.replace("\n", "").strip()
+        return name or raw or NO_NAME
 
 
 class DayCompare(RepredBaseModel, GetDate):
@@ -119,7 +125,7 @@ class FormationCompare(RepredBaseModel):
 
     @property
     def repr_name(self) -> str:
-        return self.name or ""
+        return self.name or NO_NAME
     
     def _chunk_by_weeks(self) -> None:
         appeared = Weeked[list[Day]].chunk_by_weeks(pack=self.days.appeared)

@@ -553,6 +553,10 @@ class BaseCtx:
             last_schedule = self.last_teachers_schedule
 
         for mapping in mappings:
+            escaped_header = mapping.header.replace("<", "\<")
+            if self.last_everything.is_from_tg_generally:
+                mapping.header = tg.escape_html(mapping.header)
+            
             reply_to = None
 
             fmt_schedule = self.fmt_schedule()
@@ -595,9 +599,10 @@ class BaseCtx:
                 bcast_message: CommonBotMessage,
                 mapping: BroadcastFormation
             ):
+                e_str = str(e).replace("<", "\<")
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
-                    f"failed with {type(e).__name__}({e}), trying without replying"
+                    f"failed with {type(e).__name__}({e_str}), trying without replying"
                 )
 
                 bcast_message.reply_to = None
@@ -605,7 +610,7 @@ class BaseCtx:
                 try:
                     logger.opt(colors=True).info(
                         f"<W><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
-                        f"{mapping.header}"
+                        f"{escaped_header}"
                     )
                     await self.send_custom_broadcast(
                         message=bcast_message
@@ -621,7 +626,7 @@ class BaseCtx:
             try:
                 logger.opt(colors=True).info(
                     f"<W><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
-                    f"{mapping.header}"
+                    f"{escaped_header}"
                 )
                 await self.send_custom_broadcast(
                     message=bcast_message
@@ -629,12 +634,14 @@ class BaseCtx:
             except VKAPIError[913] as e:
                 await try_without_reply(e, bcast_message, mapping)
             except VKAPIError[100] as e:
-                if "cannot reply this message" in e.description:
+                e_str = str(e)
+                if "cannot reply this message" in e_str:
                     await try_without_reply(e, bcast_message, mapping)
             except TelegramBadRequest as e:
+                e_str = str(e).replace("<", "\<")
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
-                    f"{type(e).__name__}({e})"
+                    f"{type(e).__name__}({e_str})"
                 )
 
                 if "chat not found" in e.message:
@@ -649,14 +656,16 @@ class BaseCtx:
                     f"user had blocked the bot"
                 )
             except error.BroadcastSendFail as e:
+                e_str = str(e).replace("<", "\<")
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
-                    f"sending the broadcast message had failed: {type(e).__name__}({e})"
+                    f"sending the broadcast message had failed: {type(e).__name__}({e_str})"
                 )
             except Exception as e:
+                e_str = str(e).replace("<", "\<")
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
-                    f"unknown exception: {type(e).__name__}({e})"
+                    f"unknown exception: {type(e).__name__}({e_str})"
                 )
 
 @dataclass
@@ -1569,6 +1578,7 @@ class CommonBotMessage(BaseModel):
                 reply_markup=self.keyboard.to_tg(),
                 reply_to_message_id=self.reply_to,
                 disable_web_page_preview=True,
+                parse_mode="HTML"
             )
 
             last_message = result[-1]
