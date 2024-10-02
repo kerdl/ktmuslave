@@ -127,10 +127,10 @@ class DbBaseCtx(BaseModel):
     pages: pagination.Container
 
     last_call: float = 0.0
-    last_everything: Optional[CommonEverything]
-    last_bot_message: Optional[CommonBotMessage]
-    last_groups_schedule: Optional[CommonBotMessage]
-    last_teachers_schedule: Optional[CommonBotMessage]
+    last_everything: Optional[CommonEverything] = None
+    last_bot_message: Optional[CommonBotMessage] = None
+    last_groups_schedule: Optional[CommonBotMessage] = None
+    last_teachers_schedule: Optional[CommonBotMessage] = None
 
     @classmethod
     def ensure_rebuild(cls):
