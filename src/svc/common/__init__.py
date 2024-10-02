@@ -1444,7 +1444,9 @@ class CommonMessage(BaseCommonEvent):
         keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
         tree_values: Optional[Values] = None,
-        set_as_last: bool = True
+        set_as_last: bool = True,
+        preview_links: bool = False,
+        tg_parse_mode: Optional[str] = "HTML"
     ):
         base_lvl = 1
 
@@ -1466,7 +1468,7 @@ class CommonMessage(BaseCommonEvent):
                 peer_id=vk_message.peer_id,
                 message=text,
                 keyboard=keyboard.to_vk().get_json() if keyboard else None,
-                dont_parse_links=True,
+                dont_parse_links=not preview_links,
             )
 
             chat_id = result[-1].peer_id
@@ -1479,7 +1481,9 @@ class CommonMessage(BaseCommonEvent):
             result = await tg.chunked_send(
                 chat_id=tg_message.chat.id,
                 text=text,
+                disable_web_page_preview=not preview_links,
                 reply_markup=keyboard.to_tg() if keyboard else None,
+                parse_mode=tg_parse_mode
             )
 
             chat_id = result[-1].chat.id
@@ -1815,7 +1819,9 @@ class CommonEvent(BaseCommonEvent):
         text: str,
         keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
-        tree_values: Optional[Values] = None
+        tree_values: Optional[Values] = None,
+        preview_links: bool = False,
+        tg_parse_mode: Optional[str] = "HTML",
     ):
         """
         ## Edit message by id inside event
@@ -1852,7 +1858,7 @@ class CommonEvent(BaseCommonEvent):
                     peer_id=chat_id,
                     message=text,
                     keyboard=keyboard.to_vk().get_json() if keyboard else None,
-                    dont_parse_links=True,
+                    dont_parse_links=not preview_links,
                 )
 
                 message_id = result[-1].conversation_message_id
@@ -1870,7 +1876,7 @@ class CommonEvent(BaseCommonEvent):
                         conversation_message_id=message_id,
                         message=text,
                         keyboard=keyboard.to_vk().get_json() if keyboard else None,
-                        dont_parse_links=True,
+                        dont_parse_links=not preview_links,
                     )
 
                     if len(result[1]) > 0:
@@ -1893,7 +1899,9 @@ class CommonEvent(BaseCommonEvent):
                 result = await tg.chunked_send(
                     chat_id=chat_id,
                     text=text,
-                    reply_markup=keyboard.to_tg() if keyboard else None
+                    disable_web_page_preview=not preview_links,
+                    reply_markup=keyboard.to_tg() if keyboard else None,
+                    parse_mode=tg_parse_mode
                 )
 
                 message_id = result[-1].message_id
@@ -1904,7 +1912,9 @@ class CommonEvent(BaseCommonEvent):
                         chat_id=chat_id,
                         message_id=message_id,
                         text=text,
+                        disable_web_page_preview=not preview_links,
                         reply_markup=keyboard.to_tg() if keyboard else None,
+                        parse_mode=tg_parse_mode
                     )
                     
                     if len(result[1]) > 0:
@@ -1939,7 +1949,9 @@ class CommonEvent(BaseCommonEvent):
         keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
         tree_values: Optional[Values] = None,
-        set_as_last: bool = True
+        set_as_last: bool = True,
+        preview_links: bool = False,
+        tg_parse_mode: Optional[str] = "HTML"
     ):
         """
         ## Send message by id inside event
@@ -1968,7 +1980,7 @@ class CommonEvent(BaseCommonEvent):
                 peer_id=chat_id,
                 message=text,
                 keyboard=keyboard.to_vk().get_json() if keyboard else None,
-                dont_parse_links=True,
+                dont_parse_links=not preview_links,
             )
 
             message_id = result[-1].conversation_message_id
@@ -1981,7 +1993,9 @@ class CommonEvent(BaseCommonEvent):
             result = await tg.chunked_send(
                 chat_id=chat_id,
                 text=text,
-                reply_markup=keyboard.to_tg() if keyboard else None
+                disable_web_page_preview=not preview_links,
+                reply_markup=keyboard.to_tg() if keyboard else None,
+                parse_mode=tg_parse_mode
             )
 
             message_id = result[-1].message_id
@@ -2191,7 +2205,9 @@ class CommonEverything(BaseCommonEvent):
         text: str,
         keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
-        tree_values: Optional[Values] = None
+        tree_values: Optional[Values] = None,
+        preview_links: bool = False,
+        tg_parse_mode: Optional[str] = "HTML"
     ):
         """
         If we have received a `message`, we SEND our response (answer).
@@ -2227,7 +2243,9 @@ class CommonEverything(BaseCommonEvent):
                 text=text,
                 keyboard=keyboard,
                 add_tree=add_tree,
-                tree_values=tree_values
+                tree_values=tree_values,
+                preview_links=preview_links,
+                tg_parse_mode=tg_parse_mode
             )
         elif send:
             if notify_about_resending:
@@ -2240,14 +2258,18 @@ class CommonEverything(BaseCommonEvent):
                     text=text,
                     keyboard=keyboard,
                     add_tree=add_tree,
-                    tree_values=tree_values
+                    tree_values=tree_values,
+                    preview_links=preview_links,
+                    tg_parse_mode=tg_parse_mode
                 )
             else:
                 return await event.send_message(
                     text=text,
                     keyboard=keyboard,
                     add_tree=add_tree,
-                    tree_values=tree_values
+                    tree_values=tree_values,
+                    preview_links=preview_links,
+                    tg_parse_mode=tg_parse_mode
                 )
 
     async def answer(
@@ -2256,7 +2278,9 @@ class CommonEverything(BaseCommonEvent):
         keyboard: Optional[kb.Keyboard] = None,
         add_tree: bool = False,
         tree_values: Optional[Values] = None,
-        set_as_last: bool = True
+        set_as_last: bool = True,
+        preview_links: bool = False,
+        tg_parse_mode: Optional[str] = "HTML"
     ):
         if self.is_from_event:
             event = self.event
@@ -2266,7 +2290,9 @@ class CommonEverything(BaseCommonEvent):
                 keyboard=keyboard,
                 add_tree=add_tree,
                 tree_values=tree_values,
-                set_as_last=set_as_last
+                set_as_last=set_as_last,
+                preview_links=preview_links,
+                tg_parse_mode=tg_parse_mode
             )
 
         if self.is_from_message:
@@ -2277,21 +2303,26 @@ class CommonEverything(BaseCommonEvent):
                 keyboard=keyboard,
                 add_tree=add_tree,
                 tree_values=tree_values,
-                set_as_last=set_as_last
+                set_as_last=set_as_last,
+                preview_links=preview_links,
+                tg_parse_mode=tg_parse_mode
             )
 
     async def send_message(
         self,
         text: str,
         keyboard: Optional[kb.Keyboard] = None,
-        chunker: Callable[[str, Optional[int]], list[str]] = text.chunks
+        chunker: Callable[[str, Optional[int]], list[str]] = text.chunks,
+        preview_links: bool = False,
+        tg_parse_mode: Optional[str] = "HTML"
     ):
         if self.is_from_vk:
             result = await vk.chunked_send(
                 peer_id=self.chat_id,
                 message=text,
                 keyboard=keyboard.to_vk().get_json() if keyboard else None,
-                chunker=chunker
+                chunker=chunker,
+                dont_parse_links=not preview_links
             )
         
             chat_id = result[-1].peer_id
@@ -2301,7 +2332,9 @@ class CommonEverything(BaseCommonEvent):
             result = await tg.chunked_send(
                 chat_id=self.chat_id,
                 text=text,
+                disable_web_page_preview=not preview_links,
                 reply_markup=keyboard.to_tg() if keyboard else None,
+                parse_mode=tg_parse_mode,
                 chunker=chunker
             )
 

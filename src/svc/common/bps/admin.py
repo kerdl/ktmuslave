@@ -53,7 +53,8 @@ async def execute_code(everything: CommonEverything):
 
     await everything.edit_or_answer(
         text=answer_text.make(),
-        keyboard=answer_keyboard
+        keyboard=answer_keyboard,
+        tg_parse_mode=None
     )
 
 @router.on_callback(
