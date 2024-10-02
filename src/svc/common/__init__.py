@@ -981,6 +981,11 @@ class Ctx:
                             do_detailed=do_detailed_compare,
                             ignored_fields=["days_weekly_chunked"]
                         )
+                 
+                    raw_fmt_changes = fmt_changes.text.replace("\n", "").strip() if fmt_changes.text else ""
+            
+                    if not raw_fmt_changes:
+                        continue
                     
                     header = None
                     if mode == Mode.GROUP:
@@ -993,15 +998,14 @@ class Ctx:
                             change=change,
                             date_range=week
                         )
-            
-                    if fmt_changes.text is not None:
-                        header += "\n\n"
+                        
+                    header += "\n\n"
 
-                        if fmt_changes.has_detailed and not do_detailed_compare:
-                            header += messages.format_detailed_compare_not_shown()
-                            header += "\n"
+                    if fmt_changes.has_detailed and not do_detailed_compare:
+                        header += messages.format_detailed_compare_not_shown()
+                        header += "\n"
 
-                        header += fmt_changes.text
+                    header += fmt_changes.text
 
                     bcast_formation = BroadcastFormation(
                         mode=mode,

@@ -208,6 +208,7 @@ class ScheduleApi:
                         logger.info(f"awaiting schedule updates...")
                         async for message in socket:
                             notify = Notify.model_validate_json(message)
+                            print(notify)
 
                             if notify.random == self.last_notify.random:
                                 logger.info(
