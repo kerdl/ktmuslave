@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Callable
 from dataclasses import dataclass, field
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.svc import common
 from src.svc.common import error
@@ -10,9 +10,9 @@ from src.svc.common.states import State, SPACE_LITERAL, tree
 
 
 class DbNavigator(BaseModel):
-    trace: list[str]
-    back_trace: list[str]
-    ignored: list[str]
+    trace: list[str] = Field(default_factory=list)
+    back_trace: list[str] = Field(default_factory=list)
+    ignored: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_runtime(cls: type[DbNavigator], navigator: Navigator) -> DbNavigator:
