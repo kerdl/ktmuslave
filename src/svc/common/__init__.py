@@ -9,7 +9,7 @@ from json.encoder import JSONEncoder
 from typing import Literal, Optional, Callable, Any, Coroutine, Awaitable, TypeVar, TYPE_CHECKING
 from copy import deepcopy
 from dataclasses import dataclass, field
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from vkbottle import ShowSnackbarEvent, VKAPIError
 from vkbottle_types.responses.messages import MessagesSendUserIdsResponseItem
 from vkbottle_types.codegen.objects import MessagesMessageActionStatus
@@ -116,15 +116,15 @@ class BroadcastFormation:
 
 class DbBaseCtx(BaseModel):
     chat_id: int
-    is_registered: bool
-    is_admin: Optional[bool]
-    is_switching_modes: Optional[bool]
+    is_registered: bool = False
+    is_admin: bool = False
+    is_switching_modes: Optional[bool] = None
 
-    navigator: DbNavigator
-    settings: Settings
-    schedule: Schedule
+    navigator: DbNavigator = Field(default_factory=DbNavigator)
+    settings: Settings = Field(default_factory=Settings)
+    schedule: Schedule = Field(default_factory=Schedule)
 
-    pages: pagination.Container
+    pages: pagination.Container = Field(default_factory=pagination.Container)
 
     last_call: float = 0.0
     last_everything: Optional[CommonEverything] = None
