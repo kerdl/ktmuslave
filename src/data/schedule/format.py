@@ -87,6 +87,8 @@ LITERAL_FORMAT = {
     Format.REMOTE: "дристант"
 }
 
+FORMATION_LABEL = "📜"
+
 RECOVERED_EMOJI = "♻️"
 
 TODAY_BELOW = "📅 | Сегодня"
@@ -166,6 +168,7 @@ def circle_keycap_num_range(range: Range[int]) -> str:
     
     return f"{start}{CIRCLE_KEYCAPS_RANGE_DASH}{end}"
 
+
 def navigation_bullets(count: int, idx: int) -> str:
     output = ""
     
@@ -175,12 +178,14 @@ def navigation_bullets(count: int, idx: int) -> str:
     
     return output
 
+
 def date(dt: datetime.date) -> str:
     str_day = fmt.zero_at_start(dt.day)
     str_month = fmt.zero_at_start(dt.month)
     str_year = str(dt.year)
 
     return f"{str_day}.{str_month}.{str_year}"
+
 
 def attender_cabinet(
     att: Attender,
@@ -271,6 +276,7 @@ def attenders(
     
     return fmt_attenders
 
+
 def subject_from_parts(
     num_range: Optional[Range[int]] = None,
     num: Optional[int] = None,
@@ -296,6 +302,7 @@ def subject_from_parts(
     output += name if name else raw
         
     return output
+
 
 def subject(
     subj: Subject,
@@ -377,6 +384,7 @@ def subject(
         base += joined_attenders
     
     return base
+
 
 def days(
     day_list: list[Day],
@@ -538,12 +546,15 @@ def days(
     
     return fmt_days
 
+
 def formation(
     form: Optional[Formation],
     week_pos: Range[datetime.date],
     entries: list[zoom.Data],
     mode: "MODE_LITERAL",
-    do_tg_markup: bool = False
+    do_tg_markup: bool = False,
+    is_group_chat: bool = False,
+    add_quick_lookup_hint: bool = True
 ) -> str:
     from src.data.settings import Mode
 
@@ -555,9 +566,17 @@ def formation(
         utc3_last_update.strftime("%H:%M:%S, %d.%m.%Y")
     ) if utc3_last_update else None
 
-    update_period = defs.schedule.get_update_period()
+    quick_lookup_hint = None
+    
+    if add_quick_lookup_hint:
+        quick_lookup_hint = messages.format_schedule_quick_lookup_hint()
+        if is_group_chat and do_tg_markup:
+            quick_lookup_hint = messages.format_schedule_quick_lookup_replying_hint()
+        if is_group_chat and not do_tg_markup:
+            quick_lookup_hint = messages.format_schedule_quick_lookup_mentioning_hint()
 
-    update_params = messages.format_schedule_footer(
+    update_period = defs.schedule.get_update_period()
+    update_params = messages.format_schedule_update_info(
         last_update=fmt_utc3_last_update,
         update_period=update_period
     )
@@ -565,16 +584,18 @@ def formation(
     week_bullets = week_bullets_from_formation(form=form, pos=week_pos)
 
     if form is None or not form.days:
-        if mode == Mode.GROUP:
-            return (
-                f"{messages.format_no_schedule()}\n\n"
-                f"{update_params}"
-            )
-        elif mode == Mode.TEACHER:
-            return (
-                f"{messages.format_tchr_no_schedule()}\n\n"
-                f"{update_params}"
-            )
+        warning_message = messages.format_no_schedule()
+        
+        if mode == Mode.TEACHER:
+            warning_message = messages.format_no_schedule()
+        
+        return (
+            messages.Builder()
+                .add(warning_message) 
+                .add(quick_lookup_hint)
+                .add(update_params)
+                .make()
+        )
 
     label = form.name if form.name else form.raw
     if form.recovered:
@@ -588,14 +609,8 @@ def formation(
         do_tg_markup=do_tg_markup
     ))
 
-    if mode == Mode.GROUP:
-        return (
-            f"📜 {label}\n\n"
-            f"{days_str}\n\n"
-            f"{update_params}\n\n"
-            f"{week_bullets}"
-        )
-    elif mode == Mode.TEACHER:
+    fmt_entries = None
+    if mode == Mode.TEACHER:
         fmt_entries = "\n".join([
             entry.format_inline(
                 include_name=True,
@@ -605,20 +620,22 @@ def formation(
             ) for entry in entries
         ])
 
-        msg = ""
-        msg += f"📜 {label}\n\n"
-        msg += f"{days_str}\n\n"
-        if fmt_entries:
-            msg += f"{fmt_entries}\n\n"
-        msg += f"{update_params}\n\n"
-        msg += f"{week_bullets}"
+    return (
+        messages.Builder()
+            .add(f"{FORMATION_LABEL} {label}") 
+            .add(days_str)
+            .add(quick_lookup_hint)
+            .add(update_params)
+            .add(week_bullets)
+            .make()
+    )
 
-        return msg
 
 @dataclass
 class CompareFormatted:
     text: Optional[str]
     has_detailed: bool
+
 
 def cmp(
     model: Union[TranslatedBaseModel, RepredBaseModel],

@@ -31,6 +31,8 @@ class Log(Middleware):
 @router.middleware()
 class BotMentionFilter(Middleware):
     async def pre(self, everything: CommonEverything):
+        if everything.sender_id == defs.tg_bot_info.id:
+            self.stop()
         if not everything.is_for_bot():
             self.stop()
 
