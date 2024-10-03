@@ -61,6 +61,18 @@ async def hub(
         
             identifier = identifier_match.group()
             
+            if (
+                ctx.schedule.temp_mode == Mode.GROUP and
+                identifier not in defs.schedule.group_names()
+            ):
+                return
+
+            if (
+                ctx.schedule.temp_mode == Mode.TEACHER and
+                identifier not in defs.schedule.teacher_names()
+            ):
+                return
+            
             if identifier != ctx.identifier:
                 if ctx.mode == Mode.GROUP:
                     ctx.schedule.temp_group = identifier

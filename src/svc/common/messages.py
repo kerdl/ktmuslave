@@ -891,12 +891,40 @@ def format_tchr_no_schedule() -> str:
     return MSG_TCHR_NO_SCHEDULE
 
 
-MSG_SCHEDULE_FOOTER = (
-    "⏱ Последнее обновление: {last_update}\n"
-    "✉ Период автообновления: {update_period}"
+MSG_SCHEDULE_QUICK_LOOKUP_HINT = (
+    "💡 | Напиши группу или фамилию препода, "
+    "чтобы быстро посмотреть их расписание"
 )
-def format_schedule_footer(last_update: Any, update_period: Any) -> str:
-    return MSG_SCHEDULE_FOOTER.format(
+
+def format_schedule_quick_lookup_hint():
+    return MSG_SCHEDULE_QUICK_LOOKUP_HINT
+
+
+MSG_SCHEDULE_QUICK_LOOKUP_REPLYING_HINT = (
+    "💡 | Напиши группу или фамилию препода "
+    "отвечая на это сообщение, "
+    "чтобы быстро посмотреть их расписание"
+)
+
+def format_schedule_quick_lookup_replying_hint():
+    return MSG_SCHEDULE_QUICK_LOOKUP_REPLYING_HINT
+
+
+MSG_SCHEDULE_QUICK_LOOKUP_MENTIONING_HINT = (
+    "💡 | Напиши группу или фамилию препода "
+    "упоминая меня, "
+    "чтобы быстро посмотреть их расписание"
+)
+
+def format_schedule_quick_lookup_mentioning_hint():
+    return MSG_SCHEDULE_QUICK_LOOKUP_MENTIONING_HINT
+
+
+MSG_SCHEDULE_UPDATE_INFO = (
+    "⏱ | Обновлено: {last_update}; интервал: {update_period}"
+)
+def format_schedule_update_info(last_update: Any, update_period: Any) -> str:
+    return MSG_SCHEDULE_UPDATE_INFO.format(
         last_update=last_update if last_update else "неизвестно",
         update_period=f"{update_period} мин" if update_period else "неизвестно"
     )

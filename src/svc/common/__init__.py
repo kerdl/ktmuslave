@@ -376,7 +376,9 @@ class BaseCtx:
                 week_pos=self.get_week_or_current(),
                 entries=self.settings.zoom.entries.list,
                 mode=self.settings.mode,
-                do_tg_markup=self.last_everything.is_from_tg_generally
+                do_tg_markup=self.last_everything.is_from_tg_generally,
+                is_group_chat=self.last_everything.is_group_chat,
+                add_quick_lookup_hint=not self.is_temp_mode
             )
         except AttributeError:
             return None
@@ -388,7 +390,9 @@ class BaseCtx:
                 week_pos=self.get_week_or_current(),
                 entries=self.settings.tchr_zoom.entries.list,
                 mode=self.settings.mode,
-                do_tg_markup=self.last_everything.is_from_tg_generally
+                do_tg_markup=self.last_everything.is_from_tg_generally,
+                is_group_chat=self.last_everything.is_group_chat,
+                add_quick_lookup_hint=not self.is_temp_mode
             )
         except AttributeError:
             return None
@@ -481,6 +485,10 @@ class BaseCtx:
         except AttributeError:
             return False
 
+    async def disable_broadcast_and_save(self):
+        self.settings.broadcast = False
+        await self.save()
+
     async def send_custom_broadcast(self, message: CommonBotMessage):
         from src.data.settings import Mode
 
@@ -511,33 +519,27 @@ class BaseCtx:
         message: CommonBotMessage,
         max_tries: int = 3,
         interval: int = 10 # in secs
-    ):
-        from src.data.settings import Mode
-        
+    ) -> None:
         tries = 0
-        errors = []
-        successful = False
+        errors: list[BaseException] = []
 
         while tries < max_tries:
             try:
-                await self.send_custom_broadcast(message)
-                successful = True
-                break
+                return await self.send_custom_broadcast(message)
             except Exception as e:
                 tries += 1
-                errors.append(f"{type(e).__name__}({e})")
+                errors.append(e)
                 await asyncio.sleep(interval)
 
-        if successful:
-            logger.opt(colors=True).success(
-                f"<G><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
-                f"succeeded after {tries} times"
-            )
+        if not errors:
+            return
+
+        all_errors_same = all(err.args == errors[0].args for err in errors)
+        
+        if all_errors_same:
+            raise errors[0]
         else:
-            logger.opt(colors=True).error(
-                f"<R><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
-                f"failed all {max_tries} times with errors: {' | '.join(errors)}"
-            )
+            raise Exception(errors)
 
     async def send_broadcast(
         self,
@@ -596,8 +598,7 @@ class BaseCtx:
 
             async def try_without_reply(
                 e: Exception,
-                bcast_message: CommonBotMessage,
-                mapping: BroadcastFormation
+                bcast_message: CommonBotMessage
             ):
                 e_str = str(e).replace("<", "\<")
                 logger.opt(colors=True).warning(
@@ -612,7 +613,7 @@ class BaseCtx:
                         f"<W><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                         f"{escaped_header}"
                     )
-                    await self.send_custom_broadcast(
+                    await self.retry_send_custom_broadcast(
                         message=bcast_message
                     )
                 except Exception as e:
@@ -628,15 +629,15 @@ class BaseCtx:
                     f"<W><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"{escaped_header}"
                 )
-                await self.send_custom_broadcast(
+                await self.retry_send_custom_broadcast(
                     message=bcast_message
                 )
             except VKAPIError[913] as e:
-                await try_without_reply(e, bcast_message, mapping)
+                await try_without_reply(e, bcast_message)
             except VKAPIError[100] as e:
                 e_str = str(e)
                 if "cannot reply this message" in e_str:
-                    await try_without_reply(e, bcast_message, mapping)
+                    await try_without_reply(e, bcast_message)
             except TelegramBadRequest as e:
                 e_str = str(e).replace("<", "\<")
                 logger.opt(colors=True).warning(
@@ -645,16 +646,17 @@ class BaseCtx:
                 )
 
                 if "chat not found" in e.message:
-                    ...
+                    await self.disable_broadcast_and_save()
                 
                 if "repl" in e.message:
-                    await try_without_reply(e, bcast_message, mapping)
+                    await try_without_reply(e, bcast_message)
 
             except TelegramForbiddenError:
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"user had blocked the bot"
                 )
+                await self.disable_broadcast_and_save()
             except error.BroadcastSendFail as e:
                 e_str = str(e).replace("<", "\<")
                 logger.opt(colors=True).warning(
@@ -913,7 +915,7 @@ class Ctx:
                 BroadcastFormation.filter_for_formation(chat_teacher, mappings)
             )
 
-            await chat.send_broadcast(chat_relative_mappings)
+            defs.create_task(chat.send_broadcast(chat_relative_mappings))
 
         for chat in chats_that_need_tchr_broadcast:
             chat.schedule.reset_temps()
@@ -922,7 +924,7 @@ class Ctx:
                 BroadcastFormation.filter_for_formation(chat_teacher, mappings)
             )
 
-            await chat.send_broadcast(chat_relative_mappings)
+            defs.create_task(chat.send_broadcast(chat_relative_mappings))
 
     async def broadcast_schedule_to_subscribes(
         self,
@@ -1259,9 +1261,23 @@ class CommonMessage(BaseCommonEvent):
             return self.tg_edited_channel_post.message_id
 
     @property
+    def sender_id(self) -> Optional[int]:
+        if self.is_from_vk:
+            return self.vk.from_id
+        if self.is_from_tg:
+            return self.tg.from_user.id
+        if self.is_from_tg_edited_message:
+            return self.tg_edited_message.from_user.id
+        if self.is_from_tg_channel_post:
+            return self.tg_channel_post.from_user.id
+        if self.is_from_tg_edited_channel_post:
+            return self.tg_edited_channel_post.from_user.id
+
+    @property
     def text(self) -> Optional[str]:
         if self.is_from_vk:
-            return defs.vk_bot_mention_regex.sub("", self.vk.text)
+            if self.vk.text is None: return None
+            return defs.vk_bot_mention_regex.sub("", self.vk.text).strip()
         if self.is_from_tg:
             return self.tg.text
         if self.is_from_tg_edited_message:
@@ -1766,6 +1782,15 @@ class CommonEvent(BaseCommonEvent):
             return self.tg.message.message_id
 
     @property
+    def sender_id(self) -> Optional[int]:
+        if self.is_from_vk:
+            return self.vk["object"]["user_id"]
+        if self.is_from_tg:
+            return self.tg.from_user.id
+        if self.is_from_tg_my_chat_member:
+            return self.tg_my_chat_member.from_user.id
+
+    @property
     def corresponding(self) -> Any:
         if self.is_from_vk:
             return self.vk
@@ -2178,6 +2203,13 @@ class CommonEverything(BaseCommonEvent):
             self.event.set_was_processed(value)
         elif self.is_from_message:
             self.message.set_was_processed(value)
+
+    @property
+    def sender_id(self) -> Optional[int]:
+        if self.is_from_message:
+            return self.message.sender_id
+        if self.is_from_event:
+            return self.event.sender_id
 
     @property
     def corresponding(self) -> Any:
