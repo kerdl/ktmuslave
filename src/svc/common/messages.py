@@ -67,7 +67,7 @@ class Builder:
 
 #### Common footers and headers ####
 
-def default_footer_addition(everything: common.CommonEverything):
+def bot_mention_hint(everything: common.CommonEverything):
     """
     # Notice about bot mentioning
 
@@ -524,10 +524,29 @@ def format_you_can_add_more():
 
 
 MSG_ENTRY_QUICK_LOOKUP = (
-    "💡 | Отправь имя записи или номер страницы, чтобы перейти к ней"
+    "💡 | Отправь имя записи или номер страницы, "
+    "чтобы перейти к ней"
 )
 def format_entry_quick_lookup():
     return MSG_ENTRY_QUICK_LOOKUP
+
+
+MSG_ENTRY_QUICK_LOOKUP_REPLYING = (
+    "💡 | Отправь имя записи или номер страницы "
+    "отвечая на это сообщение, "
+    "чтобы перейти к ней"
+)
+def format_entry_quick_lookup_replying():
+    return MSG_ENTRY_QUICK_LOOKUP_REPLYING
+
+
+MSG_ENTRY_QUICK_LOOKUP_MENTIONING = (
+    "💡 | Отправь имя записи или номер страницы "
+    "упоминая меня, "
+    "чтобы перейти к ней"
+)
+def format_entry_quick_lookup_mentioning():
+    return MSG_ENTRY_QUICK_LOOKUP_MENTIONING
 
 
 MSG_VALUE_TOO_BIG = (
