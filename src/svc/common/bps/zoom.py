@@ -114,7 +114,7 @@ async def set_attribute(
 ):
     ctx = everything.ctx
 
-    footer_addition = messages.default_footer_addition(everything)
+    footer_addition = messages.bot_mention_hint(everything)
     answer_keyboard = kb.Keyboard([
         [kb.NULL_BUTTON.only_if(
             ctx.navigator.current != ZOOM.IIII_NAME
@@ -613,9 +613,23 @@ async def browse(
     is_init_space = Space.INIT in ctx.navigator.spaces
     is_hub_space = Space.HUB in ctx.navigator.spaces
     
-    quick_lookup_hint = (
-        messages.format_entry_quick_lookup()
-    ) if len(storage.entries.list) > 0 else None
+    add_quick_lookup_hint = len(storage.entries.list) > 0
+    quick_lookup_hint = None
+    
+    if (
+        add_quick_lookup_hint and
+        everything.is_from_tg_generally and
+        everything.is_group_chat
+    ):
+        quick_lookup_hint = messages.format_entry_quick_lookup_replying()
+    elif (
+        add_quick_lookup_hint and
+        everything.is_from_vk and
+        everything.is_group_chat
+    ):
+        quick_lookup_hint = messages.format_entry_quick_lookup_mentioning()
+    elif add_quick_lookup_hint:
+        quick_lookup_hint = messages.format_entry_quick_lookup()
 
     if everything.is_from_event:
         # try to check if user selected an entry in list
@@ -746,7 +760,7 @@ async def mass(everything: CommonEverything):
         # user came to this state from button
         event = everything.event
 
-        footer_addition = messages.default_footer_addition(everything)
+        footer_addition = messages.bot_mention_hint(everything)
         has_new_entries = storage.new_entries.has_something
 
         if ctx.settings.mode == Mode.GROUP:
@@ -800,7 +814,7 @@ async def mass(everything: CommonEverything):
         # addition about if user
         # should mention or reply
         # so bot notices his message
-        footer_addition = messages.default_footer_addition(everything)
+        footer_addition = messages.bot_mention_hint(everything)
 
         # text that'll be shown
         # at the bottom of browser,

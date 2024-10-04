@@ -457,7 +457,7 @@ async def teacher(everything: CommonEverything):
         everything.event.payload == kb.Payload.SHOW_NAMES
     )
     original_valid = ctx.settings.teacher.valid
-    footer_addition = messages.default_footer_addition(everything)
+    footer_addition = messages.bot_mention_hint(everything)
 
     if ctx.navigator.current != SETTINGS.II_TEACHER:
         ctx.navigator.jump_back_to_or_append(SETTINGS.II_TEACHER)
@@ -685,7 +685,7 @@ async def group(everything: CommonEverything):
         everything.is_from_event and
         everything.event.payload == kb.Payload.SHOW_NAMES
     )
-    footer_addition = messages.default_footer_addition(everything)
+    footer_addition = messages.bot_mention_hint(everything)
 
     if ctx.navigator.current != SETTINGS.II_GROUP:
         ctx.navigator.jump_back_to_or_append(SETTINGS.II_GROUP)
