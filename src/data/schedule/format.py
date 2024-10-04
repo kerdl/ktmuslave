@@ -624,6 +624,7 @@ def formation(
         messages.Builder()
             .add(f"{FORMATION_LABEL} {label}") 
             .add(days_str)
+            .add(fmt_entries)
             .add(quick_lookup_hint)
             .add(update_params)
             .add(week_bullets)
