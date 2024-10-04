@@ -682,6 +682,7 @@ async def browse(
         ctx.pages.list = pagination.from_zoom(
             data=storage.new_entries.list,
             mode=ctx.settings.mode,
+            per_page=4 if everything.is_from_tg_generally else 2,
             text_footer=text_footer if text_footer else quick_lookup_hint,
             keyboard_footer=[
                 [kb.CLEAR_BUTTON.only_if(has_new_entries), kb.ADD_ALL_BUTTON], 
@@ -694,6 +695,7 @@ async def browse(
         ctx.pages.list = pagination.from_zoom(
             data=storage.entries.list,
             mode=ctx.settings.mode,
+            per_page=4 if everything.is_from_tg_generally else 2,
             text_footer=text_footer if text_footer else quick_lookup_hint,
             keyboard_footer=[
                 [
