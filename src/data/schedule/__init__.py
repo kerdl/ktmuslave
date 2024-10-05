@@ -250,8 +250,9 @@ class Formation(RepredBaseModel):
     def prev_week(self, rng: Range[datetime.date]) -> Optional[DaysWithWeek]:
         for idx, dww in enumerate(self.days_weekly_chunked):
             if dww.week != rng: continue
-            try: return self.days_weekly_chunked[idx-1]
-            except IndexError: return None
+            prev_idx = idx - 1
+            if prev_idx < 0: return None
+            return self.days_weekly_chunked[prev_idx]
     
     def prev_week_self(self, rng: Range[datetime.date]) -> Optional[FormationWithWeek]:
         w = self.prev_week(rng)

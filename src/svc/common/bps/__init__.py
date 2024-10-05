@@ -63,7 +63,10 @@ async def page_previous(everything: CommonEverything):
         return await everything.event.pong()
 
     if is_hub_space:
-        return await hub.hub(everything=everything)
+        return await hub.hub(
+            everything=everything,
+            allow_edit=ctx.last_bot_message.can_edit
+        )
     else:
         ctx.pages.current_num -= 1
         
@@ -94,7 +97,10 @@ async def page_next(everything: CommonEverything):
         return await everything.event.pong()
 
     if is_hub:
-        return await hub.hub(everything=everything)
+        return await hub.hub(
+            everything=everything,
+            allow_edit=ctx.last_bot_message.can_edit
+        )
     else:
         ctx.pages.current_num += 1
         
@@ -125,7 +131,10 @@ async def page_jump_previous(everything: CommonEverything):
         return await everything.event.pong()
 
     if is_hub_space:
-        return await hub.hub(everything=everything)
+        return await hub.hub(
+            everything=everything,
+            allow_edit=ctx.last_bot_message.can_edit
+        )
     else:
         ctx.pages.current_num = 0
         
@@ -156,7 +165,10 @@ async def page_jump_next(everything: CommonEverything):
         return await everything.event.pong()
 
     if is_hub:
-        return await hub.hub(everything=everything)
+        return await hub.hub(
+            everything=everything,
+            allow_edit=ctx.last_bot_message.can_edit
+        )
     else:
         ctx.pages.current_num = len(ctx.pages.list) - 1
         

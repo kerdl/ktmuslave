@@ -79,20 +79,19 @@ class Time(BaseModel):
             
 
 class Settings(BaseModel):
+    path: Optional[Path] = None
     tokens: Tokens
     server: Server
     database: Database
     logging: Optional[Logging] = None
     urls: Optional[Urls] = None
     time: Optional[Time] = None
-    path: Optional[Path] = None
 
     async def save(self):
         path: str = self.path
 
         async with aiofiles.open(path, mode="w") as f:
             ser = self.model_dump_json(
-                ensure_ascii=False,
                 indent=2,
                 exclude={"path"}
             )

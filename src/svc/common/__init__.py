@@ -277,18 +277,34 @@ class BaseCtx:
     def mode(self) -> "MODE_LITERAL":
         if self.is_temp_mode: return self.schedule.temp_mode
         else: return self.settings.mode
+    
+    @property
+    def is_group_mode(self) -> bool:
+        from src.data.settings import Mode
+        return self.mode == Mode.GROUP
+
+    @property
+    def is_teacher_mode(self) -> bool:
+        from src.data.settings import Mode
+        return self.mode == Mode.TEACHER
 
     @property
     def identifier(self) -> str:
-        from src.data.settings import Mode
-        if self.schedule.temp_mode == Mode.GROUP:
+        if self.is_temp_mode and self.is_group_mode:
             return self.schedule.temp_group
-        if self.schedule.temp_mode == Mode.TEACHER:
+        if self.is_temp_mode and self.is_teacher_mode:
             return self.schedule.temp_teacher
-        if self.settings.mode == Mode.GROUP:
+        if not self.is_temp_mode and self.is_group_mode:
             return self.settings.group.confirmed
-        if self.settings.mode == Mode.TEACHER:
+        if not self.is_temp_mode and self.is_teacher_mode:
             return self.settings.teacher.confirmed
+
+    @property
+    def identifier_exists(self) -> bool:
+        if self.is_group_mode:
+            return self.identifier in defs.schedule.group_names()
+        if self.is_teacher_mode:
+            return self.identifier in defs.schedule.teacher_names()
 
     def register(self) -> None:
         self.is_registered = True
@@ -358,9 +374,9 @@ class BaseCtx:
             return None
     
     def fmt_schedule(self) -> Optional[str]:
-        if self.mode == Mode.GROUP:
+        if self.is_group_mode:
             return self.fmt_schedule_as_group()
-        if self.mode == Mode.TEACHER:
+        if self.is_teacher_mode:
             return self.fmt_schedule_as_teacher()
     
     def is_backward_week_shift_allowed(self) -> bool:
@@ -404,13 +420,16 @@ class BaseCtx:
     def jump_week_backward(self) -> bool:
         try:
             form = self.get_schedule()
+            dww = form.first_week()
             if self.schedule.get_week_or_current() > week.current_active():
                 # jump to the current week
                 self.schedule.reset_temp_week()
-            else:
+            elif dww.week != self.schedule.get_week_or_current():
                 # jump to the beginning
-                dww = form.first_week()
                 self.schedule.temp_week = dww.week
+            else:
+                return False
+            
             return True
         except AttributeError:
             return False
@@ -418,13 +437,16 @@ class BaseCtx:
     def jump_week_forward(self) -> bool:
         try:
             form = self.get_schedule()
+            dww = form.last_week()
             if self.schedule.get_week_or_current() < week.current_active():
                 # jump to the current week
                 self.schedule.reset_temp_week()
-            else:
+            elif dww.week != self.schedule.get_week_or_current():
                 # jump to the end
-                dww = form.last_week()
                 self.schedule.temp_week = dww.week
+            else:
+                return False
+            
             return True
         except AttributeError:
             return False
@@ -487,7 +509,10 @@ class BaseCtx:
                 f"failed all {max_tries} times with errors: {' | '.join(errors)}"
             )
 
-    async def send_broadcast(self, mappings: list[BroadcastFormation]):
+    async def send_broadcast(
+        self,
+        mappings: list[BroadcastFormation]
+    ):
         from src.data.settings import Mode
 
         last_schedule = None
@@ -500,12 +525,7 @@ class BaseCtx:
         for mapping in mappings:
             reply_to = None
 
-            fmt_schedule = None
-            if self.settings.mode == Mode.GROUP:
-                fmt_schedule = self.fmt_schedule_as_group()
-            elif self.settings.mode == Mode.TEACHER:
-                fmt_schedule = self.fmt_schedule_as_teacher()
-            
+            fmt_schedule = self.fmt_schedule()
             bcast_text = None
             raw_bcast_text = mapping.add_header_to(fmt_schedule)
             
@@ -658,7 +678,7 @@ class Ctx:
     async def delete(self, key: str):
         await defs.redis.json().delete(key)
 
-    async def get_who_needs_broadcast(
+    async def get_who_needs_group_broadcast(
         self,
         groups: list[str]
     ) -> Optional[list]:
@@ -707,7 +727,23 @@ class Ctx:
             f"{query}",
             f"LIMIT",
             f"0",
-            f"10000"
+            f"10000" # fuck it
+        )
+
+        return response
+    
+    async def get_who_enabled_broadcast(self):
+        query = (
+            f"@{RedisName.IS_REGISTERED}:""{true} "
+            f"@{RedisName.BROADCAST}:""{true}"
+        )
+        response: list = await defs.redis.execute_command(
+            f"FT.SEARCH",
+            f"{RedisName.GENERIC_BROADCAST}",
+            f"{query}",
+            f"LIMIT",
+            f"0",
+            f"10000" # fuck it
         )
 
         return response
@@ -749,20 +785,19 @@ class Ctx:
 
         return ctxs
 
-    async def get_who_needs_broadcast_parsed(self, groups: list[str]) -> list[BaseCtx]:
-        raw_result = await self.get_who_needs_broadcast(groups)
-
-        if raw_result is None:
-            return []
-
+    async def get_who_needs_group_broadcast_parsed(self, groups: list[str]) -> list[BaseCtx]:
+        raw_result = await self.get_who_needs_group_broadcast(groups)
+        if raw_result is None: return []
         return await self.parse_redis_result(raw_result)
 
     async def get_who_needs_tchr_broadcast_parsed(self, teachers: list[str]) -> list[BaseCtx]:
         raw_result = await self.get_who_needs_tchr_broadcast(teachers)
-
-        if raw_result is None:
-            return []
-
+        if raw_result is None: return []
+        return await self.parse_redis_result(raw_result)
+    
+    async def get_who_enabled_broadcast_parsed(self) -> list[BaseCtx]:
+        raw_result = await self.get_who_enabled_broadcast()
+        if raw_result is None: return []
         return await self.parse_redis_result(raw_result)
     
     async def get_everyone_parsed(self) -> list[BaseCtx]:
@@ -805,7 +840,7 @@ class Ctx:
         ]
 
         chats_that_need_group_broadcast = (
-            await self.get_who_needs_broadcast_parsed(affected_groups)
+            await self.get_who_needs_group_broadcast_parsed(affected_groups)
         )
         chats_that_need_tchr_broadcast = (
             await self.get_who_needs_tchr_broadcast_parsed(affected_teachers)
@@ -828,6 +863,29 @@ class Ctx:
             )
 
             await chat.send_broadcast(chat_relative_mappings)
+
+    async def broadcast_schedule_to_subscribes(
+        self,
+        header: str
+    ):
+        subscribers = await self.get_who_enabled_broadcast_parsed()
+        
+        for chat in subscribers:
+            if chat.fmt_schedule() is None:
+                continue
+            
+            chat.schedule.reset_temps()
+            
+            # i realize how stupid this is
+            # but bro, again, i don't care
+            # and who does
+            fake_mapping = BroadcastFormation(
+                mode="",
+                formation="",
+                header=header
+            )
+            
+            await chat.send_broadcast([fake_mapping])
 
     async def broadcast(self, notify: Notify):
         from src.data.schedule.compare import ChangeType

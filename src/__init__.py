@@ -3,11 +3,12 @@ import datetime
 import re
 import aiofiles
 import warnings
+import asyncio
 from redis.asyncio import Redis
 from redis import exceptions as rexeptions
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from aiofiles import ospath
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, Never, TYPE_CHECKING
 from vkbottle import Bot as VkBot
 from vkbottle_types.responses.groups import GroupsGroupFull
 from aiogram import Bot as TgBot, Dispatcher, Router
@@ -18,7 +19,9 @@ from loguru._handler import Message
 from dataclasses import dataclass
 from pathlib import Path
 from src.settings import Settings
+from src.weekcast import WeekCast
 from src.api.schedule import ScheduleApi, LastNotify
+from src.data import week
 from src.data.range import Range
 from src.data.weekday import WEEKDAY_LITERAL
 
@@ -34,6 +37,7 @@ COLOR_ESCAPE_REGEX = re.compile(r"\x1b[[]\d{1,}m")
 class RedisName:
     BROADCAST = "broadcast"
     TCHR_BROADCAST = "tchr_broadcast"
+    GENERIC_BROADCAST = "generic_broadcast"
     IS_REGISTERED = "is_registered"
     MODE = "mode"
     GROUP = "group"
@@ -124,6 +128,7 @@ class Defs:
     logger: Optional["Logger"] = None
 
     settings: Optional[Settings] = None
+    weekcast: Optional[WeekCast] = None
     schedule: Optional[ScheduleApi] = None
 
     data_dir: Optional[Path] = None
@@ -141,30 +146,31 @@ class Defs:
         self.init_logger()
         self.init_fs()
         self.init_vars(init_handlers, init_middlewares)
+        self.init_periods()
 
-    def init_loop(self):
+    def init_loop(self) -> None:
         self.loop = asyncio.get_event_loop()
 
-    async def init_http(self):
+    async def init_http(self) -> None:
         self.http = ClientSession(loop=self.loop)
     
-    async def init_schedule_api(self):
+    async def init_schedule_api(self) -> None:
         #await self.schedule.await_server()
         self.create_task(self.schedule.updates())
 
-    async def get_vk_bot_info(self):
+    async def get_vk_bot_info(self) -> None:
         groups_resp = await self.vk_bot.api.groups.get_by_id()
         group_data = groups_resp.groups[0]
         self.vk_bot_info = group_data
         self.vk_bot_mention = "@" + group_data.screen_name
 
-    async def get_tg_bot_info(self):
+    async def get_tg_bot_info(self) -> None:
         me = await self.tg_bot.get_me()
         self.tg_bot_info = me
         self.tg_bot_mention = "/nigga"
         self.tg_bot_commands = ["/nigga"]
 
-    async def wait_for_redis(self):
+    async def wait_for_redis(self) -> None:
         retry = 5
         logged = False
 
@@ -186,55 +192,63 @@ class Defs:
                 
                 await asyncio.sleep(retry)
 
-    async def create_redisearch_index(self):
-        # i couldn't figure out how to generate
-        # this exact command with redis-py built-in
-        # instruments
+    async def create_redisearch_group_broadcast_index(self) -> None:
         await self.redis.execute_command(
             "FT.CREATE",
             RedisName.BROADCAST,
             "ON",
             "JSON",
             "SCHEMA",
-            "$.settings.mode", "AS", RedisName.MODE, "TEXT",
-            "$.settings.group.confirmed", "AS", RedisName.GROUP, "TEXT",
-            "$.settings.broadcast", "AS", RedisName.BROADCAST, "TAG",
             "$.is_registered", "AS", RedisName.IS_REGISTERED, "TAG",
+            "$.settings.broadcast", "AS", RedisName.BROADCAST, "TAG",
+            "$.settings.mode", "AS", RedisName.MODE, "TEXT",
+            "$.settings.group.confirmed", "AS", RedisName.GROUP, "TEXT"
         )
     
-    async def create_redisearch_tchr_index(self):
+    async def create_redisearch_tchr_broadcast_index(self) -> None:
         await self.redis.execute_command(
             "FT.CREATE",
             RedisName.TCHR_BROADCAST,
             "ON",
             "JSON",
             "SCHEMA",
-            "$.settings.mode", "AS", RedisName.MODE, "TEXT",
-            "$.settings.teacher.confirmed", "AS", RedisName.TEACHER, "TEXT",
-            "$.settings.broadcast", "AS", RedisName.BROADCAST, "TAG",
             "$.is_registered", "AS", RedisName.IS_REGISTERED, "TAG",
+            "$.settings.broadcast", "AS", RedisName.BROADCAST, "TAG",
+            "$.settings.mode", "AS", RedisName.MODE, "TEXT",
+            "$.settings.teacher.confirmed", "AS", RedisName.TEACHER, "TEXT"
         )
 
-    async def check_redisearch_index(self):
+    async def create_redisearch_generic_broadcast_index(self) -> None:
+        await self.redis.execute_command(
+            "FT.CREATE",
+            RedisName.GENERIC_BROADCAST,
+            "ON",
+            "JSON",
+            "SCHEMA",
+            "$.is_registered", "AS", RedisName.IS_REGISTERED, "TAG",
+            "$.settings.broadcast", "AS", RedisName.BROADCAST, "TAG"
+        )
+
+    async def check_redisearch_index(self) -> None:
         try:
-            # try getting info about broadcast index
             await self.redis.ft(RedisName.BROADCAST).info()
         except rexeptions.ResponseError:
-            # Unknown Index name
-            # it doesn't exist, create this index
-            await self.create_redisearch_index()
+            await self.create_redisearch_group_broadcast_index()
             logger.info(f"created redis \"{RedisName.BROADCAST}\" index")
 
         try:
-            # try getting info about broadcast index
             await self.redis.ft(RedisName.TCHR_BROADCAST).info()
         except rexeptions.ResponseError:
-            # Unknown Index name
-            # it doesn't exist, create this index
-            await self.create_redisearch_tchr_index()
+            await self.create_redisearch_tchr_broadcast_index()
             logger.info(f"created redis \"{RedisName.TCHR_BROADCAST}\" index")
+            
+        try:
+            await self.redis.ft(RedisName.GENERIC_BROADCAST).info()
+        except rexeptions.ResponseError:
+            await self.create_redisearch_generic_broadcast_index()
+            logger.info(f"created redis \"{RedisName.GENERIC_BROADCAST}\" index")
 
-    def init_redis(self):
+    def init_redis(self) -> None:
         invalid_addr_error = ValueError(
             "invalid database address, "
             "make sure it follows this format: 127.0.0.1:6379"
@@ -256,7 +270,40 @@ class Defs:
         from src.data.settings import MODE_LITERAL
         DbBaseCtx.model_rebuild()
         Container.model_rebuild()
-
+        
+    async def weekcast_loop(self) -> Never:
+        from src.svc.common import messages
+        
+        await self.schedule.ready_channel.get()
+        
+        while True:
+            today = datetime.date.today()
+            covered = self.weekcast.covered
+            next_broadcast = covered.end
+            
+            if today not in covered:
+                next_broadcast = week.ensure_next_after_current(covered).end
+                self.weekcast.covered = week.cover_today(covered.start.weekday())
+                self.weekcast.poll_save()
+                
+                logger.info("weekcast starts broadcasting")
+                
+                await self.ctx.broadcast_schedule_to_subscribes(
+                    header=messages.format_next_week()
+                )
+            
+            now = datetime.datetime.now()
+            next_broadcast_time = datetime.datetime.combine(
+                date=next_broadcast,
+                time=datetime.time()
+            )
+            
+            delta = next_broadcast_time - now
+            delta_s = delta.total_seconds()
+            
+            logger.info(f"weekcast sleeps {delta_s} s...")
+            await asyncio.sleep(delta_s)
+            
     async def init_logger_svc(self) -> None:
         """
         Abandoned logging service
@@ -273,64 +320,6 @@ class Defs:
             ...
 
         self.logger = Logger(addr=logger_addr)
-
-    def init_vars(
-        self, 
-        init_handlers: bool = True,
-        init_middlewares: bool = True,
-    ) -> None:
-        """
-        ## Init variables/constants, by default they are all `None`
-        """
-        from src.svc import vk, telegram
-
-        self.loop.run_until_complete(self.init_http())
-
-        if self.settings.tokens.vk:
-            self.vk_bot = vk.load(token=self.settings.tokens.vk, loop=self.loop)
-            self.loop.run_until_complete(self.get_vk_bot_info())
-        if self.settings.tokens.tg:
-            self.tg_bot = telegram.load_bot(token=self.settings.tokens.tg)
-            self.tg_router = telegram.load_router()
-            self.tg_dispatch = telegram.load_dispatch(self.tg_router)
-            self.loop.run_until_complete(self.get_tg_bot_info())
-
-        if init_middlewares:
-            from src.svc.common import middlewares
-            middlewares.router.assign()
-        
-        if init_handlers:
-            from src.svc.common.bps import admin, reset, settings, init, zoom, hub
-        
-        from src.svc.common import Ctx
-
-        self.ctx = Ctx()
-        self.init_redis()
-
-        self.loop.run_until_complete(self.init_logger_svc())
-        self.loop.run_until_complete(self.init_schedule_api())
-
-    def init_fs(self) -> None:
-        self.data_dir = Path(".", "data")
-        self.data_dir.mkdir(exist_ok=True)
-
-        settings_path = self.data_dir.joinpath("settings.json")
-        self.settings = Settings.load_or_init(path=settings_path)
-        self.schedule = ScheduleApi(
-            url=self.settings.server.addr,
-            last_notify=LastNotify.load_or_init(self.data_dir.joinpath("last_notify.json"))
-        )
-
-        if self.settings.logging and self.settings.logging.dir:
-            self.log_path = self.settings.logging.dir.joinpath("log.txt")
-            self.log_file = self.loop.run_until_complete(
-                aiofiles.open(
-                    self.log_path,
-                    mode="a",
-                    encoding="utf8",
-                    newline="\n"
-                )
-            )
 
     def init_logger(self) -> None:
         """
@@ -374,12 +363,78 @@ class Defs:
             ...
         
         warnings.showwarning = fuckwarning
+
+    def init_fs(self) -> None:
+        self.data_dir = Path(".", "data")
+        self.data_dir.mkdir(exist_ok=True)
+
+        settings_path = self.data_dir.joinpath("settings.json")
+        last_notify_path = self.data_dir.joinpath("last_notify.json")
+        weekcast_path = self.data_dir.joinpath("weekcast.json")
+        
+        self.settings = Settings.load_or_init(path=settings_path)
+        self.weekcast = WeekCast.load_or_init(path=weekcast_path)
+        self.schedule = ScheduleApi(
+            url=self.settings.server.addr,
+            last_notify=LastNotify.load_or_init(path=last_notify_path),
+            ready_channel=asyncio.Queue()
+        )
+
+        if self.settings.logging and self.settings.logging.dir:
+            self.log_path = self.settings.logging.dir.joinpath("log.txt")
+            self.log_file = self.loop.run_until_complete(
+                aiofiles.open(
+                    self.log_path,
+                    mode="a",
+                    encoding="utf8",
+                    newline="\n"
+                )
+            )
+
+    def init_vars(
+        self, 
+        init_handlers: bool = True,
+        init_middlewares: bool = True,
+    ) -> None:
+        """
+        ## Init variables/constants, by default they are all `None`
+        """
+        from src.svc import vk, telegram
+
+        self.loop.run_until_complete(self.init_http())
+
+        if self.settings.tokens.vk:
+            self.vk_bot = vk.load(token=self.settings.tokens.vk, loop=self.loop)
+            self.loop.run_until_complete(self.get_vk_bot_info())
+        if self.settings.tokens.tg:
+            self.tg_bot = telegram.load_bot(token=self.settings.tokens.tg)
+            self.tg_router = telegram.load_router()
+            self.tg_dispatch = telegram.load_dispatch(self.tg_router)
+            self.loop.run_until_complete(self.get_tg_bot_info())
+
+        if init_middlewares:
+            from src.svc.common import middlewares
+            middlewares.router.assign()
+        
+        if init_handlers:
+            from src.svc.common.bps import admin, reset, settings, init, zoom, hub
+        
+        from src.svc.common import Ctx
+
+        self.ctx = Ctx()
+        self.init_redis()
+
+        self.loop.run_until_complete(self.init_logger_svc())
+        self.loop.run_until_complete(self.init_schedule_api())
+
+    def init_periods(self) -> None:
+        self.create_task(self.weekcast_loop())
             
-    def create_task(self, coro, *, name=None):
+    def create_task(self, coro, *, name=None) -> None:
         task = self.loop.create_task(coro, name=name)
         task.add_done_callback(self._handle_task)
 
-    def _handle_task(self, task: asyncio.Task):
+    def _handle_task(self, task: asyncio.Task) -> None:
         try:
             task.result()
         except asyncio.CancelledError:

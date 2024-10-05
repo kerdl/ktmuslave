@@ -1,10 +1,16 @@
 import datetime
+from typing import Optional
 from src.data.range import Range
 
 
-def eq_with_now(other: Range[datetime.date]) -> bool:
-    now = current_active()
-    return now == other
+def current() -> Range[datetime.date]:
+    today = datetime.date.today()
+    # Today - Current weekday number = Monday
+    start = today - datetime.timedelta(days=today.weekday())
+    # Monday + 7 = Monday
+    # (since Range is non-inclusive, it includes Sunday but not Monday)
+    end = start + datetime.timedelta(days=7)
+    return Range(start=start, end=end)
     
 def current_active() -> Range[datetime.date]:
     """
@@ -23,7 +29,8 @@ def current_active() -> Range[datetime.date]:
         # Today - Current weekday number = Monday
         start = today - datetime.timedelta(days=today.weekday())
     
-    # Monday + 7 = Monday, but since Range is non-inclusive, it is Sunday
+    # Monday + 7 = Monday
+    # (since Range is non-inclusive, it includes Sunday but not Monday)
     end = start + datetime.timedelta(days=7)
     return Range(start=start, end=end)
 
@@ -35,38 +42,47 @@ def from_day(day: datetime.date) -> Range[datetime.date]:
     end = start + datetime.timedelta(days=7)
     return Range(start=start, end=end)
 
-def shift_backwards(rng: Range[datetime.date]) -> Range[datetime.date]:
-    """
-    # Get previous week from provided
-    
-    ## Exceptions
-    Throws `ValueError` if `rng`
-    does not start from Monday and
-    does not end with Sunday
-    """
-    if rng.start.weekday() != 0:
-        raise ValueError("rng does not start with Monday")
-    if rng.end.weekday() != 0:
-        raise ValueError("rng does not end with Sunday")
+def index_day(rng: Range[datetime.date], idx: int) -> Optional[datetime.date]:
+    return rng.start + datetime.timedelta(days=idx)
 
-    prev_sunday = rng.start - datetime.timedelta(days=1)
-    prev_monday = prev_sunday - datetime.timedelta(days=7)
-    return Range(start=prev_monday, end=prev_sunday)
-    
-def shift_forward(rng: Range[datetime.date]) -> Range[datetime.date]:
+def previous(rng: Range[datetime.date]) -> Range[datetime.date]:
     """
-    # Get next week from provided
-    
-    ## Exceptions
-    Throws `ValueError` if `rng`
-    does not start from Monday and
-    does not end with Sunday
+    # Get previous week
     """
-    if rng.start.weekday() != 0:
-        raise ValueError("rng does not start with Monday")
-    if rng.end.weekday() != 0:
-        raise ValueError("rng does not end with Sunday")
+    start = rng.start - datetime.timedelta(days=7)
+    end = rng.end - datetime.timedelta(days=7)
+    return Range(start=start, end=end)
+
+def next(rng: Range[datetime.date]) -> Range[datetime.date]:
+    """
+    # Get next week
+    """
+    start = rng.start + datetime.timedelta(days=7)
+    end = rng.end + datetime.timedelta(days=7)
+    return Range(start=start, end=end)
+
+def ensure_next_after_current(rng: Range[datetime.date]) -> Range[datetime.date]:
+    return starting_from_day(index_day(current(), rng.start.weekday()))
+
+def starting_from_day(day: datetime.date) -> Range[datetime.date]:
+    """
+    # A week starting from `day`
+    """
+    end = day + datetime.timedelta(days=7)
+    return Range(start=day, end=end)
+
+def cover_today(idx: int) -> Range[datetime.date]:
+    """
+    # Make a range covering today's weekday, starting from `idx`
+    """
+    today = datetime.date.today()
     
-    next_monday = rng.end + datetime.timedelta(days=1)
-    next_sunday = next_monday + datetime.timedelta(days=7)
-    return Range(start=next_monday, end=next_sunday)
+    if today.weekday() == idx:
+        # start the week from today
+        return starting_from_day(today)
+    else:
+        # start from previous week
+        curr = from_day(today)
+        prev = previous(curr)
+        prev_weekday = prev.start + datetime.timedelta(days=idx)
+        return starting_from_day(prev_weekday)

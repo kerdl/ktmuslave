@@ -66,13 +66,18 @@ async def hub(
                     ctx.schedule.temp_teacher = identifier_object.valid
                 
                 ctx.schedule.reset_temp_week()
-
-    schedule_text = messages.format_schedule_unavailable()
-
-    if defs.schedule.is_cached_available:
+    if not ctx.identifier_exists:
+        if ctx.is_group_mode:
+            schedule_text = messages.format_no_schedule()
+        elif ctx.is_teacher_mode:
+            schedule_text = messages.format_tchr_no_schedule()
+    elif defs.schedule.is_cached_available:
         schedule_text = ctx.fmt_schedule()
     else:
         schedule_text = messages.format_cant_connect_to_schedule_server()
+
+    if not schedule_text:
+        schedule_text = messages.format_schedule_unavailable()
 
     answer_text = (
         messages.Builder()

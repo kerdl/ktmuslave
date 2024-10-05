@@ -63,6 +63,7 @@ class ScheduleApi:
     is_online: bool = False
     is_cached_available: bool = False
     last_notify: Optional[LastNotify] = None
+    ready_channel: Optional[asyncio.Queue] = None
 
     _cached_groups: Optional[Page] = None
     _cached_teachers: Optional[Page] = None
@@ -159,6 +160,7 @@ class ScheduleApi:
                         self.is_cached_available = True
                         is_connect_error_logged = False
                         is_connection_attempt_logged = False
+                        await self.ready_channel.put(True)
 
                         logger.info(f"awaiting schedule updates...")
                         async for message in socket:
@@ -180,12 +182,7 @@ class ScheduleApi:
                         logger.info(e)
                         logger.info("reconnecting to ktmuscrap...")
                         continue
-
-            except (
-                ConnectionRefusedError,
-                ClientConnectorError,
-                ServerDisconnectedError
-            ):
+            except:
                 if not is_connect_error_logged:
                     self.is_online = False
 

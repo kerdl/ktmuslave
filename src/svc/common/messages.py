@@ -917,6 +917,13 @@ def format_teacher_changed_in_schedule(change: compare.ChangeType):
     )
 
 
+NEXT_WEEK = (
+    "🧭 Следующая неделя"
+)
+def format_next_week():
+    return NEXT_WEEK
+
+
 MSG_REPLIED_TO_SCHEDULE_MESSAGE = (
     "👆 Прошлое расписание в ответном сообщении"
 )
