@@ -38,7 +38,7 @@
 
 ## Еженедельная рассылка
 Цикл проходит в
-[`src.Defs.weekcast_loop()`](/src/__init__.py?blame=1&L280).
+[`src.Defs.weekcast_loop()`](/src/__init__.py?blame=1#L280).
 
 
 ## Тексты сообщений
