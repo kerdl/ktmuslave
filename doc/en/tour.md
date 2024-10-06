@@ -37,7 +37,7 @@ are processed and broadcasted if needed.
 
 ## Weekly broadcast
 Loop happens in
-[`src.Defs.weekcast_loop()`](/src/__init__.py?blame=1&L280).
+[`src.Defs.weekcast_loop()`](/src/__init__.py?blame=1#L280).
 
 
 ## Message texts
