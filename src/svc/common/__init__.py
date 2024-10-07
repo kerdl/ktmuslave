@@ -517,7 +517,7 @@ class BaseCtx:
     async def retry_send_custom_broadcast(
         self,
         message: CommonBotMessage,
-        max_tries: int = 3,
+        max_tries: int = 1,
         interval: int = 10 # in secs
     ) -> None:
         tries = 0
