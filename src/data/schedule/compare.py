@@ -120,7 +120,7 @@ class FormationCompare(RepredBaseModel):
         default_factory=DetailedChanges
     )
     days_weekly_chunked: DetailedChanges[Weeked[list[DayCompare]], Weeked[list[Day]]] = Field(
-        default_factory=list
+        default_factory=DetailedChanges
     )
 
     @property
