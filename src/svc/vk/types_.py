@@ -112,20 +112,41 @@ class MessageV2(BaseModel):
     _mention: Optional[MentionV2] = None
 
     def from_v1(v1: MessageV1) -> MessageV2:
+        try: action = ActionV2.from_v1(v1.action) if v1.action else None
+        except AttributeError: action = None
+        try: conversation_message_id = v1.conversation_message_id
+        except AttributeError: conversation_message_id = None
+        try: date = v1.date
+        except AttributeError: date = None
+        try: from_id = v1.from_id
+        except AttributeError: from_id = None
+        try: fwd_messages = [MessageV2.from_v1(v1_fwd) for v1_fwd in v1.fwd_messages] if v1.fwd_messages else []
+        except AttributeError: fwd_messages = []
+        try: id = v1.id
+        except AttributeError: id = None
+        try: peer_id = v1.peer_id
+        except AttributeError: peer_id = None
+        try: text = v1.text
+        except AttributeError: text = None
+        try: replace_mention = v1.replace_mention
+        except AttributeError: replace_mention = None
+        try: group_id = v1.group_id
+        except AttributeError: group_id = None
+        try: _mention = MentionV2.from_v1(v1._mention) if v1._mention else None
+        except AttributeError: _mention = None
+        
         return MessageV2(
-            action=ActionV2.from_v1(v1.action) if v1.action else None,
-            conversation_message_id=v1.conversation_message_id,
-            date=v1.date,
-            from_id=v1.from_id,
-            fwd_messages=[
-                MessageV2.from_v1(v1_fwd) for v1_fwd in v1.fwd_messages
-            ] if v1.fwd_messages else [],
-            id=v1.id,
-            peer_id=v1.peer_id,
-            text=v1.text,
-            replace_mention=v1.replace_mention,
-            group_id=v1.group_id,
-            _mention=MentionV2.from_v1(v1._mention) if v1._mention else None
+            action=action,
+            conversation_message_id=conversation_message_id,
+            date=date,
+            from_id=from_id,
+            fwd_messages=fwd_messages,
+            id=id,
+            peer_id=peer_id,
+            text=text,
+            replace_mention=replace_mention,
+            group_id=group_id,
+            _mention=_mention
         )
 
     @property
