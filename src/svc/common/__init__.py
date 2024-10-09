@@ -236,6 +236,8 @@ class BaseCtx:
             last_groups_schedule=db.last_groups_schedule,
             last_teachers_schedule=db.last_teachers_schedule
         )
+        
+        db.last_everything.set_ctx(self)
 
         self.settings.zoom.check_all()
 
@@ -517,7 +519,7 @@ class BaseCtx:
     async def retry_send_custom_broadcast(
         self,
         message: CommonBotMessage,
-        max_tries: int = 1,
+        max_tries: int = 3,
         interval: int = 10 # in secs
     ) -> None:
         tries = 0
@@ -555,7 +557,7 @@ class BaseCtx:
             last_schedule = self.last_teachers_schedule
 
         for mapping in mappings:
-            escaped_header = mapping.header.replace("<", "\<")
+            escaped_header = mapping.header.replace("<", "\\<")
             if self.last_everything.is_from_tg_generally:
                 mapping.header = tg.escape_html(mapping.header)
             
@@ -600,7 +602,7 @@ class BaseCtx:
                 e: Exception,
                 bcast_message: CommonBotMessage
             ):
-                e_str = str(e).replace("<", "\<")
+                e_str = str(e).replace("<", "\\<")
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"failed with {type(e).__name__}({e_str}), trying without replying"
@@ -636,10 +638,10 @@ class BaseCtx:
                 await try_without_reply(e, bcast_message)
             except VKAPIError[100] as e:
                 e_str = str(e)
-                if "cannot reply this message" in e_str:
+                if "cannot reply this message" in e_str or "not found" in e_str:
                     await try_without_reply(e, bcast_message)
             except TelegramBadRequest as e:
-                e_str = str(e).replace("<", "\<")
+                e_str = str(e).replace("<", "\\<")
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"{type(e).__name__}({e_str})"
@@ -658,13 +660,13 @@ class BaseCtx:
                 )
                 await self.disable_broadcast_and_save()
             except error.BroadcastSendFail as e:
-                e_str = str(e).replace("<", "\<")
+                e_str = str(e).replace("<", "\\<")
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"sending the broadcast message had failed: {type(e).__name__}({e_str})"
                 )
             except Exception as e:
-                e_str = str(e).replace("<", "\<")
+                e_str = str(e).replace("<", "\\<")
                 logger.opt(colors=True).warning(
                     f"<Y><k><d>BROADCASTING TO {self.db_key} {self.identifier}</></></> "
                     f"unknown exception: {type(e).__name__}({e_str})"

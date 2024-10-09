@@ -18,7 +18,7 @@ class Log(Middleware):
                 first_name, last_name, nickname = (None, None, None)
             chat_id = everything.chat_id
 
-            event_str = str(everything.corresponding).replace("<", "\<")
+            event_str = str(everything.corresponding).replace("<", "\\<")
 
             logger.opt(colors=True).info(
                 f"<W><k><d>{src} {event_src} from {first_name} {last_name} ({nickname}) at {chat_id}</></></>: {event_str}"

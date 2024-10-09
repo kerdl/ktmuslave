@@ -250,3 +250,8 @@ class ScheduleApi:
         
                 await asyncio.sleep(retry_period)
                 continue
+            except Exception as e:
+                self.is_online = False
+                logger.exception(f"{type(e).__name__}({e})")
+                await asyncio.sleep(retry_period)
+                continue
