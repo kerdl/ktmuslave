@@ -559,9 +559,12 @@ def formation(
     from src.data.settings import Mode
 
     last_update = defs.schedule.get_last_update()
-    fmt_last_update = (
-        last_update.strftime("%H:%M:%S, %d.%m.%Y")
+    utc3_last_update = (
+        last_update + datetime.timedelta(hours=3)
     ) if last_update else None
+    fmt_utc3_last_update = (
+        utc3_last_update.strftime("%H:%M:%S, %d.%m.%Y")
+    ) if utc3_last_update else None
 
     quick_lookup_hint = None
     
@@ -574,7 +577,7 @@ def formation(
 
     update_period = defs.schedule.get_update_period()
     update_params = messages.format_schedule_update_info(
-        last_update=fmt_last_update,
+        last_update=fmt_utc3_last_update,
         update_period=update_period
     )
     
