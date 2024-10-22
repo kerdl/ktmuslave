@@ -34,6 +34,9 @@ mkdir -p data/docker/ktmuslave/
 6. Create and fill in the configuration files
 `index.json` ([example](https://github.com/kerdl/ktmuscrap/blob/yr2024/doc/en/configuring.md#schedules-example),
 [documentation](https://github.com/kerdl/ktmuscrap/blob/yr2024/doc/en/configuring.md#schedules))
+and
+`settings.json` ([example](/doc/en/configuring.md#settings-example),
+[documentation](/doc/en/configuring.md#settings))
 ```console
 nano data/docker/ktmuscrap/schedule/index.json
 nano data/docker/ktmuslave/settings.json
