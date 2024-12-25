@@ -42,11 +42,17 @@ def is_group_chat(
 ) -> bool:
     return chat_type in [ChatType.GROUP, ChatType.SUPERGROUP, ChatType.CHANNEL]
 
-def name_from_message(msg: Union[Message, ChatMemberUpdated]) -> tuple[str, Optional[str], Optional[str]]:
-    return (msg.from_user.first_name, msg.from_user.last_name, msg.from_user.username)
+def name_from_message(
+    msg: Union[Message, ChatMemberUpdated]
+) -> Optional[tuple[Optional[str], Optional[str], Optional[str]]]:
+    if msg.from_user is not None:
+        return (msg.from_user.first_name, msg.from_user.last_name, msg.from_user.username)
 
-def name_from_callback(cb: CallbackQuery) -> tuple[str, Optional[str], Optional[str]]:
-    return (cb.from_user.first_name, cb.from_user.last_name, cb.from_user.username)
+def name_from_callback(
+    cb: CallbackQuery
+) -> Optional[tuple[Optional[str], Optional[str], Optional[str]]]:
+    if cb.from_user is not None:
+        return (cb.from_user.first_name, cb.from_user.last_name, cb.from_user.username)
 
 
 async def chunked_send(
