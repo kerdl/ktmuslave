@@ -1266,13 +1266,13 @@ class CommonMessage(BaseCommonEvent):
     def sender_id(self) -> Optional[int]:
         if self.is_from_vk:
             return self.vk.from_id
-        if self.is_from_tg:
+        if self.is_from_tg and self.tg.from_user is not None:
             return self.tg.from_user.id
-        if self.is_from_tg_edited_message:
+        if self.is_from_tg_edited_message and self.tg_edited_message.from_user is not None:
             return self.tg_edited_message.from_user.id
-        if self.is_from_tg_channel_post:
+        if self.is_from_tg_channel_post and self.tg_channel_post.from_user is not None:
             return self.tg_channel_post.from_user.id
-        if self.is_from_tg_edited_channel_post:
+        if self.is_from_tg_edited_channel_post and self.tg_edited_channel_post.from_user is not None:
             return self.tg_edited_channel_post.from_user.id
 
     @property
@@ -1437,7 +1437,7 @@ class CommonMessage(BaseCommonEvent):
         if self.is_from_tg:
             return self.tg_did_user_mentioned_bot() or self.tg_did_user_used_bot_command()
 
-    async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
+    async def sender_name(self) -> Optional[tuple[Optional[str], Optional[str], str]]:
         if self.is_from_vk:
             return await vk.name_from_message(self.vk)
         if self.is_from_tg:
@@ -1799,7 +1799,7 @@ class CommonEvent(BaseCommonEvent):
         if self.is_from_tg:
             return self.tg
 
-    async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
+    async def sender_name(self) -> Optional[tuple[Optional[str], Optional[str], Optional[str]]]:
         if self.is_from_vk:
             return await vk.name_from_raw(self.vk)
         if self.is_from_tg:
@@ -2232,7 +2232,9 @@ class CommonEverything(BaseCommonEvent):
         if self.is_from_message:
             return self.message.did_user_mentioned_bot()
 
-    async def sender_name(self) -> tuple[Optional[str], Optional[str], str]:
+    async def sender_name(
+        self
+    ) -> Optional[tuple[Optional[str], Optional[str], Optional[str]]]:
         if self.is_from_event:
             return await self.event.sender_name()
         if self.is_from_message:
