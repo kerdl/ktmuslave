@@ -137,6 +137,8 @@ class Defs:
     log_file: Optional[AsyncTextIOWrapper] = None
 
     time_mapping: Optional[dict["WEEKDAY_LITERAL", Range[datetime.time]]] = None
+    
+    weekcast_enabled: bool = True
 
     def init_all(
         self, 
@@ -290,7 +292,19 @@ class Defs:
             covered = self.weekcast.covered
             next_broadcast = covered.end
             
-            if today not in covered:
+            groups_date_in_range = False
+            teachers_date_in_range = False
+            groups_schedule = self.schedule.get_groups()
+            teachers_schedule = self.schedule.get_teachers()
+            
+            if groups_schedule is not None:
+                groups_date_in_range = today in groups_schedule.date
+            if teachers_schedule is not None:
+                teachers_date_in_range = today in teachers_schedule.date
+            
+            if today not in covered and self.weekcast_enabled and (
+                groups_date_in_range or teachers_date_in_range
+            ):
                 next_broadcast = week.ensure_next_after_current(covered).end
                 self.weekcast.covered = week.cover_today(covered.start.weekday())
                 self.weekcast.poll_save()
