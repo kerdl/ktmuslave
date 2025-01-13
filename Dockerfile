@@ -6,9 +6,6 @@ ENV TZ="Europe/Moscow"
 
 WORKDIR ${cwd}
 
-# update packages
-RUN apt-get -y update
-
 # copy this folder contents to the container
 COPY . ${cwd}
 
