@@ -301,14 +301,14 @@ class Defs:
                 groups_date_in_range = today in groups_schedule.date
             if teachers_schedule is not None:
                 teachers_date_in_range = today in teachers_schedule.date
+
+            next_broadcast = week.ensure_next_after_current(covered).end
+            self.weekcast.covered = week.cover_today(covered.start.weekday())
+            self.weekcast.poll_save()
             
             if today not in covered and self.weekcast_enabled and (
                 groups_date_in_range or teachers_date_in_range
             ):
-                next_broadcast = week.ensure_next_after_current(covered).end
-                self.weekcast.covered = week.cover_today(covered.start.weekday())
-                self.weekcast.poll_save()
-                
                 logger.info("weekcast starts broadcasting")
                 
                 await self.ctx.broadcast_schedule_to_subscribes(
